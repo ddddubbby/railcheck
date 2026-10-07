@@ -10,7 +10,6 @@ const roots = new Set([
   "data",
   ".github",
   "README.md",
-  "CONTRIBUTING.md",
   "LICENSE",
   "package.json",
   "package-lock.json",

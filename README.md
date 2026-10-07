@@ -48,8 +48,7 @@ npm run dev
 
 Open <http://127.0.0.1:4173>. A verified Ethereum deposit snapshot is included.
 
-For deployment, data updates and implementation details, see [Maintaining railcheck](docs/maintaining.md). For changes, see [Contributing](CONTRIBUTING.md).
-
+For deployment, data updates and implementation details, see [Maintaining railcheck](docs/maintaining.md).
 ## License
 
 MIT. The bundled Geist fonts retain their [SIL Open Font License](public/fonts/LICENSE.txt).
