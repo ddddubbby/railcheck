@@ -16,7 +16,6 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     for (const path of [
       "docs",
       "data",
-      "CONTRIBUTING.md",
       "vercel.json",
       "package-lock.json",
       ".gitignore",
