@@ -136,7 +136,7 @@ test("a configured RPC_URL is the only primary endpoint", () => {
 test("the witness is a different host than the primary", () => {
   assert.deepEqual(
     witnessCandidates("https://gateway.tenderly.co/public/mainnet", {}),
-    ["https://eth.drpc.org"],
+    ["https://rpc.mevblocker.io"],
   );
   assert.deepEqual(
     witnessCandidates("https://private.example/key", {
@@ -145,7 +145,7 @@ test("the witness is a different host than the primary", () => {
     [
       "https://witness.example/other",
       "https://gateway.tenderly.co/public/mainnet",
-      "https://eth.drpc.org",
+      "https://rpc.mevblocker.io",
     ],
   );
   assert.deepEqual(

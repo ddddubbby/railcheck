@@ -34,7 +34,7 @@ The 1200 × 630 social preview is served from `public/og.png`.
 ## Optional GitHub secrets
 
 - `RPC_URL`: Ethereum mainnet RPC endpoint with historical log access. When it is set, the updater uses only that endpoint. It does not fall back to a public endpoint if the call fails.
-- `RPC_WITNESS_URL`: a second mainnet endpoint on a different host. The update is published only when this endpoint returns the same block hashes and the same deposits. When it is unset, the job uses a public endpoint (Tenderly or dRPC) that is not the primary host. Without `RPC_URL`, those two public endpoints check each other.
+- `RPC_WITNESS_URL`: a second mainnet endpoint on a different host. The update is published only when this endpoint returns the same block hashes and the same deposits. When it is unset, the job uses a public endpoint (Tenderly or MEV Blocker) that is not the primary host. Without `RPC_URL`, those two public endpoints check each other.
 - `VERCEL_DEPLOY_HOOK`: Vercel deploy hook for the production branch. Use this if data commits made by GitHub Actions do not trigger your Vercel Git integration. The hook URL is a secret; never commit it.
 
 These secrets are used only by the repository's update job. They are not browser variables. `.env.example` documents the settings; `.env` is ignored and excluded from the public source download. Node scripts also support `node --env-file=.env scripts/data-update.mjs` when local settings are needed.

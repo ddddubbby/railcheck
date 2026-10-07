@@ -97,7 +97,7 @@ export function foldShieldLogs(logs) {
 
 export const PUBLIC_RPC_URLS = [
   "https://gateway.tenderly.co/public/mainnet",
-  "https://eth.drpc.org",
+  "https://rpc.mevblocker.io",
 ];
 
 // A configured RPC_URL is the only primary. Public endpoints are not a silent fallback.
