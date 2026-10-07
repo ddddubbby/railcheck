@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>How Exitcheck scores a RAILGUN withdrawal</title>
+    <meta
+      name="description"
+      content="Exitcheck compares a withdrawal amount with every RAILGUN deposit of the last 180 days. Read how the score works and what it does not cover."
+    />
+    <meta name="theme-color" content="#121218" />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+    <link rel="alternate" type="text/markdown" href="/how-it-works/index.md" />
+    <link rel="describedby" href="/llms.txt" />
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <a class="brand" href="/">EXITCHECK</a
+        ><a class="nav-link" href="/">Check amount</a>
+      </header>
+      <main class="reading">
+        <h1>How Exitcheck works</h1>
+        <p class="lede">
+          An amount can point to a deposit. An address link can reveal more.
+          Exitcheck checks these 2 risks.
+        </p>
+        <section>
+          <h2>What Exitcheck checks</h2>
+          <p>
+            Exitcheck compares the amount with every RAILGUN ETH deposit of the
+            last 180 days.
+          </p>
+          <p>
+            The pool is RAILGUN ETH (WETH) on Ethereum. Enter the amount before
+            the 0.25% unshield fee. Exitcheck does not ask which deposit is
+            yours.
+          </p>
+        </section>
+        <section>
+          <h2>How the check works</h2>
+          <p>
+            Exitcheck looks for sets of 1, 2 or 3 deposits that add up to your
+            amount.
+          </p>
+          <ol>
+            <li>
+              The check allows a difference of up to 0.000005 ETH. It adds
+              amounts before it compares them.
+            </li>
+            <li>
+              Each matching set gets a weight. Smaller sets get a higher prior
+              weight. The check also includes the chance of no exact set.
+            </li>
+            <li>
+              The strongest deposit match sets the amount score. Many competing
+              matches can reduce it.
+            </li>
+            <li>
+              An address match sets a score of at least 100. A past transaction
+              between the addresses sets at least 90.
+            </li>
+            <li>
+              Not sure uses the worse answer. It does not prove that a link
+              exists.
+            </li>
+          </ol>
+          <p>
+            When the amount score is 6 or more, Exitcheck tries amounts that are
+            10% to 30% lower. It shows the first amount with a score of 5 or
+            less and at least 20 nearby deposits.
+          </p>
+        </section>
+        <section>
+          <h2>What the score means</h2>
+          <p>The score runs from 0 to 100 and uses the strongest signal.</p>
+          <table class="bands">
+            <thead>
+              <tr>
+                <th>Score</th>
+                <th>Band</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>0–5</td>
+                <td>Low</td>
+                <td>No strong amount match was found.</td>
+              </tr>
+              <tr>
+                <td>6–20</td>
+                <td>Medium</td>
+                <td>The amount points to a deposit.</td>
+              </tr>
+              <tr>
+                <td>21–50</td>
+                <td>High</td>
+                <td>The amount gives a stronger link.</td>
+              </tr>
+              <tr>
+                <td>51–100</td>
+                <td>Critical</td>
+                <td>
+                  The amount or your address answers give a strong signal.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            A score is a model output, not a measured chance that someone will
+            identify you. A deposit match applies only if that deposit is yours.
+          </p>
+        </section>
+        <section>
+          <h2>Privacy</h2>
+          <p>Your amount and answers stay in this tab.</p>
+          <p>
+            The check does not send them to a server, put them in the URL, or
+            save them on your device. There is no wallet connection. There are
+            no analytics or third-party page resources.
+          </p>
+          <p>
+            Every visitor gets the same pool file. The worker checks its file
+            hash before it uses the data.
+          </p>
+          <p>
+            A host can receive your IP address when you load the page. A VPN or
+            Tor can mask your IP address from the host. It does not remove all
+            privacy risks.
+          </p>
+        </section>
+        <section>
+          <h2>Limits</h2>
+          <p>Off-chain data can make the real risk higher.</p>
+          <ul>
+            <li>
+              The check covers 180 days. Older deposits and sets of more than 3
+              deposits are outside this model.
+            </li>
+            <li>The model assumes that a broadcaster sends the withdrawal.</li>
+            <li>
+              Do not withdraw the rest of a deposit soon after as 1 amount. The
+              combined amounts can create a link.
+            </li>
+            <li>
+              A lower amount score does not remove a link between addresses.
+            </li>
+            <li>
+              The score uses fixed model weights. A model can miss a real link.
+            </li>
+          </ul>
+        </section>
+        <section>
+          <h2>Questions</h2>
+          <details>
+            <summary>
+              Can someone link my RAILGUN withdrawal to my deposit?
+            </summary>
+            <p>
+              Yes. An amount or an address link can connect a withdrawal to a
+              deposit. Other data can also create a link.
+            </p>
+          </details>
+          <details>
+            <summary>Why does the withdrawal amount matter?</summary>
+            <p>
+              An amount can equal 1 deposit or a sum of 2 or 3 deposits. A rare
+              match can point to its source.
+            </p>
+          </details>
+          <details>
+            <summary>Does Exitcheck see my amount or my address?</summary>
+            <p>
+              Your browser sees the amount so it can run the check. The site
+              does not receive it. Exitcheck never asks for an address.
+            </p>
+          </details>
+          <details>
+            <summary>Which deposits does Exitcheck compare?</summary>
+            <p>
+              Exitcheck compares RAILGUN ETH deposits on Ethereum from the last
+              180 days. It excludes shields in transactions that spend private
+              notes.
+            </p>
+          </details>
+          <details>
+            <summary>What amount should I withdraw?</summary>
+            <p>
+              If the amount points to deposits, Exitcheck can suggest a lower
+              amount. Check it with your own address answers. A Low score does
+              not remove all risk.
+            </p>
+          </details>
+          <details>
+            <summary>Is Exitcheck free and open source?</summary>
+            <p>Exitcheck is free and open source under the MIT license.</p>
+          </details>
+        </section>
+        <p class="hint">Last updated {{CONTENT_DATE}}</p>
+      </main>
+      <footer>
+        <div class="footer-links">
+          <a href="/">Check amount</a
+          ><a href="/source.zip" download>Source code</a>
+        </div>
+        <p>{{DATA_DATE}}</p>
+      </footer>
+    </div>
+  </body>
+</html>

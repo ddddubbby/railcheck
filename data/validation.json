@@ -1,0 +1,13 @@
+{
+  "testedAt": "2026-10-07T06:30:58.724Z",
+  "poolSha256": "4b45b0a7bf54be8fcf1822b0f75b7096e5978b085ed389b318af38a1a87f5828",
+  "count": 9378,
+  "dataTime": 1791353615,
+  "ageHours": 0.27,
+  "randomLowPercent": 68.5,
+  "fullWithdrawalCriticalPercent": 58,
+  "saferAmountPercent": 90.05376344086021,
+  "riskyFullWithdrawals": 372,
+  "amountCheckP95Ms": 90.11720900000364,
+  "machine": "darwin"
+}

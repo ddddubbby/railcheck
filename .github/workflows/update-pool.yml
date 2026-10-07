@@ -1,0 +1,51 @@
+name: Update pool data
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: update-pool
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - name: Refresh confirmed Ethereum deposits
+        run: npm run data:update
+        env:
+          RPC_URL: ${{ secrets.RPC_URL }}
+      - run: npm run build
+      - run: npm run data:validate
+      - name: Commit the verified snapshot
+        id: snapshot
+        shell: bash
+        run: |
+          git add data/deposits.csv public/data/railgun-eth.bin public/data/manifest.json
+          if git diff --cached --quiet; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Update confirmed RAILGUN ETH deposits'
+          git push
+          echo 'changed=true' >> "$GITHUB_OUTPUT"
+      # Commits made with GITHUB_TOKEN do not trigger other Actions workflows.
+      # The checks above therefore validate the snapshot before it is pushed.
+      - name: Request Vercel deployment
+        if: steps.snapshot.outputs.changed == 'true'
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: node scripts/deploy-hook.mjs

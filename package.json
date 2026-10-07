@@ -1,0 +1,19 @@
+{
+  "name": "exitcheck",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node scripts/serve.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "start": "node scripts/serve.mjs",
+    "data:update": "node scripts/data-update.mjs",
+    "data:validate": "node scripts/validate-data.mjs",
+    "release:check": "node scripts/release-check.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

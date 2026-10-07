@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Exitcheck: RAILGUN withdrawal privacy check</title>
+    <meta
+      name="description"
+      content="Check if your RAILGUN withdrawal amount points to a deposit. Free and open source. The check runs in your browser."
+    />
+    <meta name="theme-color" content="#121218" />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+    <link
+      rel="preload"
+      href="/fonts/geist.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/geist-mono.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="alternate" type="text/markdown" href="/index.md" />
+    <link rel="describedby" href="/llms.txt" />
+    <script type="module" src="/app.mjs"></script>
+  </head>
+  <body>
+    <div class="shell">
+      <header>
+        <a class="brand" href="/">EXITCHECK</a
+        ><a class="nav-link" href="/how-it-works/">How It Works</a>
+      </header>
+      <div
+        class="progress"
+        id="progress"
+        role="progressbar"
+        aria-label="Loading pool data"
+      ></div>
+      <main>
+        <h1>
+          Check your RAILGUN<br class="wide-break" />
+          withdrawal amount
+        </h1>
+        <p class="lede">
+          Enter the amount that you will unshield. Exitcheck compares it with
+          every deposit of the last 180 days. The check runs on your device.
+        </p>
+        <div class="notice" id="notice" role="status" hidden></div>
+        <form id="check-form" novalidate autocomplete="off">
+          <div class="group">
+            <label class="field-label sys" for="amount"
+              >Amount to unshield</label
+            >
+            <div class="amount-wrap">
+              <input
+                id="amount"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="recipient amount-error"
+                placeholder="0.00"
+              /><span>ETH</span>
+            </div>
+            <p class="hint" id="recipient" hidden></p>
+            <p class="error" id="amount-error" hidden></p>
+          </div>
+          <fieldset class="group" id="q1-group" aria-describedby="q1-error">
+            <legend>
+              Will you withdraw to the address that made the deposit?
+            </legend>
+            <div class="choices">{{Q1}}</div>
+            <p class="error" id="q1-error" hidden>Select an answer.</p>
+          </fieldset>
+          <fieldset class="group" id="q2-group" aria-describedby="q2-error">
+            <legend>
+              Did the destination address ever send funds to the deposit
+              address, or get funds from it?
+            </legend>
+            <div class="choices">{{Q2}}</div>
+            <p class="error" id="q2-error" hidden>Select an answer.</p>
+          </fieldset>
+          <button class="primary" id="check-button" type="submit">
+            Check<span class="busy-cells" aria-hidden="true">▪▪▪</span>
+          </button>
+        </form>
+        <section class="result" id="result" hidden aria-busy="false">
+          <div class="result-top">
+            <h2 class="sys" id="result-heading" tabindex="-1">Result</h2>
+            <span class="sys band" id="band"></span>
+          </div>
+          <div id="readout">
+            <div class="score" aria-hidden="true">
+              <span class="score-value" id="score">0</span
+              ><span class="score-max">/ 100</span>
+            </div>
+            <div
+              class="meter"
+              id="meter"
+              role="meter"
+              aria-label="Withdrawal risk score"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              {{METER}}
+            </div>
+          </div>
+          <canvas id="crowd" aria-hidden="true"></canvas>
+          <p id="scan-label" class="scan-label" hidden>
+            Checking the deposits…
+          </p>
+          <div class="result-copy" id="result-copy"></div>
+        </section>
+        <div
+          class="sr-only"
+          id="announcement"
+          role="status"
+          aria-live="polite"
+        ></div>
+        <noscript
+          ><p>
+            This check needs JavaScript to run on your device. The method page
+            works without it.
+          </p></noscript
+        >
+      </main>
+      <footer>
+        <div class="footer-links">
+          <a href="/how-it-works/">How It Works</a
+          ><a href="/source.zip" download>Source code</a>
+        </div>
+        <p id="data-date">{{DATA_DATE}}</p>
+      </footer>
+    </div>
+  </body>
+</html>
