@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
   countSets,
+  patternScore,
   parseAmount,
   formatWei,
   check,
@@ -79,7 +80,8 @@ const raw = readFileSync("tests/fixtures/pool.bin"),
   pool = decode(buffer, manifest);
 test("binary format, hash and corruption handling", () => {
   assert.equal(createHash("sha256").update(raw).digest("hex"), manifest.sha256);
-  assert.equal(pool.length, 960);
+  assert.equal(pool.deposits.length, 960);
+  assert.equal(pool.withdrawals.length, 600);
   const broken = buffer.slice(0);
   new DataView(broken).setUint32(8, 1, true);
   assert.throws(() => decode(broken, manifest));
@@ -131,4 +133,99 @@ test("fixture check timing", () => {
     times[28].toFixed(1),
     "ms (this computer, not a phone)",
   );
+});
+const DAY = 86400;
+function brutePattern(deposits, withdrawals, wei) {
+  let count = 0;
+  for (const w of withdrawals)
+    for (const d of deposits) {
+      const diff = BigInt(d.amount - w.amount) * NANO - wei;
+      if (diff >= -5000n * NANO && diff <= 5000n * NANO && d.time < w.time)
+        count++;
+    }
+  return count;
+}
+test("300 randomized pools agree with a brute-force withdrawal pattern count", () => {
+  for (let x = 0; x < 300; x++) {
+    const deposits = Array.from({ length: 1 + Math.floor(rand() * 60) }, () => ({
+        amount: Math.floor(rand() * 200000),
+        time: Math.floor(rand() * 100),
+      })).sort((a, b) => a.amount - b.amount),
+      withdrawals = Array.from({ length: Math.floor(rand() * 60) }, () => ({
+        amount: Math.floor(rand() * 100000),
+        time: Math.floor(rand() * 100),
+      }));
+    const wei =
+      BigInt(Math.floor(rand() * 120000)) * NANO +
+      BigInt(Math.floor(rand() * 1e9));
+    const count = brutePattern(deposits, withdrawals, wei),
+      r = patternScore(deposits, withdrawals, wei);
+    assert.equal(r.count, count);
+    assert.equal(r.score, count ? Math.round(100 / (1 + count)) : 0);
+  }
+});
+function synthetic(extraDeposits = [], extraWithdrawals = []) {
+  const now = 1_800_000_000,
+    deposits = Array.from({ length: 400 }, (_, i) => ({
+      id: i,
+      amount: Math.floor(1e8 + rand() * 9e9),
+      time: now - Math.floor(rand() * 170 * DAY),
+    }));
+  return {
+    now,
+    pool: {
+      deposits: [...deposits, ...extraDeposits].sort((a, b) => a.time - b.time),
+      withdrawals: extraWithdrawals,
+    },
+  };
+}
+test("amount plus 1 recent withdrawal that equals 1 earlier deposit raises the score", () => {
+  const { now, pool } = synthetic(
+    [{ id: 999, amount: 4371234567, time: 1_800_000_000 - 20 * DAY }],
+    [{ id: 0, amount: 1200000000, time: 1_800_000_000 - 5 * DAY }],
+  );
+  const r = check(pool, parseAmount("3.171234567"), "no", "no", now);
+  assert.equal(r.patternCount, 1);
+  assert.equal(r.patternScore, 50);
+  assert.equal(r.score, Math.max(r.amountScore, 50));
+  assert.equal(r.patterns[0].deposit.amount, 4371234567);
+  assert.equal(r.patterns[0].withdrawal.amount, 1200000000);
+  for (const edge of ["3.171239567", "3.171229567"])
+    assert.equal(check(pool, parseAmount(edge), "no", "no", now).patternCount, 1);
+  for (const outside of ["3.171239568", "3.171229566"])
+    assert.equal(check(pool, parseAmount(outside), "no", "no", now).patternCount, 0);
+  assert.equal(check(pool, parseAmount("3.171234567"), "yes", "no", now).score, 100);
+});
+test("the pattern needs a deposit before the withdrawal and a withdrawal in the last 30 days", () => {
+  const deposit = { id: 999, amount: 4371234567, time: 1_800_000_000 - 20 * DAY };
+  const cases = [
+    [deposit, { amount: 1200000000, time: deposit.time - 1 }],
+    [
+      { ...deposit, time: 1_800_000_000 - 60 * DAY },
+      { amount: 1200000000, time: 1_800_000_000 - 31 * DAY },
+    ],
+    [deposit, { amount: 1200000000, time: 1_800_000_000 + DAY }],
+  ];
+  for (const [d, w] of cases) {
+    const { now, pool } = synthetic([d], [w]);
+    assert.equal(check(pool, parseAmount("3.171234567"), "no", "no", now).patternScore, 0);
+  }
+});
+test("the safer amount also completes no recent withdrawal", () => {
+  const now = manifest.dataTime + 1,
+    copy = {
+      deposits: [
+        ...pool.deposits,
+        { id: 960, amount: 2718281828, time: now - 20 * DAY },
+      ].sort((a, b) => a.time - b.time),
+      withdrawals: [
+        ...pool.withdrawals,
+        { id: 600, amount: 1000100000, time: now - 5 * DAY },
+      ],
+    };
+  const r = check(copy, parseAmount("1.718181828"), "no", "no", now);
+  assert.ok(r.patternScore >= 6);
+  assert.ok(r.safer);
+  const s = check(copy, parseAmount(r.safer), "no", "no", now);
+  assert.ok(s.patternScore <= 5 && s.score <= 5);
 });

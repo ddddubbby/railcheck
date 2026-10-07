@@ -1,10 +1,12 @@
-// Narrow decoder for the deployed RAILGUN v2 Shield event. No browser RPC calls.
+// Narrow decoders for the deployed RAILGUN v2 Shield and Unshield events. No browser RPC calls.
 export const RAILGUN_PROXY = "0xfa7093cdd9ee6932b4eb2c9e1cde7ce00b1fa4b9";
 export const WETH = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
 export const SHIELD_TOPIC =
   "0x3a5b9dc26075a3801a6ddccf95fec485bb7500a91b44cec1add984c21ee6db3b";
 export const NULLIFIED_TOPIC =
   "0x781745c57906dc2f175fec80a9c691744c91c48a34a83672c41c2604774eb11f";
+export const UNSHIELD_TOPIC =
+  "0xd93cf895c7d5b2cd7dc7a098b678b3089f37d91f48d9b83a0800a91cbdf05284";
 export const CONFIRMATIONS = 64;
 const hex = (n) => `0x${n.toString(16)}`;
 
@@ -45,6 +47,24 @@ export function decodeShield(data) {
   return commitments;
 }
 
+// Unshield(address to, TokenData token, uint256 amount, uint256 fee). The recipient is never returned.
+export function decodeUnshield(data) {
+  if (!/^0x(?:[a-f0-9]{64}){6}$/i.test(data))
+    throw Error("Malformed Unshield event data.");
+  const words = data
+    .slice(2)
+    .match(/.{64}/g)
+    .map((w) => BigInt(`0x${w}`));
+  const [, type, address, , amount, fee] = words;
+  if (type > 2n || address >= 2n ** 160n || amount >= 2n ** 120n || fee >= 2n ** 120n)
+    throw Error("Invalid Unshield fields.");
+  return {
+    tokenType: Number(type),
+    tokenAddress: `0x${address.toString(16).padStart(40, "0")}`,
+    value: amount + fee,
+  };
+}
+
 export function foldShieldLogs(logs) {
   const transactions = new Map(),
     seen = new Set();
@@ -72,26 +92,41 @@ export function foldShieldLogs(logs) {
       block,
       index,
       amountWei: 0n,
+      unshieldWei: 0n,
       internal: false,
+      shield: false,
     };
     if (row.block !== block) throw Error("Inconsistent transaction block.");
     row.index = Math.min(row.index, index);
     const topic = log.topics?.[0]?.toLowerCase();
     if (topic === NULLIFIED_TOPIC) row.internal = true;
     else if (topic === SHIELD_TOPIC) {
+      row.shield = true;
       for (const c of decodeShield(log.data))
         if (c.tokenType === 0 && c.tokenAddress === WETH)
           row.amountWei += c.value;
+    } else if (topic === UNSHIELD_TOPIC) {
+      const u = decodeUnshield(log.data);
+      if (u.tokenType === 0 && u.tokenAddress === WETH)
+        row.unshieldWei += u.value;
     } else throw Error("Unexpected event topic.");
     transactions.set(key, row);
   }
+  const order = (a, b) => a.block - b.block || a.index - b.index;
   const rows = [...transactions.values()].filter((r) => r.amountWei > 0n);
+  // A transaction that unshields and shields again is a private DeFi round trip, not an exit.
+  const exits = [...transactions.values()].filter((r) => r.unshieldWei > 0n);
   return {
     removedInternal: rows.filter((r) => r.internal).length,
+    removedRoundTrip: exits.filter((r) => r.shield).length,
     kept: rows
       .filter((r) => !r.internal)
-      .sort((a, b) => a.block - b.block || a.index - b.index)
+      .sort(order)
       .map(({ block, amountWei }) => ({ block, amountWei })),
+    withdrawals: exits
+      .filter((r) => !r.shield)
+      .sort(order)
+      .map(({ block, unshieldWei }) => ({ block, amountWei: unshieldWei })),
   };
 }
 
@@ -152,22 +187,24 @@ export async function blockAtTime(rpc, timestamp, head) {
   return low;
 }
 
-export async function readDeposits(
+export async function readPool(
   rpc,
   fromBlock,
   toBlock,
   onProgress = () => {},
 ) {
   const times = new Map(),
-    deposits = [];
-  let removedInternal = 0;
+    deposits = [],
+    withdrawals = [];
+  let removedInternal = 0,
+    removedRoundTrip = 0;
   async function readRange(start, end) {
     let logs;
     try {
       logs = await rpc("eth_getLogs", [
         {
           address: RAILGUN_PROXY,
-          topics: [[SHIELD_TOPIC, NULLIFIED_TOPIC]],
+          topics: [[SHIELD_TOPIC, NULLIFIED_TOPIC, UNSHIELD_TOPIC]],
           fromBlock: hex(start),
           toBlock: hex(end),
         },
@@ -196,9 +233,10 @@ export async function readDeposits(
     }
     const folded = foldShieldLogs(logs);
     removedInternal += folded.removedInternal;
-    const missing = [...new Set(folded.kept.map((r) => r.block))].filter(
-      (n) => !times.has(n),
-    );
+    removedRoundTrip += folded.removedRoundTrip;
+    const missing = [
+      ...new Set([...folded.kept, ...folded.withdrawals].map((r) => r.block)),
+    ].filter((n) => !times.has(n));
     for (let i = 0; i < missing.length; i += 8)
       await Promise.all(
         missing.slice(i, i + 8).map(async (block) => {
@@ -215,9 +253,14 @@ export async function readDeposits(
     deposits.push(
       ...folded.kept.map((d) => ({ ...d, time: times.get(d.block) })),
     );
-    onProgress(`Read blocks ${start}–${end}: ${folded.kept.length} deposits.`);
+    withdrawals.push(
+      ...folded.withdrawals.map((w) => ({ ...w, time: times.get(w.block) })),
+    );
+    onProgress(
+      `Read blocks ${start}–${end}: ${folded.kept.length} deposits, ${folded.withdrawals.length} withdrawals.`,
+    );
   }
   for (let start = fromBlock; start <= toBlock; start += 200000)
     await readRange(start, Math.min(toBlock, start + 199999));
-  return { deposits, removedInternal };
+  return { deposits, withdrawals, removedInternal, removedRoundTrip };
 }

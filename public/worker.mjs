@@ -1,6 +1,6 @@
 import { decode } from "./lib/pool/index.mjs";
 import { parseAmount, check } from "./lib/engine/index.mjs";
-let deposits, manifest;
+let pool, manifest;
 self.onmessage = async ({ data }) => {
   try {
     if (data.type === "load") {
@@ -11,7 +11,8 @@ self.onmessage = async ({ data }) => {
       if (!m.ok) throw Error();
       manifest = await m.json();
       if (
-        !/^railgun-eth\.bin$/.test(manifest.file) ||
+        !/^railgun-eth-[a-f0-9]{16}\.bin$/.test(manifest.file) ||
+        manifest.file.slice(12, 28) !== manifest.sha256?.slice(0, 16) ||
         manifest.demo ||
         manifest.chainId !== 1 ||
         manifest.token !== "WETH"
@@ -26,10 +27,10 @@ self.onmessage = async ({ data }) => {
       ).join("");
       if (hash !== manifest.sha256 || buffer.byteLength !== manifest.size)
         throw Error();
-      deposits = decode(buffer, manifest);
+      pool = decode(buffer, manifest);
       self.postMessage({ type: "ready", manifest });
     } else if (data.type === "check") {
-      if (!deposits)
+      if (!pool)
         throw Error(
           "The pool data did not load. Check your connection, then try again.",
         );
@@ -38,7 +39,7 @@ self.onmessage = async ({ data }) => {
         type: "result",
         id: data.id,
         result: check(
-          deposits,
+          pool,
           parseAmount(data.amount),
           data.q1,
           data.q2,

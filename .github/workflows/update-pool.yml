@@ -32,14 +32,14 @@ jobs:
         id: snapshot
         shell: bash
         run: |
-          git add data/deposits.csv public/data/railgun-eth.bin public/data/manifest.json
+          git add -A data/deposits.csv data/withdrawals.csv public/data
           if git diff --cached --quiet; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Update confirmed RAILGUN ETH deposits'
+          git commit -m 'Update confirmed RAILGUN ETH deposits and withdrawals'
           git push
           echo 'changed=true' >> "$GITHUB_OUTPUT"
       # Commits made with GITHUB_TOKEN do not trigger other Actions workflows.

@@ -5,14 +5,21 @@ import {
   mkdirSync,
   renameSync,
   rmSync,
+  readdirSync,
 } from "node:fs";
 import {
   makeRpc,
   blockAtTime,
-  readDeposits,
+  readPool,
   CONFIRMATIONS,
 } from "./lib/reader.mjs";
-import { parseCsv, writeCsv, encodePool, WINDOW_SECONDS } from "./lib/data.mjs";
+import {
+  parseCsv,
+  writeCsv,
+  encodePool,
+  WINDOW_SECONDS,
+  POOL_FILE,
+} from "./lib/data.mjs";
 const rpc = makeRpc();
 if (Number(await rpc("eth_chainId")) !== 1)
   throw Error("RPC_URL must be on Ethereum mainnet.");
@@ -35,10 +42,15 @@ if (Math.abs(Date.now() / 1000 - dataTime) > 26 * 3600)
 let rows = existsSync("data/deposits.csv")
   ? parseCsv(readFileSync("data/deposits.csv", "utf8"))
   : [];
+let exits = existsSync("data/withdrawals.csv")
+  ? parseCsv(readFileSync("data/withdrawals.csv", "utf8"), "withdrawal")
+  : [];
 let previous = existsSync("public/data/manifest.json")
   ? JSON.parse(readFileSync("public/data/manifest.json"))
   : null;
-if (previous?.demo || previous?.chainId !== 1) previous = null;
+// A v1 snapshot has no withdrawals, so it is rebuilt like a bootstrap.
+if (previous?.demo || previous?.chainId !== 1 || previous?.version !== 2)
+  previous = null;
 const firstBlock = await blockAtTime(rpc, cutoff, head);
 if (previous && previous.lastBlock > head)
   throw Error(
@@ -58,6 +70,7 @@ const ranges = [];
 if (!previous) {
   // On bootstrap, verify the entire active window from Ethereum instead of trusting imported CSV rows.
   rows = rows.filter((d) => d.block < firstBlock);
+  exits = exits.filter((d) => d.block < firstBlock);
   ranges.push([firstBlock, head]);
 } else {
   if (firstBlock < previous.firstBlock)
@@ -65,18 +78,27 @@ if (!previous) {
   if (previous.lastBlock < head) ranges.push([previous.lastBlock + 1, head]);
 }
 let added = 0,
-  removed = 0;
+  addedExits = 0,
+  removed = 0,
+  roundTrips = 0;
 for (const [start, end] of ranges)
   if (start <= end) {
-    const result = await readDeposits(rpc, start, end, console.log);
+    const result = await readPool(rpc, start, end, console.log);
     rows.push(...result.deposits);
+    exits.push(...result.withdrawals);
     added += result.deposits.length;
+    addedExits += result.withdrawals.length;
     removed += result.removedInternal;
+    roundTrips += result.removedRoundTrip;
   }
-rows.sort((a, b) => a.block - b.block || a.time - b.time);
-if (rows.some((d) => d.block > head || d.time > dataTime))
-  throw Error("Deposit data is ahead of the confirmed head.");
-const { bytes, manifest } = encodePool(rows, {
+const byBlock = (a, b) => a.block - b.block || a.time - b.time;
+rows.sort(byBlock);
+exits.sort(byBlock);
+if (
+  [...rows, ...exits].some((d) => d.block > head || d.time > dataTime)
+)
+  throw Error("Pool data is ahead of the confirmed head.");
+const { bytes, manifest } = encodePool(rows, exits, {
   dataTime,
   lastBlock: head,
   firstBlock: Math.min(firstBlock, previous?.firstBlock ?? firstBlock),
@@ -87,7 +109,8 @@ mkdirSync("data", { recursive: true });
 // Write the manifest last. A deployment never uses a partially written pool snapshot.
 const updates = [
   ["data/deposits.csv", writeCsv(rows)],
-  ["public/data/railgun-eth.bin", bytes],
+  ["data/withdrawals.csv", writeCsv(exits)],
+  [`public/data/${manifest.file}`, bytes],
   ["public/data/manifest.json", JSON.stringify(manifest, null, 2) + "\n"],
 ];
 try {
@@ -96,6 +119,13 @@ try {
 } finally {
   for (const [path] of updates) rmSync(path + ".tmp", { force: true });
 }
+// The new manifest is in place, so older content-addressed pool files can go.
+for (const name of readdirSync("public/data"))
+  if (
+    name !== manifest.file &&
+    (POOL_FILE.test(name) || name === "railgun-eth.bin")
+  )
+    rmSync(`public/data/${name}`);
 console.log(
-  `Updated ${manifest.count} deposits through block ${head}. Added ${added}; excluded ${removed} internal shields.`,
+  `Updated ${manifest.count} deposits and ${manifest.withdrawalCount} withdrawals through block ${head}. Added ${added} deposits and ${addedExits} withdrawals; excluded ${removed} internal shields and ${roundTrips} round-trip unshields.`,
 );

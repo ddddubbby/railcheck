@@ -48,6 +48,11 @@ test("worker loads 2 common data files and makes no network request when checkin
   await self.onmessage({ data: { type: "load" } });
   assert.equal(messages.at(-1).type, "ready");
   assert.equal(calls.length, 2);
+  assert.equal(calls[0].url, "./data/manifest.json");
+  assert.equal(calls[0].options.cache, "no-store");
+  assert.equal(calls[1].url, "./data/" + manifest.file);
+  assert.equal(calls[1].options.cache, undefined);
+  assert.ok(calls.every((c) => c.options.credentials === "omit"));
   calls.length = 0;
   await self.onmessage({
     data: { type: "check", amount: "3.502749352", q1: "no", q2: "no", id: 1 },
@@ -67,4 +72,25 @@ test("client source has no persistence, telemetry or input URL writes", () => {
   assert.match(html, /<input[\s\S]*?id="amount"[\s\S]*?type="text"/);
   assert.doesNotMatch(html, /<form[^>]+(?:action|method)=/);
   assert.doesNotMatch(html, /<(?:script|link)[^>]+(?:src|href)="https?:/);
+});
+test("only the content-addressed pool file is cached; the manifest stays fresh", () => {
+  const config = JSON.parse(readFileSync("vercel.json", "utf8"));
+  const cacheFor = (rule) =>
+    rule?.headers.find((h) => h.key === "Cache-Control")?.value;
+  assert.equal(
+    cacheFor(config.headers.find((h) => h.source === "/data/manifest.json")),
+    "no-store",
+  );
+  const pool = config.headers.find((h) => h.source.startsWith("/data/:file("));
+  assert.equal(cacheFor(pool), "public, max-age=31536000, immutable");
+  const live = JSON.parse(readFileSync("public/data/manifest.json", "utf8"));
+  assert.equal(live.file, `railgun-eth-${live.sha256.slice(0, 16)}.bin`);
+  assert.match(
+    live.file,
+    new RegExp("^" + pool.source.slice("/data/:file(".length, -1) + "$"),
+  );
+  const csp = config.headers
+    .find((h) => h.source === "/(.*)")
+    .headers.find((h) => h.key === "Content-Security-Policy").value;
+  assert.match(csp, /connect-src 'self'/);
 });

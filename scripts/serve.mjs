@@ -43,7 +43,10 @@ createServer(async (req, res) => {
       "Permissions-Policy":
         "camera=(), microphone=(), geolocation=(), payment=(), usb=()",
       "Cross-Origin-Opener-Policy": "same-origin",
-      "Cache-Control": "no-store",
+      "Cache-Control":
+        status === 200 && /\/data\/railgun-eth-[a-f0-9]{16}\.bin$/.test(path)
+          ? "public, max-age=31536000, immutable"
+          : "no-store",
     });
     res.end(data);
   } catch {

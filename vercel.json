@@ -29,11 +29,20 @@
       ]
     },
     {
-      "source": "/data/(.*)",
+      "source": "/data/manifest.json",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/data/:file(railgun-eth-[a-f0-9]{16}\\.bin)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     }

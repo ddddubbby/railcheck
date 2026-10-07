@@ -26,6 +26,12 @@ if (manifest.demo || manifest.chainId !== 1 || manifest.token !== "WETH")
   throw Error(
     "Build requires live Ethereum WETH data. Run npm run data:update.",
   );
+// The pool is served as immutable, so its name must be derived from its content.
+if (
+  !/^railgun-eth-[a-f0-9]{16}\.bin$/.test(manifest.file) ||
+  manifest.file.slice(12, 28) !== manifest.sha256.slice(0, 16)
+)
+  throw Error("Pool file name must carry its content hash.");
 const bytes = readFileSync(`public/data/${manifest.file}`);
 if (
   createHash("sha256").update(bytes).digest("hex") !== manifest.sha256 ||
@@ -143,11 +149,11 @@ if (origin) {
 const prefix = origin || "";
 writeFileSync(
   "dist/llms.txt",
-  `# railcheck\n\nrailcheck compares a planned RAILGUN ETH withdrawal on Ethereum with deposits of the last 180 days. The check runs in the browser. It collects no amounts or addresses.\n\n- [Check](${prefix}/index.md)\n- [How it works](${prefix}/how-it-works/index.md)\n- [Pool manifest](${prefix}/data/manifest.json)\n`,
+  `# railcheck\n\nrailcheck compares a planned RAILGUN ETH withdrawal on Ethereum with deposits of the last 180 days. It also checks whether the amount plus 1 withdrawal of the last 30 days adds up to 1 earlier deposit. The check runs in the browser. It collects no amounts or addresses.\n\n- [Check](${prefix}/index.md)\n- [How it works](${prefix}/how-it-works/index.md)\n- [Pool manifest](${prefix}/data/manifest.json)\n`,
 );
 await import("./archive.mjs");
 console.log(
-  `Built static railcheck with ${manifest.count} deposits (${date(manifest.dataTime)}).`,
+  `Built static railcheck with ${manifest.count} deposits and ${manifest.withdrawalCount} withdrawals (${date(manifest.dataTime)}).`,
 );
 if (!origin)
   console.log(

@@ -3,19 +3,24 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   decodeShield,
+  decodeUnshield,
   foldShieldLogs,
-  readDeposits,
+  readPool,
   RAILGUN_PROXY,
   WETH,
   SHIELD_TOPIC,
   NULLIFIED_TOPIC,
+  UNSHIELD_TOPIC,
   makeRpc,
 } from "../scripts/lib/reader.mjs";
-import { parseCsv, encodePool } from "../scripts/lib/data.mjs";
+import { parseCsv, encodePool, POOL_FILE } from "../scripts/lib/data.mjs";
 import { decode } from "../lib/pool/index.mjs";
 const fixture = JSON.parse(
-  readFileSync("tests/fixtures/ethereum-logs.json", "utf8"),
-);
+    readFileSync("tests/fixtures/ethereum-logs.json", "utf8"),
+  ),
+  unshields = JSON.parse(
+    readFileSync("tests/fixtures/ethereum-unshield-logs.json", "utf8"),
+  );
 test("recorded Ethereum logs exclude an internal shield transaction", () => {
   const result = foldShieldLogs(fixture.logs);
   assert.equal(result.removedInternal, 1);
@@ -102,7 +107,7 @@ test("reader splits provider-limited ranges and falls back to block timestamps",
     if (method === "eth_getBlockByNumber") return { timestamp: "0x64" };
     throw Error("Unexpected method");
   };
-  const result = await readDeposits(rpc, 1, 4);
+  const result = await readPool(rpc, 1, 4);
   assert.equal(result.deposits.length, 1);
   assert.equal(result.deposits[0].time, 100);
   assert.ok(calls.filter((c) => c[0] === "eth_getLogs").length > 1);
@@ -126,7 +131,7 @@ test("pool encoding retains dust, preserves exact CSV wei and rejects bad rows",
     "block,time,amount_wei\n1,100,1\n2,101,1000000000000000000\n",
   );
   assert.equal(rows[0].amountWei, 1n);
-  const { bytes, manifest } = encodePool(rows, {
+  const { bytes, manifest } = encodePool(rows, [], {
     dataTime: 102,
     lastBlock: 2,
     firstBlock: 1,
@@ -136,7 +141,87 @@ test("pool encoding retains dust, preserves exact CSV wei and rejects bad rows",
     bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
     manifest,
   );
-  assert.equal(pool[0].amount, 0);
-  assert.equal(pool[1].amount, 1e9);
+  assert.equal(pool.deposits[0].amount, 0);
+  assert.equal(pool.deposits[1].amount, 1e9);
+  assert.deepEqual(pool.withdrawals, []);
   assert.throws(() => parseCsv("block,time,amount_wei\n2,100,1\n1,101,2\n"));
+});
+test("recorded Unshield logs keep amount plus fee and drop a shield round trip", () => {
+  const result = foldShieldLogs(unshields.logs);
+  assert.equal(result.removedRoundTrip, 1);
+  assert.equal(result.withdrawals.length, 1);
+  assert.equal(
+    result.withdrawals[0].amountWei,
+    BigInt(unshields.expectedWithdrawalWei),
+  );
+  assert.deepEqual(Object.keys(result.withdrawals[0]).sort(), [
+    "amountWei",
+    "block",
+  ]);
+  const log = unshields.logs.find(
+    (l) =>
+      l.transactionHash === unshields.withdrawalTransaction &&
+      l.topics[0] === UNSHIELD_TOPIC,
+  );
+  const words = log.data.slice(2).match(/.{64}/g);
+  assert.equal(
+    decodeUnshield(log.data).value,
+    BigInt("0x" + words[4]) + BigInt("0x" + words[5]),
+  );
+  assert.equal(
+    foldShieldLogs([...unshields.logs, ...unshields.logs]).withdrawals.length,
+    1,
+  );
+});
+test("Unshield decoding ignores other tokens and rejects malformed data", () => {
+  const data = (type, address, amount, fee) =>
+    "0x" + [1, type, address, 0, amount, fee].map(word).join("");
+  const log = (d, hash) => ({
+    address: RAILGUN_PROXY,
+    transactionHash: "0x" + hash.repeat(32),
+    blockNumber: "0x5",
+    logIndex: "0x0",
+    topics: [UNSHIELD_TOPIC],
+    data: d,
+  });
+  const folded = foldShieldLogs([
+    log(data(0, WETH, 9975n, 25n), "aa"),
+    log(data(0, "0x01", 9975n, 25n), "bb"),
+    log(data(1, WETH, 9975n, 25n), "cc"),
+  ]);
+  assert.deepEqual(folded.withdrawals, [{ block: 5, amountWei: 10000n }]);
+  assert.throws(() => decodeUnshield("0x" + word(1).repeat(5)));
+  assert.throws(() => decodeUnshield(data(3, WETH, 1n, 0n)));
+});
+test("EXCK v2 stores withdrawals and names the file after its hash", () => {
+  const deposits = parseCsv("block,time,amount_wei\n1,100,2000000000000000000\n");
+  const withdrawals = parseCsv(
+    "block,time,amount_wei\n1,50,1\n2,101,1500000000000000000\n",
+    "withdrawal",
+  );
+  const { bytes, manifest } = encodePool(deposits, withdrawals, {
+    dataTime: 200,
+    lastBlock: 2,
+    firstBlock: 1,
+    lastBlockHash: "0x" + "00".repeat(32),
+  });
+  assert.equal(manifest.version, 2);
+  assert.match(manifest.file, POOL_FILE);
+  assert.equal(manifest.file.slice(12, 28), manifest.sha256.slice(0, 16));
+  const pool = decode(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    manifest,
+  );
+  assert.deepEqual(
+    pool.withdrawals.map((w) => [w.amount, w.time]),
+    [
+      [0, 50],
+      [1.5e9, 101],
+    ],
+  );
+  assert.equal(pool.deposits[0].amount, 2e9);
+  assert.throws(() => decode(bytes.buffer.slice(0), { ...manifest, version: 1 }));
+  assert.throws(() =>
+    decode(bytes.buffer.slice(0), { ...manifest, withdrawalCount: 1 }),
+  );
 });
