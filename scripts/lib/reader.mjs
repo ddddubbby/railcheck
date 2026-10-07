@@ -95,22 +95,58 @@ export function foldShieldLogs(logs) {
   };
 }
 
+export const PUBLIC_RPC_URLS = [
+  "https://gateway.tenderly.co/public/mainnet",
+  "https://eth.drpc.org",
+];
+
+// A configured RPC_URL is the only primary. Public endpoints are not a silent fallback.
+export function rpcCandidates(env = process.env) {
+  const configured = env.RPC_URL?.trim();
+  return configured ? [configured] : [...PUBLIC_RPC_URLS];
+}
+
+function endpointHost(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    // The URL can contain an access key, so the original message is discarded.
+    throw Error("RPC URLs must be HTTP(S).");
+  }
+  if (parsed.protocol !== "https:" && parsed.protocol !== "http:")
+    throw Error("RPC URLs must be HTTP(S).");
+  return parsed.host.toLowerCase();
+}
+
+// Witnesses are other hosts. A second URL on the primary host is not independent.
+export function witnessCandidates(primaryUrl, env = process.env) {
+  const primaryHost = endpointHost(primaryUrl);
+  const seen = new Set();
+  const urls = [];
+  for (const url of [env.RPC_WITNESS_URL?.trim(), ...PUBLIC_RPC_URLS].filter(
+    Boolean,
+  )) {
+    const host = endpointHost(url);
+    if (host === primaryHost || seen.has(host)) continue;
+    seen.add(host);
+    urls.push(url);
+  }
+  return urls;
+}
+
 export function makeRpc({
   urls,
   fetchImpl = fetch,
   timeoutMs = 30000,
   retries = 2,
 } = {}) {
-  const endpoints =
-    urls ||
-    [
-      process.env.RPC_URL,
-      "https://gateway.tenderly.co/public/mainnet",
-      "https://eth.drpc.org",
-    ].filter(Boolean);
-  let id = 0;
+  const endpoints = (urls || rpcCandidates()).filter(Boolean);
+  let id = 0,
+    pinned = null;
   return async (method, params = []) => {
-    for (const endpoint of endpoints) {
+    // Stay on the first endpoint that answers. Later calls must not switch provider.
+    for (const endpoint of pinned ? [pinned] : endpoints) {
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
           const response = await fetchImpl(endpoint, {
@@ -122,6 +158,7 @@ export function makeRpc({
           if (!response.ok) throw Error();
           const body = await response.json();
           if (body.error || !Object.hasOwn(body, "result")) throw Error();
+          pinned = endpoint;
           return body.result;
         } catch {
           if (attempt < retries)
@@ -136,6 +173,104 @@ export function makeRpc({
       `Ethereum RPC failed for ${method}. Try RPC_URL with an archive-capable mainnet endpoint.`,
     );
   };
+}
+
+export async function openRpc(options = {}) {
+  const list = options.urls || rpcCandidates();
+  for (const url of list) {
+    const rpc = makeRpc({ ...options, urls: [url] });
+    try {
+      await rpc("eth_chainId");
+      return { rpc, url };
+    } catch {
+      // A configured RPC_URL has no other candidate. Public lists try the next host.
+    }
+  }
+  throw Error(
+    "Ethereum RPC failed for eth_chainId. Try RPC_URL with an archive-capable mainnet endpoint.",
+  );
+}
+
+export async function agreeOnBlock(primary, witness, number) {
+  const tag = `0x${number.toString(16)}`;
+  const [a, b] = await Promise.all([
+    primary("eth_getBlockByNumber", [tag, false]),
+    witness("eth_getBlockByNumber", [tag, false]),
+  ]);
+  const hash = a?.hash?.toLowerCase();
+  const time = Number(a?.timestamp);
+  if (
+    !/^0x[a-f0-9]{64}$/.test(hash || "") ||
+    !Number.isSafeInteger(time) ||
+    time <= 0
+  )
+    throw Error("Missing confirmed block.");
+  if (hash !== b?.hash?.toLowerCase() || time !== Number(b?.timestamp))
+    throw Error(
+      "Two Ethereum providers disagree on a block. The update was not published.",
+    );
+  return a;
+}
+
+export async function confirmWindowStart(primary, witness, firstBlock, cutoff) {
+  const boundary = await agreeOnBlock(primary, witness, firstBlock);
+  if (Number(boundary.timestamp) < cutoff)
+    throw Error(
+      "The window start does not match the confirmed block times. The update was not published.",
+    );
+  if (firstBlock > 0) {
+    const before = await agreeOnBlock(primary, witness, firstBlock - 1);
+    if (Number(before.timestamp) >= cutoff)
+      throw Error(
+        "The window start does not match the confirmed block times. The update was not published.",
+      );
+  }
+}
+
+function byDeposit(a, b) {
+  if (a.block !== b.block) return a.block - b.block;
+  if (a.time !== b.time) return a.time - b.time;
+  if (a.amountWei < b.amountWei) return -1;
+  if (a.amountWei > b.amountWei) return 1;
+  return 0;
+}
+
+export function depositsMatch(left, right) {
+  if (left.length !== right.length) return false;
+  const a = [...left].sort(byDeposit),
+    b = [...right].sort(byDeposit);
+  return a.every(
+    (row, i) =>
+      row.block === b[i].block &&
+      row.time === b[i].time &&
+      row.amountWei === b[i].amountWei,
+  );
+}
+
+export async function readConfirmedDeposits(
+  primary,
+  witness,
+  start,
+  end,
+  onProgress = () => {},
+) {
+  const first = await readDeposits(primary, start, end, onProgress);
+  let second;
+  try {
+    second = await readDeposits(witness, start, end);
+  } catch {
+    throw Error(
+      `The witness RPC failed for blocks ${start}–${end}. The update was not published.`,
+    );
+  }
+  if (
+    first.removedInternal !== second.removedInternal ||
+    !depositsMatch(first.deposits, second.deposits)
+  )
+    throw Error(
+      `Two Ethereum providers disagree on blocks ${start}–${end}. The update was not published.`,
+    );
+  return first;
 }
 
 export async function blockAtTime(rpc, timestamp, head) {

@@ -7,22 +7,40 @@ import {
   rmSync,
 } from "node:fs";
 import {
-  makeRpc,
+  openRpc,
+  witnessCandidates,
   blockAtTime,
-  readDeposits,
+  readConfirmedDeposits,
+  agreeOnBlock,
+  confirmWindowStart,
   CONFIRMATIONS,
 } from "./lib/reader.mjs";
 import { parseCsv, writeCsv, encodePool, WINDOW_SECONDS } from "./lib/data.mjs";
-const rpc = makeRpc();
+const primary = await openRpc();
+const witnesses = witnessCandidates(primary.url);
+if (!witnesses.length)
+  throw Error(
+    "No independent witness RPC. Set RPC_WITNESS_URL to a different host than RPC_URL.",
+  );
+const witness = await openRpc({ urls: witnesses });
+const rpc = primary.rpc,
+  check = witness.rpc;
+console.log(
+  `Comparing ${new URL(primary.url).host} with ${new URL(witness.url).host}.`,
+);
 if (Number(await rpc("eth_chainId")) !== 1)
   throw Error("RPC_URL must be on Ethereum mainnet.");
+if (Number(await check("eth_chainId")) !== 1)
+  throw Error("Witness RPC must be on Ethereum mainnet.");
 const head = Number(await rpc("eth_blockNumber")) - CONFIRMATIONS;
+const witnessHead = Number(await check("eth_blockNumber"));
 if (!Number.isSafeInteger(head) || head <= 0)
   throw Error("Invalid Ethereum chain head.");
-const block = await rpc("eth_getBlockByNumber", [
-  `0x${head.toString(16)}`,
-  false,
-]);
+if (!Number.isSafeInteger(witnessHead) || witnessHead < head)
+  throw Error(
+    "Witness provider is behind the confirmed head. The update was not published.",
+  );
+const block = await agreeOnBlock(rpc, check, head);
 const dataTime = Number(block?.timestamp);
 if (
   !Number.isSafeInteger(dataTime) ||
@@ -40,16 +58,14 @@ let previous = existsSync("public/data/manifest.json")
   : null;
 if (previous?.demo || previous?.chainId !== 1) previous = null;
 const firstBlock = await blockAtTime(rpc, cutoff, head);
+await confirmWindowStart(rpc, check, firstBlock, cutoff);
 if (previous && previous.lastBlock > head)
   throw Error(
     "Data coverage moved backwards. Rebuild from Ethereum with a clean CSV and manifest.",
   );
 if (previous?.lastBlockHash) {
-  const anchor = await rpc("eth_getBlockByNumber", [
-    `0x${previous.lastBlock.toString(16)}`,
-    false,
-  ]);
-  if (anchor?.hash?.toLowerCase() !== previous.lastBlockHash.toLowerCase())
+  const anchor = await agreeOnBlock(rpc, check, previous.lastBlock);
+  if (anchor.hash.toLowerCase() !== previous.lastBlockHash.toLowerCase())
     throw Error(
       "Confirmed chain history changed. Rebuild the pool before publishing.",
     );
@@ -68,7 +84,13 @@ let added = 0,
   removed = 0;
 for (const [start, end] of ranges)
   if (start <= end) {
-    const result = await readDeposits(rpc, start, end, console.log);
+    const result = await readConfirmedDeposits(
+      rpc,
+      check,
+      start,
+      end,
+      console.log,
+    );
     rows.push(...result.deposits);
     added += result.deposits.length;
     removed += result.removedInternal;

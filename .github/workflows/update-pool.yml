@@ -26,6 +26,7 @@ jobs:
         run: npm run data:update
         env:
           RPC_URL: ${{ secrets.RPC_URL }}
+          RPC_WITNESS_URL: ${{ secrets.RPC_WITNESS_URL }}
       - run: npm run build
       - run: npm run data:validate
       - name: Commit the verified snapshot
