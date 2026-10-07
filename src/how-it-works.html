@@ -6,7 +6,7 @@
     <title>How railcheck scores a RAILGUN withdrawal</title>
     <meta
       name="description"
-      content="railcheck compares a withdrawal amount with every RAILGUN deposit of the last 180 days. Read how the score works and what it does not cover."
+      content="railcheck compares a withdrawal amount with every RAILGUN deposit of the last 180 days and with recent withdrawals. Read how the score works and what it does not cover."
     />
     <meta name="theme-color" content="#121218" />
     <link rel="icon" href="/favicon.svg" />
@@ -30,7 +30,8 @@
           <h2>What railcheck checks</h2>
           <p>
             railcheck compares the amount with every RAILGUN ETH deposit of the
-            last 180 days.
+            last 180 days. It also checks if your amount and 1 withdrawal of the
+            last 30 days add up to 1 earlier deposit.
           </p>
           <p>
             The pool is RAILGUN ETH (WETH) on Ethereum. Enter the amount before
@@ -58,6 +59,11 @@
               matches can reduce it.
             </li>
             <li>
+              railcheck adds your amount to each withdrawal of the last 30 days.
+              A total that equals 1 deposit made before that withdrawal is a
+              match. The withdrawal score is 100 ÷ (1 + the number of matches).
+            </li>
+            <li>
               An address match sets a score of at least 100. A past transaction
               between the addresses sets at least 90.
             </li>
@@ -67,9 +73,9 @@
             </li>
           </ol>
           <p>
-            When the amount score is 6 or more, railcheck tries amounts that are
-            10% to 30% lower. It shows the first amount with a score of 5 or
-            less and at least 20 nearby deposits.
+            When the amount score or the withdrawal score is 6 or more, railcheck
+            tries amounts that are 10% to 30% lower. It shows the first amount
+            with both scores at 5 or less and at least 20 nearby deposits.
           </p>
         </section>
         <section>
@@ -92,7 +98,10 @@
               <tr>
                 <td>6–20</td>
                 <td>Medium</td>
-                <td>The amount points to a deposit.</td>
+                <td>
+                  The amount points to a deposit, alone or with a recent
+                  withdrawal.
+                </td>
               </tr>
               <tr>
                 <td>21–50</td>
@@ -111,6 +120,7 @@
           <p>
             A score is a model output, not a measured chance that someone will
             identify you. A deposit match applies only if that deposit is yours.
+            A withdrawal match applies only if that withdrawal is yours.
           </p>
         </section>
         <section>
@@ -122,8 +132,9 @@
             no analytics or third-party page resources.
           </p>
           <p>
-            Every visitor gets the same pool file. The worker checks its file
-            hash before it uses the data.
+            Every visitor gets the same pool file. It holds the amounts and
+            times of deposits and withdrawals, and no addresses. The worker
+            checks its file hash before it uses the data.
           </p>
           <p>
             A host can receive your IP address when you load the page. A VPN or
@@ -143,6 +154,19 @@
             <li>
               Do not withdraw the rest of a deposit soon after as 1 amount. The
               combined amounts can create a link.
+            </li>
+            <li>
+              The withdrawal check covers 1 withdrawal of the last 30 days. Larger
+              splits, such as 2 withdrawals or 2 deposits, are outside this
+              model.
+            </li>
+            <li>
+              A broadcaster fee taken from the same funds changes the total. The
+              check does not look for these near matches. An analyst can.
+            </li>
+            <li>
+              Addresses and timing can still link your withdrawals to each other
+              and to your deposit.
             </li>
             <li>
               A lower amount score does not remove a link between addresses.
@@ -166,7 +190,8 @@
           <details>
             <summary>Why does the withdrawal amount matter?</summary>
             <p>
-              An amount can equal 1 deposit or a sum of 2 or 3 deposits. A rare
+              An amount can equal 1 deposit or a sum of 2 or 3 deposits. Your
+              amount plus an earlier withdrawal can also equal a deposit. A rare
               match can point to its source.
             </p>
           </details>
@@ -178,11 +203,16 @@
             </p>
           </details>
           <details>
-            <summary>Which deposits does railcheck compare?</summary>
+            <summary>Which deposits and withdrawals does railcheck compare?</summary>
             <p>
               railcheck compares RAILGUN ETH deposits on Ethereum from the last
               180 days. It excludes shields in transactions that spend private
               notes.
+            </p>
+            <p>
+              It also uses RAILGUN ETH withdrawals from the last 30 days, with the
+              unshield fee added back. It excludes withdrawals in transactions
+              that shield again.
             </p>
           </details>
           <details>

@@ -28,6 +28,12 @@ const date = (t) =>
     year: "numeric",
     timeZone: "UTC",
   });
+// Pool amounts are in gwei. A deposit is shown as sent, before the 0.25% shield fee.
+const sent = (amount) => (BigInt(amount) * NANO * 10000n) / 9975n;
+const eth = (wei) => {
+  const rounded = (wei + 500000000000n) / 1000000000000n;
+  return `${rounded / 1000000n}.${(rounded % 1000000n).toString().padStart(6, "0")} ETH`;
+};
 const text = (tag, content, cls) => {
   const el = document.createElement(tag);
   el.textContent = content;
@@ -148,7 +154,12 @@ function draw(r, scan = 0) {
     rows = Math.ceil(cells / columns),
     stepY = height / Math.max(rows, 1),
     stepX = width / columns;
-  const lit = new Set(r?.points.map((p) => Math.floor(p.id / group)) || []);
+  const lit = new Set(
+    [
+      ...(r?.points || []),
+      ...(r?.patternScore >= 6 ? r.patterns.map((m) => m.deposit) : []),
+    ].map((p) => Math.floor(p.id / group)),
+  );
   const color = getComputedStyle(panel).getPropertyValue("--band").trim();
   for (let i = 0; i < cells; i++) {
     const x = i % columns,
@@ -281,18 +292,13 @@ function finish(r) {
         `This amount points to ${r.pointCount} ${r.pointCount === 1 ? "deposit" : "deposits"}.`,
       ),
     );
-  else if (r.matches)
+  else if (r.patternScore < 6)
     box.append(
       text(
         "p",
-        `This amount points to no deposit. It hides among about ${r.crowd} deposits.`,
-      ),
-    );
-  else
-    box.append(
-      text(
-        "p",
-        "No deposit, and no set of 2 or 3 deposits, adds up to this amount.",
+        r.matches
+          ? `This amount points to no deposit. It hides among about ${r.crowd} deposits.`
+          : "No deposit, and no set of 2 or 3 deposits, adds up to this amount.",
       ),
     );
   if (r.q1 === "unsure" || r.q2 === "unsure")
@@ -317,9 +323,7 @@ function finish(r) {
     const body = table.createTBody();
     for (const d of r.points) {
       const row = body.insertRow();
-      const gross = (BigInt(d.amount) * NANO * 10000n) / 9975n;
-      const rounded = (gross + 500000000000n) / 1000000000000n;
-      row.insertCell().textContent = `${rounded / 1000000n}.${(rounded % 1000000n).toString().padStart(6, "0")} ETH`;
+      row.insertCell().textContent = eth(sent(d.amount));
       row.insertCell().textContent = date(d.time);
     }
     box.append(table);
@@ -333,10 +337,58 @@ function finish(r) {
         ),
       );
   }
-  if (r.amountScore >= 6) {
+  if (r.patternScore >= 6) {
+    const many = r.patternCount > 1;
+    box.append(
+      text(
+        "p",
+        `Your amount plus 1 recent withdrawal adds up to 1 earlier deposit${many ? ` in ${r.patternCount} ways` : ""}.`,
+      ),
+      text(
+        "p",
+        `A non-round total that matches a deposit is a fingerprint. If ${many ? "1 of these withdrawals" : "that withdrawal"} was yours, someone can link both withdrawals to your deposit.`,
+      ),
+      text(
+        "h3",
+        "Recent withdrawals that your amount completes",
+        "table-label",
+      ),
+    );
+    const table = document.createElement("table");
+    const head = table.createTHead().insertRow();
+    for (const name of ["Withdrawal", "Date (UTC)", "Deposit sent", "Date (UTC)"]) {
+      const th = text("th", name);
+      th.scope = "col";
+      head.append(th);
+    }
+    const body = table.createTBody();
+    for (const { withdrawal, deposit } of r.patterns) {
+      const row = body.insertRow();
+      row.insertCell().textContent = eth(BigInt(withdrawal.amount) * NANO);
+      row.insertCell().textContent = date(withdrawal.time);
+      row.insertCell().textContent = eth(sent(deposit.amount));
+      row.insertCell().textContent = date(deposit.time);
+    }
+    box.append(table);
+    if (r.patternCount > 5)
+      box.append(text("p", "The list shows the 5 most recent matches.", "hint"));
+    box.append(
+      text(
+        "p",
+        "This applies only if the listed withdrawal was yours. A total with fewer decimals, or a different amount, hides among more combinations.",
+        "hint",
+      ),
+    );
+  }
+  if (r.amountScore >= 6 || r.patternScore >= 6) {
     const safe = text("div", "", "safer");
     if (r.safer) {
-      safe.append(text("p", `Try ${r.safer} ETH. It points to no deposit.`));
+      safe.append(
+        text(
+          "p",
+          `Try ${r.safer} ETH. It points to no deposit and completes no recent withdrawal.`,
+        ),
+      );
       const retry = text("button", `Check ${r.safer} ETH`, "secondary");
       retry.type = "button";
       retry.onclick = () => {
@@ -367,7 +419,7 @@ function finish(r) {
   note.append(
     text(
       "p",
-      `Checked against ${r.count.toLocaleString("en")} deposits, ${date(r.start)} to ${date(manifest.dataTime)}. Off-chain data can make the real risk higher.`,
+      `Checked against ${r.count.toLocaleString("en")} deposits, ${date(r.start)} to ${date(manifest.dataTime)}, and ${r.withdrawalCount.toLocaleString("en")} withdrawals of the last 30 days. Off-chain data can make the real risk higher.`,
     ),
   );
   box.append(note);
