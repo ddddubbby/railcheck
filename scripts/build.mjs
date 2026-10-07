@@ -107,7 +107,7 @@ for (const [source, destination, path] of [
     const url = `${origin}${path}`;
     metadata += `<link rel="canonical" href="${escape(url)}"><meta property="og:title" content="${escape(title)}"><meta property="og:description" content="${description}"><meta property="og:url" content="${escape(url)}"><meta property="og:type" content="website"><meta property="og:image" content="${escape(origin + "/og.png")}"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:image" content="${escape(origin + "/og.png")}"><meta name="twitter:title" content="${escape(title)}"><meta name="twitter:description" content="${description}">`;
     if (path === "/")
-      metadata += `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "WebApplication", name: "Exitcheck", url, description: "Check if a RAILGUN withdrawal amount points to a deposit. All calculation runs on your device.", applicationCategory: "FinanceApplication", operatingSystem: "Web", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, isAccessibleForFree: true, license: "https://opensource.org/license/mit/" }).replace(/</g, "\\u003c")}</script>`;
+      metadata += `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@type": "WebApplication", name: "railcheck", url, description: "Check if a RAILGUN withdrawal amount points to a deposit. All calculation runs on your device.", applicationCategory: "FinanceApplication", operatingSystem: "Web", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, isAccessibleForFree: true, license: "https://opensource.org/license/mit/" }).replace(/</g, "\\u003c")}</script>`;
   } else metadata = '<meta name="robots" content="noindex, nofollow">';
   html = html.replace("</head>", `${metadata}</head>`);
   writeFileSync(destination, html);
@@ -143,11 +143,11 @@ if (origin) {
 const prefix = origin || "";
 writeFileSync(
   "dist/llms.txt",
-  `# Exitcheck\n\nExitcheck compares a planned RAILGUN ETH withdrawal on Ethereum with deposits of the last 180 days. The check runs in the browser. It collects no amounts or addresses.\n\n- [Check](${prefix}/index.md)\n- [How it works](${prefix}/how-it-works/index.md)\n- [Pool manifest](${prefix}/data/manifest.json)\n`,
+  `# railcheck\n\nrailcheck compares a planned RAILGUN ETH withdrawal on Ethereum with deposits of the last 180 days. The check runs in the browser. It collects no amounts or addresses.\n\n- [Check](${prefix}/index.md)\n- [How it works](${prefix}/how-it-works/index.md)\n- [Pool manifest](${prefix}/data/manifest.json)\n`,
 );
 await import("./archive.mjs");
 console.log(
-  `Built static Exitcheck with ${manifest.count} deposits (${date(manifest.dataTime)}).`,
+  `Built static railcheck with ${manifest.count} deposits (${date(manifest.dataTime)}).`,
 );
 if (!origin)
   console.log(

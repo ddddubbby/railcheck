@@ -3,10 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>How Exitcheck scores a RAILGUN withdrawal</title>
+    <title>How railcheck scores a RAILGUN withdrawal</title>
     <meta
       name="description"
-      content="Exitcheck compares a withdrawal amount with every RAILGUN deposit of the last 180 days. Read how the score works and what it does not cover."
+      content="railcheck compares a withdrawal amount with every RAILGUN deposit of the last 180 days. Read how the score works and what it does not cover."
     />
     <meta name="theme-color" content="#121218" />
     <link rel="icon" href="/favicon.svg" />
@@ -17,31 +17,31 @@
   <body>
     <div class="shell">
       <header>
-        <a class="brand" href="/">EXITCHECK</a
+        <a class="brand" href="/">railcheck</a
         ><a class="nav-link" href="/">Check amount</a>
       </header>
       <main class="reading">
-        <h1>How Exitcheck works</h1>
+        <h1>How railcheck works</h1>
         <p class="lede">
           An amount can point to a deposit. An address link can reveal more.
-          Exitcheck checks these 2 risks.
+          railcheck checks these 2 risks.
         </p>
         <section>
-          <h2>What Exitcheck checks</h2>
+          <h2>What railcheck checks</h2>
           <p>
-            Exitcheck compares the amount with every RAILGUN ETH deposit of the
+            railcheck compares the amount with every RAILGUN ETH deposit of the
             last 180 days.
           </p>
           <p>
             The pool is RAILGUN ETH (WETH) on Ethereum. Enter the amount before
-            the 0.25% unshield fee. Exitcheck does not ask which deposit is
+            the 0.25% unshield fee. railcheck does not ask which deposit is
             yours.
           </p>
         </section>
         <section>
           <h2>How the check works</h2>
           <p>
-            Exitcheck looks for sets of 1, 2 or 3 deposits that add up to your
+            railcheck looks for sets of 1, 2 or 3 deposits that add up to your
             amount.
           </p>
           <ol>
@@ -67,7 +67,7 @@
             </li>
           </ol>
           <p>
-            When the amount score is 6 or more, Exitcheck tries amounts that are
+            When the amount score is 6 or more, railcheck tries amounts that are
             10% to 30% lower. It shows the first amount with a score of 5 or
             less and at least 20 nearby deposits.
           </p>
@@ -171,16 +171,16 @@
             </p>
           </details>
           <details>
-            <summary>Does Exitcheck see my amount or my address?</summary>
+            <summary>Does railcheck see my amount or my address?</summary>
             <p>
               Your browser sees the amount so it can run the check. The site
-              does not receive it. Exitcheck never asks for an address.
+              does not receive it. railcheck never asks for an address.
             </p>
           </details>
           <details>
-            <summary>Which deposits does Exitcheck compare?</summary>
+            <summary>Which deposits does railcheck compare?</summary>
             <p>
-              Exitcheck compares RAILGUN ETH deposits on Ethereum from the last
+              railcheck compares RAILGUN ETH deposits on Ethereum from the last
               180 days. It excludes shields in transactions that spend private
               notes.
             </p>
@@ -188,14 +188,14 @@
           <details>
             <summary>What amount should I withdraw?</summary>
             <p>
-              If the amount points to deposits, Exitcheck can suggest a lower
+              If the amount points to deposits, railcheck can suggest a lower
               amount. Check it with your own address answers. A Low score does
               not remove all risk.
             </p>
           </details>
           <details>
-            <summary>Is Exitcheck free and open source?</summary>
-            <p>Exitcheck is free and open source under the MIT license.</p>
+            <summary>Is railcheck free and open source?</summary>
+            <p>railcheck is free and open source under the MIT license.</p>
           </details>
         </section>
         <p class="hint">Last updated {{CONTENT_DATE}}</p>

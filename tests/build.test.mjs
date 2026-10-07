@@ -11,9 +11,15 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 test("production build emits metadata and excludes secrets from its source ZIP", () => {
-  const directory = mkdtempSync(join(tmpdir(), "exitcheck-build-"));
+  const directory = mkdtempSync(join(tmpdir(), "railcheck-build-"));
   try {
     for (const path of [
+      "docs",
+      "data",
+      "CONTRIBUTING.md",
+      "vercel.json",
+      "package-lock.json",
+      ".gitignore",
       "src",
       "public",
       "lib",
@@ -29,12 +35,13 @@ test("production build emits metadata and excludes secrets from its source ZIP",
       join(directory, ".env"),
       "RPC_URL=https://secret.invalid/private-key\n",
     );
+    writeFileSync(join(directory, "data/validation.json"), "{}\n");
     const run = spawnSync(process.execPath, ["scripts/build.mjs"], {
       cwd: directory,
       env: {
         ...process.env,
-        SITE_URL: "https://exitcheck.example",
-        SOURCE_URL: "https://github.com/example/exitcheck",
+        SITE_URL: "https://railcheck.example",
+        SOURCE_URL: "https://github.com/example/railcheck",
       },
       encoding: "utf8",
     });
@@ -42,9 +49,9 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     const html = readFileSync(join(directory, "dist/index.html"), "utf8");
     assert.match(
       html,
-      /<link rel="canonical" href="https:\/\/exitcheck\.example\/">/,
+      /<link rel="canonical" href="https:\/\/railcheck\.example\/">/,
     );
-    assert.match(html, /href="https:\/\/github\.com\/example\/exitcheck"/);
+    assert.match(html, /href="https:\/\/github\.com\/example\/railcheck"/);
     const json = html.match(
       /<script type="application\/ld\+json">([\s\S]*?)<\/script>/,
     )[1];
@@ -63,6 +70,9 @@ test("production build emits metadata and excludes secrets from its source ZIP",
         46 + n + zip.readUInt16LE(cursor + 30) + zip.readUInt16LE(cursor + 32);
     }
     assert.ok(names.includes(".env.example"));
+    assert.ok(names.includes("docs/maintaining.md"));
+    assert.ok(names.includes("vercel.json"));
+    assert.ok(!names.includes("data/validation.json"));
     assert.ok(names.includes(".github/workflows/update-pool.yml"));
     assert.ok(!names.includes(".env"));
     assert.ok(!names.some((p) => p.startsWith(".git/")));

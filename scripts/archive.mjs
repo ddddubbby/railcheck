@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
 const roots = new Set([
+  "docs",
   "src",
   "public",
   "lib",
@@ -34,7 +35,8 @@ function walk(directory = "") {
     if (
       ["node_modules", ".git", ".DS_Store", ".vercel", "dist"].includes(name) ||
       (name.startsWith(".env") && name !== ".env.example") ||
-      name.endsWith(".tmp")
+      name.endsWith(".tmp") ||
+      (directory === "data" && name === "validation.json")
     )
       continue;
     const path = directory ? `${directory}/${name}` : name;
