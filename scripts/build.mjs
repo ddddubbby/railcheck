@@ -75,7 +75,7 @@ for (const [source, destination, path] of [
   ["src/404.html", "dist/404.html", "/404"],
 ]) {
   let html = readFileSync(source, "utf8");
-  for (const q of ["q1", "q2"])
+  for (const q of ["q1", "q2", "q3"])
     html = html.replace(
       `{{${q.toUpperCase()}}}`,
       [

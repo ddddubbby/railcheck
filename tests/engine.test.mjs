@@ -87,15 +87,24 @@ test("binary format, hash and corruption handling", () => {
 test("fixture match, safer amount and conservative floors", () => {
   const now = manifest.dataTime + 1,
     amount = parseAmount("3.502749352");
-  const r = check(pool, amount, "no", "no", now);
+  const r = check(pool, amount, "no", "no", "no", now);
   assert.equal(r.band, "Critical");
   assert.ok(r.points.length);
   assert.ok(r.safer);
-  assert.ok(check(pool, parseAmount(r.safer), "no", "no", now).score <= 5);
+  assert.ok(check(pool, parseAmount(r.safer), "no", "no", "no", now).score <= 5);
   for (const q of ["yes", "unsure"]) {
-    assert.equal(check(pool, amount, q, "no", now).score, 100);
-    assert.equal(check(pool, parseAmount("0.123456"), "no", q, now).score, 90);
+    assert.equal(check(pool, amount, q, "no", "no", now).score, 100);
+    assert.equal(
+      check(pool, parseAmount("0.123456"), "no", q, "no", now).score,
+      90,
+    );
+    assert.equal(
+      check(pool, parseAmount("0.123456"), "no", "no", q, now).score,
+      90,
+    );
   }
+  const unchanged = check(pool, parseAmount("0.123456"), "no", "no", "no", now);
+  assert.equal(unchanged.score, unchanged.amountScore);
   assert.ok(Number.isInteger(r.crowd) && r.crowd <= r.n);
   console.log("Fixture match:", r.score, "Safer amount:", r.safer);
 });
@@ -105,6 +114,7 @@ test("180-day cutoff and stale empty pools are explicit", () => {
       check(
         pool,
         parseAmount("1"),
+        "no",
         "no",
         "no",
         manifest.dataTime + 181 * 86400,
@@ -119,6 +129,7 @@ test("fixture check timing", () => {
     check(
       pool,
       parseAmount(String(0.1 + rand() * 5)),
+      "no",
       "no",
       "no",
       manifest.dataTime + 1,

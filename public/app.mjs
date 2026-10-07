@@ -193,7 +193,7 @@ function submit(event) {
     invalid = input;
   }
   const answers = {};
-  for (const q of ["q1", "q2"]) {
+  for (const q of ["q1", "q2", "q3"]) {
     answers[q] = form.querySelector(`input[name=${q}]:checked`)?.value;
     $(q + "-error").hidden = !!answers[q];
     if (!answers[q]) {
@@ -274,6 +274,16 @@ function finish(r) {
       ),
       text("p", "Use a new address that has no link to your deposit address."),
     );
+  } else if (r.q3 !== "no") {
+    box.append(
+      text(
+        "p",
+        r.q3 === "unsure"
+          ? "This may be the rest of a deposit you partly withdrew. If it is, anyone can add your withdrawals together and find that deposit."
+          : "You will withdraw the rest of a deposit. Anyone can add your withdrawals together and find that deposit, unless its amount was round.",
+      ),
+      text("p", "Withdraw less than the rest, and leave the difference in the pool."),
+    );
   } else if (r.amountScore >= 6)
     box.append(
       text(
@@ -295,7 +305,7 @@ function finish(r) {
         "No deposit, and no set of 2 or 3 deposits, adds up to this amount.",
       ),
     );
-  if (r.q1 === "unsure" || r.q2 === "unsure")
+  if (r.q1 === "unsure" || r.q2 === "unsure" || r.q3 === "unsure")
     box.append(
       text(
         "p",
