@@ -1,7 +1,6 @@
 import { readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
 const roots = new Set([
-  "docs",
   "src",
   "public",
   "lib",
