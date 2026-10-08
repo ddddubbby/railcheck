@@ -14,7 +14,6 @@ test("production build emits metadata and excludes secrets from its source ZIP",
   const directory = mkdtempSync(join(tmpdir(), "railcheck-build-"));
   try {
     for (const path of [
-      "docs",
       "data",
       "vercel.json",
       "package-lock.json",
@@ -116,8 +115,8 @@ test("production build emits metadata and excludes secrets from its source ZIP",
         46 + n + zip.readUInt16LE(cursor + 30) + zip.readUInt16LE(cursor + 32);
     }
     assert.ok(names.includes(".env.example"));
-    assert.ok(names.includes("docs/maintaining.md"));
     assert.ok(names.includes("vercel.json"));
+    assert.ok(!names.some((p) => p.startsWith("docs/")));
     assert.ok(!names.includes("data/validation.json"));
     assert.ok(names.includes(".github/workflows/update-pool.yml"));
     assert.ok(!names.includes(".env"));
