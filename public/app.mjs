@@ -276,7 +276,7 @@ function finish(r) {
   stop();
   lastResult = r;
   panel.dataset.band = r.band;
-  $("result-heading").textContent = "Result";
+  $("result-heading").textContent = "RISK";
   $("readout").hidden = false;
   $("scan-label").hidden = true;
   $("band").textContent = r.band;
