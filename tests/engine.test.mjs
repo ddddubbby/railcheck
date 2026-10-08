@@ -5,9 +5,11 @@ import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
   countSets,
+  matchSets,
   parseAmount,
   formatWei,
   check,
+  amountScore,
   NANO,
   afterUnshieldFee,
 } from "../lib/engine/index.mjs";
@@ -90,6 +92,7 @@ test("fixture match, safer amount and conservative floors", () => {
   const r = check(pool, amount, "no", "no", "no", now);
   assert.equal(r.band, "Critical");
   assert.ok(r.points.length);
+  assert.ok(r.sets.length);
   assert.ok(r.safer);
   assert.ok(check(pool, parseAmount(r.safer), "no", "no", "no", now).score <= 5);
   for (const q of ["yes", "unsure"]) {
@@ -107,6 +110,45 @@ test("fixture match, safer amount and conservative floors", () => {
   assert.equal(unchanged.score, unchanged.amountScore);
   assert.ok(Number.isInteger(r.crowd) && r.crowd <= r.n);
   console.log("Fixture match:", r.score, "Safer amount:", r.safer);
+});
+test("match table lists sets that sum to the withdrawal, not lone tiny legs", () => {
+  const now = 1_000_000;
+  const deposits = [
+    { id: 1, amount: 50_000_000, time: now - 10 },
+    { id: 2, amount: 19_950_000_000, time: now - 9 },
+    { id: 3, amount: 50_000_000, time: now - 8 },
+    { id: 4, amount: 19_950_000_000, time: now - 7 },
+    { id: 5, amount: 3_500_000_000, time: now - 6 },
+    { id: 6, amount: 1_000_000_000, time: now - 5 },
+    { id: 7, amount: 3_500_000_000, time: now - 4 },
+    { id: 8, amount: 1_000_000_000, time: now - 3 },
+  ];
+  const twenty = amountScore(deposits, parseAmount("20"));
+  assert.equal(twenty.totals[0], 0);
+  assert.ok(twenty.totals[1] >= 2);
+  assert.ok(twenty.sets.length);
+  for (const set of twenty.sets) {
+    assert.equal(set.deposits.length, 2);
+    const sum = set.deposits.reduce((s, d) => s + d.amount, 0);
+    assert.ok(Math.abs(sum - 20_000_000_000) <= 5000);
+    assert.ok(set.deposits.some((d) => d.amount === 19_950_000_000));
+  }
+  const fourFive = amountScore(deposits, parseAmount("4.5"));
+  assert.ok(fourFive.sets.length);
+  for (const set of fourFive.sets) {
+    assert.equal(set.deposits.length, 2);
+    const sum = set.deposits.reduce((s, d) => s + d.amount, 0);
+    assert.ok(Math.abs(sum - 4_500_000_000) <= 5000);
+    const nets = set.deposits.map((d) => d.amount).sort((a, b) => a - b);
+    assert.deepEqual(nets, [1_000_000_000, 3_500_000_000]);
+  }
+  const scoreById = new Map(deposits.map((d) => [d.id, 0.1]));
+  const listed = matchSets(
+    deposits.slice().sort((a, b) => a.amount - b.amount),
+    parseAmount("20"),
+    scoreById,
+  );
+  assert.ok(listed.every((s) => s.deposits.length === 2));
 });
 test("180-day cutoff and stale empty pools are explicit", () => {
   assert.throws(
