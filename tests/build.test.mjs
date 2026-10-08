@@ -50,7 +50,15 @@ test("production build emits metadata and excludes secrets from its source ZIP",
       html,
       /<link rel="canonical" href="https:\/\/railcheck\.example\/">/,
     );
-    assert.match(html, /href="https:\/\/github\.com\/example\/railcheck"/);
+    assert.match(
+      html,
+      /href="https:\/\/github\.com\/example\/railcheck"[^>]*>Open source<\/a>/,
+    );
+    assert.doesNotMatch(html, /href="\/source\.zip"|Source code/);
+    assert.match(
+      html,
+      /Not affiliated with\s*<a href="https:\/\/railgun\.org\/" rel="noopener noreferrer">RAILGUN<\/a>/,
+    );
     const json = html.match(
       /<script type="application\/ld\+json">([\s\S]*?)<\/script>/,
     )[1];
@@ -60,6 +68,15 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     assert.match(about, /<title>About railcheck<\/title>/);
     assert.match(about, /id="disclaimer"/);
     assert.match(about, /href="https:\/\/railcheck\.example\/about\/"/);
+    assert.match(
+      about,
+      /href="https:\/\/github\.com\/example\/railcheck"[^>]*>Open source<\/a>/,
+    );
+    assert.doesNotMatch(about, /href="\/source\.zip"|Source code/);
+    assert.match(
+      about,
+      /planned\s*<a href="https:\/\/railgun\.org\/" rel="noopener noreferrer">RAILGUN<\/a>/,
+    );
     assert.match(
       readFileSync(join(directory, "dist/about/index.md"), "utf8"),
       /Your input stays private/,

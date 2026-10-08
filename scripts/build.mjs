@@ -95,8 +95,8 @@ for (const [source, destination, path] of [
     .replaceAll("{{CONTENT_DATE}}", "8 Oct 2026");
   if (sourceURL)
     html = html.replaceAll(
-      'href="/source.zip" download',
-      `href="${escape(sourceURL)}" rel="noopener noreferrer"`,
+      'href="https://github.com/ddddubbby/railcheck"',
+      `href="${escape(sourceURL)}"`,
     );
   let metadata = "";
   if (origin && path !== "/404") {
