@@ -323,6 +323,13 @@ function finish(r) {
       row.insertCell().textContent = date(d.time);
     }
     box.append(table);
+    box.append(
+      text(
+        "p",
+        "Amount sent is what left the depositing address, before the 0.25% shield fee.",
+        "hint",
+      ),
+    );
     if (r.pointCount > 5)
       box.append(text("p", "The list shows the 5 strongest matches.", "hint"));
     if (!r.floor)
