@@ -69,7 +69,11 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     assert.match(about, /id="disclaimer"/);
     assert.match(about, /href="https:\/\/railcheck\.example\/about\/"/);
     assert.match(about, /class="eyebrow sys">Independent<\/p>/);
-    assert.doesNotMatch(about, /Open source|href="\/source\.zip"|Source code/);
+    assert.doesNotMatch(
+      about,
+      /Open source|href="\/source\.zip"|Source code|Last updated|Data updated|<footer/,
+    );
+    assert.match(about, /class="nav-link" href="\/">Check amount<\/a>/);
     assert.match(
       about,
       /planned\s*<a href="https:\/\/railgun\.org\/" rel="noopener noreferrer">RAILGUN<\/a>/,
