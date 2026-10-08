@@ -108,8 +108,24 @@ test("fixture match, safer amount and conservative floors", () => {
   }
   const unchanged = check(pool, parseAmount("0.123456"), "no", "no", "no", now);
   assert.equal(unchanged.score, unchanged.amountScore);
+  assert.throws(() => check(pool, amount, "no", "no", undefined, now));
   assert.ok(Number.isInteger(r.crowd) && r.crowd <= r.n);
   console.log("Fixture match:", r.score, "Safer amount:", r.safer);
+});
+test("match table leaves out sets with a part inside the tolerance", () => {
+  const now = 1_000_000;
+  const deposits = [
+    { id: 1, amount: 3_502_749_352, time: now - 10 },
+    { id: 2, amount: 0, time: now - 9 },
+    { id: 3, amount: 400, time: now - 8 },
+    { id: 4, amount: 9_000, time: now - 7 },
+  ];
+  const r = amountScore(deposits, parseAmount("3.502749352"));
+  assert.ok(r.totals[1] > 0);
+  assert.deepEqual(
+    r.sets.map((s) => s.deposits.map((d) => d.id)),
+    [[1]],
+  );
 });
 test("match table lists sets that sum to the withdrawal, not lone tiny legs", () => {
   const now = 1_000_000;

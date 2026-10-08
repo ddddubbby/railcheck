@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>How railcheck scores a RAILGUN withdrawal</title>
+    <title>About railcheck</title>
     <meta
       name="description"
-      content="railcheck compares a withdrawal amount with every RAILGUN deposit of the last 180 days. Read how the score works and what it does not cover."
+      content="A free, independent tool for checking RAILGUN withdrawal privacy. Read how it works, how your input stays private, and its limitations."
     />
     <meta name="theme-color" content="#121218" />
     <link rel="icon" href="/favicon.svg" />
     <link rel="stylesheet" href="/style.css" />
-    <link rel="alternate" type="text/markdown" href="/how-it-works/index.md" />
+    <link rel="alternate" type="text/markdown" href="/about/index.md" />
     <link rel="describedby" href="/llms.txt" />
   </head>
   <body>
@@ -21,24 +21,51 @@
         ><a class="nav-link" href="/">Check amount</a>
       </header>
       <main class="reading">
-        <h1>How railcheck works</h1>
+        <p class="eyebrow sys">Independent · Open source</p>
+        <h1>About railcheck</h1>
         <p class="lede">
-          An amount can point to a deposit. An address link can reveal more.
-          railcheck checks these 2 risks.
+          A free, open-source tool that helps you check whether a planned RAILGUN
+          withdrawal could be linked back to your deposit, before you unshield.
         </p>
+        <nav class="contents" aria-label="On this page">
+          <a href="#privacy">Privacy</a>
+          <a href="#method">The check</a>
+          <a href="#limits">Limits</a>
+          <a href="#disclaimer">Disclaimer</a>
+        </nav>
         <section>
-          <h2>What railcheck checks</h2>
+          <h2>Why railcheck exists</h2>
           <p>
-            railcheck compares the amount with every RAILGUN ETH deposit of the
-            last 180 days.
+            railcheck is a community project built to help people keep the privacy
+            they chose. It compares your amount with public on-chain deposits and
+            asks three questions about your addresses and earlier withdrawals.
           </p>
           <p>
-            The pool is RAILGUN ETH (WETH) on Ethereum. Enter the amount before
-            the 0.25% unshield fee. railcheck does not ask which deposit is
-            yours.
+            The check covers RAILGUN ETH (WETH) deposits on Ethereum from the last
+            180 days. Enter the amount before the 0.25% unshield fee. You never
+            need to say which deposit is yours.
           </p>
         </section>
-        <section>
+        <section id="privacy">
+          <h2>Privacy</h2>
+          <p class="privacy-lead">Your input stays private.</p>
+          <p>Your amount and answers stay in this tab.</p>
+          <p>
+            The check does not send them to a server, put them in the URL, or
+            save them on your device. There is no wallet connection. There are
+            no analytics or third-party page resources.
+          </p>
+          <p>
+            Every visitor gets the same pool file. The worker checks its file
+            hash before it uses the data.
+          </p>
+          <p>
+            A host can receive your IP address when you load the page. A VPN or
+            Tor can mask your IP address from the host. It does not remove all
+            privacy risks.
+          </p>
+        </section>
+        <section id="method">
           <h2>How the check works</h2>
           <p>
             railcheck looks for sets of 1, 2 or 3 deposits that add up to your
@@ -59,11 +86,8 @@
             </li>
             <li>
               An address match sets a score of at least 100. A past transaction
-              between the addresses sets at least 90.
-            </li>
-            <li>
-              Withdrawing the rest of a partly withdrawn deposit sets at least
-              90.
+              between the addresses sets at least 90. Withdrawing the rest of a
+              deposit that you already partly withdrew also sets at least 90.
             </li>
             <li>
               Not sure uses the worse answer. It does not prove that a link
@@ -107,7 +131,7 @@
                 <td>51–100</td>
                 <td>Critical</td>
                 <td>
-                  The amount or your address answers give a strong signal.
+                  The amount or your answers give a strong signal.
                 </td>
               </tr>
             </tbody>
@@ -117,25 +141,7 @@
             identify you. A deposit match applies only if that deposit is yours.
           </p>
         </section>
-        <section>
-          <h2>Privacy</h2>
-          <p>Your amount and answers stay in this tab.</p>
-          <p>
-            The check does not send them to a server, put them in the URL, or
-            save them on your device. There is no wallet connection. There are
-            no analytics or third-party page resources.
-          </p>
-          <p>
-            Every visitor gets the same pool file. The worker checks its file
-            hash before it uses the data.
-          </p>
-          <p>
-            A host can receive your IP address when you load the page. A VPN or
-            Tor can mask your IP address from the host. It does not remove all
-            privacy risks.
-          </p>
-        </section>
-        <section>
+        <section id="limits">
           <h2>Limits</h2>
           <p>Off-chain data can make the real risk higher.</p>
           <ul>
@@ -145,9 +151,9 @@
             </li>
             <li>The model assumes that a broadcaster sends the withdrawal.</li>
             <li>
-              If this withdrawal is the rest of a deposit you already partly
-              withdrew, answer Yes to that question. The combined amounts can
-              create a link.
+              Withdrawing the rest of a deposit can create a link, because
+              your withdrawals add up to that deposit. railcheck asks about this.
+              It does not check other withdrawals.
             </li>
             <li>
               A lower amount score does not remove a link between addresses.
@@ -164,8 +170,9 @@
               Can someone link my RAILGUN withdrawal to my deposit?
             </summary>
             <p>
-              Yes. An amount or an address link can connect a withdrawal to a
-              deposit. Other data can also create a link.
+              Yes. An amount, an address link, or withdrawals that add up to a
+              deposit can connect a withdrawal to that deposit. Other data can
+              also create a link.
             </p>
           </details>
           <details>
@@ -200,10 +207,28 @@
               not remove all risk.
             </p>
           </details>
-          <details>
-            <summary>Is railcheck free and open source?</summary>
-            <p>railcheck is free and open source under the MIT license.</p>
-          </details>
+        </section>
+        <section id="disclaimer">
+          <h2>Disclaimer</h2>
+          <p>
+            railcheck is an independent community project. It is not made by,
+            affiliated with, or endorsed by RAILGUN or its contributors.
+          </p>
+          <p>
+            It gives information only. It is not financial, legal or tax advice.
+            It never holds, moves or has access to funds, and does not submit transactions.
+          </p>
+          <p>
+            The software is provided “as is” under the MIT license, without warranty.
+            The contributors accept no liability for decisions or losses that follow
+            from using it. A score can be wrong, and a Low score does not guarantee privacy.
+          </p>
+          <p>
+            railcheck exists to protect lawful financial privacy. It must not be used
+            for, and does not support, money laundering, terrorist financing, sanctions
+            evasion, fraud or any other illegal activity. You are responsible for
+            following the laws that apply to you.
+          </p>
         </section>
         <p class="hint">Last updated {{CONTENT_DATE}}</p>
       </main>

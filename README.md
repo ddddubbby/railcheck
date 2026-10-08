@@ -2,14 +2,14 @@
 
 Check your RAILGUN withdrawal privacy before you unshield.
 
-railcheck is a free, open-source tool that helps you spot three ways a planned withdrawal can become linked to a deposit: a distinctive amount, an existing connection between addresses, and withdrawing the rest of a partly withdrawn deposit. It runs the check on your device, without connecting a wallet or asking for an address.
+railcheck is a free, open-source tool that helps you spot three ways a planned withdrawal can become linked to a deposit: a distinctive amount, an existing connection between addresses, and withdrawing the rest of a deposit you already partly withdrew. It runs the check on your device, without connecting a wallet or asking for an address.
 
 ## What it can do
 
 - Compare a planned ETH withdrawal with public RAILGUN WETH deposits on Ethereum from the last 180 days.
 - Look for matches to individual deposits and combinations of two or three deposits, accounting for the unshield fee.
 - Flag address reuse and prior transfers between the deposit and destination addresses, based on your answers.
-- Flag withdrawing the rest of a deposit you already partly withdrew, based on your answer.
+- Flag withdrawing the rest of a partly withdrawn deposit, based on your answer.
 - Show a risk score with an explanation of the signals behind it.
 - Suggest a smaller amount when an alternative meets the model's lower-risk criteria.
 - Show when the public deposit snapshot was updated, and warn when it is stale.
@@ -17,7 +17,7 @@ railcheck is a free, open-source tool that helps you spot three ways a planned w
 ## How to use it
 
 1. Enter the amount you plan to unshield.
-2. Answer three questions about the destination address and whether this is the rest of a deposit. You never enter the address itself.
+2. Answer two questions about the destination address and one about earlier withdrawals. You never enter an address.
 3. Read the result and, when available, consider the suggested amount.
 
 The check does not submit a transaction or move funds. Support currently covers RAILGUN ETH withdrawals on Ethereum.
@@ -30,9 +30,9 @@ The site loads the same public deposit snapshot for every visitor. Once that sna
 
 ## Understand the result
 
-The score is a model-based indication of amount matching and address-link risk, not a measured probability of identification or a guarantee of anonymity. Address checks rely on your answers; railcheck does not inspect a wallet's history.
+The score is a model-based indication of amount matching, address-link and split-withdrawal risk, not a measured probability of identification or a guarantee of anonymity. Address and split-withdrawal checks rely on your answers; railcheck does not inspect a wallet's history.
 
-It does not cover every source of information an observer might have, including timing, IP addresses, exchange records and other off-chain data. A lower score means fewer signals under this model. The [method page](src/how-it-works.html) explains the assumptions and limitations.
+It does not cover every source of information an observer might have, including timing, IP addresses, exchange records and other off-chain data. A lower score means fewer signals under this model. The [About page](src/about.html) explains the assumptions and limitations.
 
 railcheck is an independent project and is not an official RAILGUN product.
 

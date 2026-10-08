@@ -34,6 +34,43 @@ const text = (tag, content, cls) => {
   if (cls) el.className = cls;
   return el;
 };
+// Only the decorative pixels animate; the assurance text is always readable.
+function reveal() {
+  const icons = [
+    ["..###..", ".#...#.", ".#...#.", "#######", "###.###", "###.###", "#######"],
+    ["....#..", ".#..##.", "#..#..#", "#..#..#", "#..#..#", ".##..#.", "..#...."],
+  ];
+  const color = getComputedStyle(document.documentElement)
+    .getPropertyValue("--signal")
+    .trim();
+  document.querySelectorAll(".assure .pix").forEach((icon, index) => {
+    const context = icon.getContext("2d");
+    if (!context) return;
+    const cells = icons[index].flatMap((row, y) =>
+      [...row].flatMap((cell, x) => (cell === "#" ? [[x, y]] : [])),
+    );
+    // Fisher–Yates gives each pixel an independent place in the build.
+    for (let i = cells.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cells[i], cells[j]] = [cells[j], cells[i]];
+    }
+    context.fillStyle = color;
+    const begin = performance.now() + index * 100;
+    let drawn = 0;
+    const build = (now) => {
+      const progress = reduced.matches
+        ? 1
+        : Math.min(1, Math.max(0, (now - begin) / 350));
+      const count = Math.floor(progress * cells.length);
+      while (drawn < count) {
+        const [x, y] = cells[drawn++];
+        context.fillRect(x, y, 1, 1);
+      }
+      if (progress < 1) requestAnimationFrame(build);
+    };
+    build(performance.now());
+  });
+}
 function load() {
   ready = false;
   $("progress").hidden = false;
@@ -225,6 +262,7 @@ function submit(event) {
   $("band").textContent = "";
   $("result-copy").replaceChildren();
   $("scan-label").hidden = false;
+  $("crowd-caption").hidden = true;
   if (!reduced.matches) animate();
   worker.postMessage({
     type: "check",
@@ -252,76 +290,49 @@ function finish(r) {
     e.classList.toggle("on", i < Math.ceil(r.score / 10)),
   );
   draw(r);
+  $("crowd-caption").hidden = !r.points.length;
   const box = $("result-copy");
   box.replaceChildren();
-  if (r.q1 !== "no") {
-    box.append(
-      text(
-        "p",
-        r.q1 === "unsure"
-          ? "Your destination may be your deposit address. If it is, anyone can link your withdrawal to your deposit."
-          : "You will withdraw to your deposit address. Anyone can link your withdrawal to your deposit.",
-      ),
-      text(
-        "p",
-        "Withdraw to a new address that has no link to your deposit address.",
-      ),
+  const verdict = (...lines) =>
+    box.append(...lines.map((line, i) => text("p", line, i ? "" : "verdict")));
+  if (r.q1 !== "no")
+    verdict(
+      r.q1 === "unsure"
+        ? "Your destination may be your deposit address. If it is, anyone can link your withdrawal to your deposit."
+        : "You will withdraw to your deposit address. Anyone can link your withdrawal to your deposit.",
+      "Withdraw to a new address that has no link to your deposit address.",
     );
-  } else if (r.q2 !== "no") {
-    box.append(
-      text(
-        "p",
-        r.q2 === "unsure"
-          ? "Your destination may have a transaction with your deposit address. If it does, anyone can follow that link."
-          : "Your destination address has a transaction with your deposit address. Anyone can follow that link.",
-      ),
-      text("p", "Use a new address that has no link to your deposit address."),
+  else if (r.q2 !== "no")
+    verdict(
+      r.q2 === "unsure"
+        ? "Your destination may have a transaction with your deposit address. If it does, anyone can follow that link."
+        : "Your destination address has a transaction with your deposit address. Anyone can follow that link.",
+      "Use a new address that has no link to your deposit address.",
     );
-  } else if (r.q3 !== "no") {
-    box.append(
-      text(
-        "p",
-        r.q3 === "unsure"
-          ? "This may be the rest of a deposit you partly withdrew. If it is, anyone can add your withdrawals together and find that deposit."
-          : "You will withdraw the rest of a deposit. Anyone can add your withdrawals together and find that deposit, unless its amount was round.",
-      ),
-      text("p", "Withdraw less than the rest, and leave the difference in the pool."),
+  else if (r.q3 !== "no")
+    verdict(
+      r.q3 === "unsure"
+        ? "This may be the rest of a deposit you partly withdrew. If it is, anyone can add your withdrawals together and find that deposit."
+        : "You will withdraw the rest of a deposit. Anyone can add your withdrawals together and find that deposit, unless its amount was round.",
+      "Withdraw less than the rest, and leave the difference in the pool.",
     );
-  } else if (r.amountScore >= 6)
-    box.append(
-      text(
-        "p",
-        r.totals[1] || r.totals[2]
-          ? "This amount matches deposits as a single deposit or as a sum of 2–3 deposits."
-          : `This amount points to ${r.pointCount} ${r.pointCount === 1 ? "deposit" : "deposits"}.`,
-      ),
+  else if (r.amountScore >= 6)
+    verdict(
+      r.sets.some((set) => set.deposits.length > 1)
+        ? "Your amount matches public deposits."
+        : `This amount points to ${r.pointCount} ${r.pointCount === 1 ? "deposit" : "deposits"}.`,
     );
   else if (r.matches)
-    box.append(
-      text(
-        "p",
-        `This amount points to no deposit. It hides among about ${r.crowd} deposits.`,
-      ),
+    verdict(
+      "No strong amount match was found among the public deposits.",
     );
   else
-    box.append(
-      text(
-        "p",
-        "No deposit, and no set of 2 or 3 deposits, adds up to this amount.",
-      ),
-    );
-  if (r.q1 === "unsure" || r.q2 === "unsure" || r.q3 === "unsure")
-    box.append(
-      text(
-        "p",
-        "You selected Not sure. The score uses the worse answer.",
-        "uncertain",
-      ),
+    verdict(
+      "No deposit, and no set of 2 or 3 deposits, adds up to this amount.",
     );
   if (r.sets?.length) {
-    box.append(
-      text("h3", "Matches that add up to this amount", "table-label"),
-    );
+    const matches = text("section", "", "matches");
+    matches.setAttribute("aria-labelledby", "matches-heading");
     const table = document.createElement("table");
     const head = table.createTHead().insertRow();
     for (const name of ["Amounts sent", "Dates (UTC)"]) {
@@ -335,36 +346,59 @@ function finish(r) {
       const rounded = (gross + 500000000000n) / 1000000000000n;
       return `${rounded / 1000000n}.${(rounded % 1000000n).toString().padStart(6, "0")}`;
     };
+    const shown = new Set();
     for (const set of r.sets) {
+      const amounts =
+          set.deposits.map((d) => amountSent(d.amount)).join(" + ") + " ETH",
+        dates = set.deposits.map((d) => date(d.time)).join(" · ");
+      // Different deposits can look the same once rounded; list them once.
+      if (shown.has(amounts + dates)) continue;
+      shown.add(amounts + dates);
       const row = body.insertRow();
-      row.insertCell().textContent =
-        set.deposits.map((d) => amountSent(d.amount)).join(" + ") + " ETH";
-      row.insertCell().textContent = set.deposits.map((d) => date(d.time)).join(" · ");
+      const amountCell = row.insertCell(),
+        dateCell = row.insertCell();
+      for (const [index, deposit] of set.deposits.entries()) {
+        const leg = text("span", "", "match-leg");
+        if (index) leg.append(text("span", "+ ", "match-plus"));
+        leg.append(document.createTextNode(`${amountSent(deposit.amount)} ETH`));
+        amountCell.append(leg);
+        dateCell.append(text("span", date(deposit.time), "match-leg"));
+      }
     }
-    box.append(table);
-    box.append(
+    const heading = text(
+      "h3",
+      `${shown.size} matching deposit ${shown.size === 1 ? "set" : "sets"}`,
+    );
+    heading.id = "matches-heading";
+    table.setAttribute("aria-labelledby", heading.id);
+    matches.append(
+      heading,
       text(
         "p",
-        "Amount sent is what left the depositing address, before the 0.25% shield fee.",
+        "A match is relevant only if it includes your deposit.",
+        "match-context",
+      ),
+      table,
+      text(
+        "p",
+        "Amount sent is what left the depositing address, before the 0.25% shield fee. Matches use the amount after that fee.",
         "hint",
       ),
-    );
-    box.append(
       text(
         "p",
-        "A match can be 1 deposit, or 2–3 deposits added together.",
+        "A set can be 1 deposit, or 2–3 added together. A match alone does not prove a link.",
         "hint",
       ),
     );
     if (r.matches > r.sets.length)
-      box.append(text("p", "The list shows the 5 strongest matches.", "hint"));
-    if (!r.floor)
-      box.append(
+      matches.append(
         text(
           "p",
-          "If your deposit is in one of these matches, an analyst can link your withdrawal to it. If not, your risk is low.",
+          `Showing ${shown.size} distinct ${shown.size === 1 ? "set" : "sets"} from the ${r.sets.length} strongest matches. Similar-looking sets are listed once.`,
+          "hint",
         ),
       );
+    box.append(matches);
   }
   if (r.amountScore >= 6) {
     const safe = text("div", "", "safer");
@@ -396,6 +430,14 @@ function finish(r) {
     } else safe.append(text("p", "Withdraw a different amount."));
     box.append(safe);
   }
+  if ([r.q1, r.q2, r.q3].includes("unsure"))
+    box.append(
+      text(
+        "p",
+        "You selected Not sure. The score uses the worse answer.",
+        "uncertain",
+      ),
+    );
   const note = text("div", "", "result-note");
   note.append(
     text(
@@ -429,4 +471,5 @@ function finish(r) {
 window.addEventListener("resize", () => {
   if (!panel.hidden && !busy) draw(lastResult);
 });
+reveal();
 load();

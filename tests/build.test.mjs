@@ -56,6 +56,35 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     )[1];
     assert.equal(JSON.parse(json)["@type"], "WebApplication");
     assert.doesNotMatch(html, /demo|sample|synthetic|\sstyle=|noindex/i);
+    const about = readFileSync(join(directory, "dist/about/index.html"), "utf8");
+    assert.match(about, /<title>About railcheck<\/title>/);
+    assert.match(about, /id="disclaimer"/);
+    assert.match(about, /href="https:\/\/railcheck\.example\/about\/"/);
+    assert.match(
+      readFileSync(join(directory, "dist/about/index.md"), "utf8"),
+      /Your input stays private/,
+    );
+    assert.match(
+      readFileSync(join(directory, "dist/sitemap.xml"), "utf8"),
+      /https:\/\/railcheck\.example\/about\//,
+    );
+    assert.match(
+      readFileSync(join(directory, "dist/llms.txt"), "utf8"),
+      /\[About\]\(https:\/\/railcheck\.example\/about\/index\.md\)/,
+    );
+    assert.doesNotMatch(html + about, /how-it-works/);
+    const { redirects } = JSON.parse(
+      readFileSync(join(directory, "vercel.json"), "utf8"),
+    );
+    for (const [source, destination] of [
+      ["/how-it-works", "/about/"],
+      ["/how-it-works/:path*", "/about/:path*"],
+    ])
+      assert.ok(
+        redirects.some(
+          (r) => r.source === source && r.destination === destination && r.permanent,
+        ),
+      );
     const zip = readFileSync(join(directory, "dist/source.zip"));
     const end = zip.length - 22,
       count = zip.readUInt16LE(end + 10),
