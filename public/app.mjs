@@ -148,7 +148,10 @@ function draw(r, scan = 0) {
     rows = Math.ceil(cells / columns),
     stepY = height / Math.max(rows, 1),
     stepX = width / columns;
-  const lit = new Set(r?.points.map((p) => Math.floor(p.id / group)) || []);
+  const litIds = r?.sets?.length
+    ? r.sets.flatMap((s) => s.deposits.map((d) => d.id))
+    : r?.points?.map((p) => p.id) || [];
+  const lit = new Set(litIds.map((id) => Math.floor(id / group)));
   const color = getComputedStyle(panel).getPropertyValue("--band").trim();
   for (let i = 0; i < cells; i++) {
     const x = i % columns,
@@ -288,7 +291,9 @@ function finish(r) {
     box.append(
       text(
         "p",
-        `This amount points to ${r.pointCount} ${r.pointCount === 1 ? "deposit" : "deposits"}.`,
+        r.totals[1] || r.totals[2]
+          ? "This amount matches deposits as a single deposit or as a sum of 2–3 deposits."
+          : `This amount points to ${r.pointCount} ${r.pointCount === 1 ? "deposit" : "deposits"}.`,
       ),
     );
   else if (r.matches)
@@ -313,24 +318,28 @@ function finish(r) {
         "uncertain",
       ),
     );
-  if (r.points.length) {
+  if (r.sets?.length) {
     box.append(
-      text("h3", "Deposits that this amount points to", "table-label"),
+      text("h3", "Matches that add up to this amount", "table-label"),
     );
     const table = document.createElement("table");
     const head = table.createTHead().insertRow();
-    for (const name of ["Amount sent", "Date (UTC)"]) {
+    for (const name of ["Amounts sent", "Dates (UTC)"]) {
       const th = text("th", name);
       th.scope = "col";
       head.append(th);
     }
     const body = table.createTBody();
-    for (const d of r.points) {
-      const row = body.insertRow();
-      const gross = (BigInt(d.amount) * NANO * 10000n) / 9975n;
+    const amountSent = (nano) => {
+      const gross = (BigInt(nano) * NANO * 10000n) / 9975n;
       const rounded = (gross + 500000000000n) / 1000000000000n;
-      row.insertCell().textContent = `${rounded / 1000000n}.${(rounded % 1000000n).toString().padStart(6, "0")} ETH`;
-      row.insertCell().textContent = date(d.time);
+      return `${rounded / 1000000n}.${(rounded % 1000000n).toString().padStart(6, "0")}`;
+    };
+    for (const set of r.sets) {
+      const row = body.insertRow();
+      row.insertCell().textContent =
+        set.deposits.map((d) => amountSent(d.amount)).join(" + ") + " ETH";
+      row.insertCell().textContent = set.deposits.map((d) => date(d.time)).join(" · ");
     }
     box.append(table);
     box.append(
@@ -340,13 +349,20 @@ function finish(r) {
         "hint",
       ),
     );
-    if (r.pointCount > 5)
+    box.append(
+      text(
+        "p",
+        "A match can be 1 deposit, or 2–3 deposits added together.",
+        "hint",
+      ),
+    );
+    if (r.matches > r.sets.length)
       box.append(text("p", "The list shows the 5 strongest matches.", "hint"));
     if (!r.floor)
       box.append(
         text(
           "p",
-          `If ${r.pointCount === 1 ? "this deposit is" : "1 of these deposits is"} yours, an analyst can link your withdrawal to it. If not, your risk is low.`,
+          "If your deposit is in one of these matches, an analyst can link your withdrawal to it. If not, your risk is low.",
         ),
       );
   }
