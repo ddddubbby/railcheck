@@ -203,6 +203,11 @@ main {
   color: var(--muted);
   min-height: 20px;
 }
+fieldset .hint {
+  margin-top: 0;
+  margin-bottom: 12px;
+  min-height: 0;
+}
 .error {
   color: var(--critical);
 }

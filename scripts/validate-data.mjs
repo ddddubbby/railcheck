@@ -60,6 +60,7 @@ for (let i = 0; i < 400; i++) {
     BigInt(deposit.amount) * NANO,
     "no",
     "no",
+    "no",
     manifest.dataTime + 1,
   );
   if (r.score >= 51) critical++;

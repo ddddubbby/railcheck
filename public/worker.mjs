@@ -42,6 +42,7 @@ self.onmessage = async ({ data }) => {
           parseAmount(data.amount),
           data.q1,
           data.q2,
+          data.q3,
           now,
         ),
         manifest,

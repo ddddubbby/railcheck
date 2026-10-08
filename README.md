@@ -2,13 +2,14 @@
 
 Check your RAILGUN withdrawal privacy before you unshield.
 
-railcheck is a free, open-source tool that helps you spot two ways a planned withdrawal can become linked to a deposit: a distinctive amount and an existing connection between addresses. It runs the check on your device, without connecting a wallet or asking for an address.
+railcheck is a free, open-source tool that helps you spot three ways a planned withdrawal can become linked to a deposit: a distinctive amount, an existing connection between addresses, and withdrawing the rest of a partly withdrawn deposit. It runs the check on your device, without connecting a wallet or asking for an address.
 
 ## What it can do
 
 - Compare a planned ETH withdrawal with public RAILGUN WETH deposits on Ethereum from the last 180 days.
 - Look for matches to individual deposits and combinations of two or three deposits, accounting for the unshield fee.
 - Flag address reuse and prior transfers between the deposit and destination addresses, based on your answers.
+- Flag withdrawing the rest of a deposit you already partly withdrew, based on your answer.
 - Show a risk score with an explanation of the signals behind it.
 - Suggest a smaller amount when an alternative meets the model's lower-risk criteria.
 - Show when the public deposit snapshot was updated, and warn when it is stale.
@@ -16,7 +17,7 @@ railcheck is a free, open-source tool that helps you spot two ways a planned wit
 ## How to use it
 
 1. Enter the amount you plan to unshield.
-2. Answer two questions about the destination address. You never enter the address itself.
+2. Answer three questions about the destination address and whether this is the rest of a deposit. You never enter the address itself.
 3. Read the result and, when available, consider the suggested amount.
 
 The check does not submit a transaction or move funds. Support currently covers RAILGUN ETH withdrawals on Ethereum.
