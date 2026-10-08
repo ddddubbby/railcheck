@@ -65,13 +65,13 @@ if (sourceURL) {
     throw Error("SOURCE_URL must be an HTTPS URL.");
 }
 rmSync("dist", { recursive: true, force: true });
-mkdirSync("dist/how-it-works", { recursive: true });
+mkdirSync("dist/about", { recursive: true });
 cpSync("public", "dist", { recursive: true });
 cpSync("lib", "dist/lib", { recursive: true });
 cpSync("src/style.css", "dist/style.css");
 for (const [source, destination, path] of [
   ["src/index.html", "dist/index.html", "/"],
-  ["src/how-it-works.html", "dist/how-it-works/index.html", "/how-it-works/"],
+  ["src/about.html", "dist/about/index.html", "/about/"],
   ["src/404.html", "dist/404.html", "/404"],
 ]) {
   let html = readFileSync(source, "utf8");
@@ -92,7 +92,7 @@ for (const [source, destination, path] of [
   html = html
     .replace("{{METER}}", "<i></i>".repeat(10))
     .replaceAll("{{DATA_DATE}}", `Data updated ${date(manifest.dataTime)}`)
-    .replaceAll("{{CONTENT_DATE}}", "7 Oct 2026");
+    .replaceAll("{{CONTENT_DATE}}", "8 Oct 2026");
   if (sourceURL)
     html = html.replaceAll(
       'href="/source.zip" download',
@@ -137,13 +137,13 @@ if (origin) {
   );
   writeFileSync(
     "dist/sitemap.xml",
-    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${["/", "/how-it-works/"].map((path) => `<url><loc>${escape(origin + path)}</loc><lastmod>2026-10-07</lastmod></url>`).join("")}</urlset>\n`,
+    `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${["/", "/about/"].map((path) => `<url><loc>${escape(origin + path)}</loc><lastmod>2026-10-08</lastmod></url>`).join("")}</urlset>\n`,
   );
 } else writeFileSync("dist/robots.txt", "User-agent: *\nDisallow: /\n");
 const prefix = origin || "";
 writeFileSync(
   "dist/llms.txt",
-  `# railcheck\n\nrailcheck compares a planned RAILGUN ETH withdrawal on Ethereum with deposits of the last 180 days. The check runs in the browser. It collects no amounts or addresses.\n\n- [Check](${prefix}/index.md)\n- [How it works](${prefix}/how-it-works/index.md)\n- [Pool manifest](${prefix}/data/manifest.json)\n`,
+  `# railcheck\n\nrailcheck compares a planned RAILGUN ETH withdrawal on Ethereum with deposits of the last 180 days. The check runs in the browser. It collects no amounts or addresses.\n\n- [Check](${prefix}/index.md)\n- [About](${prefix}/about/index.md)\n- [Pool manifest](${prefix}/data/manifest.json)\n`,
 );
 await import("./archive.mjs");
 console.log(

@@ -32,7 +32,7 @@ The site loads the same public deposit snapshot for every visitor. Once that sna
 
 The score is a model-based indication of amount matching, address-link and split-withdrawal risk, not a measured probability of identification or a guarantee of anonymity. Address and split-withdrawal checks rely on your answers; railcheck does not inspect a wallet's history.
 
-It does not cover every source of information an observer might have, including timing, IP addresses, exchange records and other off-chain data. A lower score means fewer signals under this model. The [method page](src/how-it-works.html) explains the assumptions and limitations.
+It does not cover every source of information an observer might have, including timing, IP addresses, exchange records and other off-chain data. A lower score means fewer signals under this model. The [About page](src/about.html) explains the assumptions and limitations.
 
 railcheck is an independent project and is not an official RAILGUN product.
 

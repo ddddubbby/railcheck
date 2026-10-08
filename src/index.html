@@ -33,7 +33,7 @@
     <div class="shell">
       <header>
         <a class="brand" href="/">railcheck</a
-        ><a class="nav-link" href="/how-it-works/">How It Works</a>
+        ><a class="nav-link" href="/about/">About</a>
       </header>
       <div
         class="progress"
@@ -49,11 +49,21 @@
         <p class="lede">
           See if your amount points back to your deposit before you unshield.
         </p>
-        <ul class="trust sys" aria-label="About this check">
-          <li>Runs on your device</li>
-          <li>No wallet</li>
-          <li>No address</li>
-          <li>Open source</li>
+        <ul class="assure" aria-label="About this check">
+          <li>
+            <canvas class="pix" aria-hidden="true" width="7" height="7"></canvas>
+            <div>
+              <strong>Your input stays in your browser</strong>
+              <span>Your amount and answers are never sent to a server.</span>
+            </div>
+          </li>
+          <li>
+            <canvas class="pix" aria-hidden="true" width="7" height="7"></canvas>
+            <div>
+              <strong><a href="/source.zip" download>Open source</a></strong>
+              <span>See how your result is calculated.</span>
+            </div>
+          </li>
         </ul>
         <div class="notice" id="notice" role="status" hidden></div>
         <form id="check-form" novalidate autocomplete="off">
@@ -117,7 +127,7 @@
             </fieldset>
           </div>
           <button class="primary" id="check-button" type="submit">
-            Check<span class="busy-cells" aria-hidden="true">▪▪▪</span>
+            Check amount<span class="busy-cells" aria-hidden="true">▪▪▪</span>
           </button>
         </form>
         <section class="result" id="result" hidden aria-busy="false">
@@ -159,17 +169,18 @@
         ></div>
         <noscript
           ><p>
-            This check needs JavaScript to run on your device. The method page
+            This check needs JavaScript to run on your device. The <a href="/about/">About page</a>
             works without it.
           </p></noscript
         >
       </main>
       <footer>
         <div class="footer-links">
-          <a href="/how-it-works/">How It Works</a
+          <a href="/about/">About</a
           ><a href="/source.zip" download>Source code</a>
         </div>
-        <p>Independent tool. Not affiliated with RAILGUN.</p>
+        <p>Independent community project. Not affiliated with RAILGUN.</p>
+        <p>Not financial or legal advice. <a href="/about/#disclaimer">Disclaimer</a></p>
         <p id="data-date">{{DATA_DATE}}</p>
       </footer>
     </div>

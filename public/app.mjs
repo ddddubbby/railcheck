@@ -34,6 +34,43 @@ const text = (tag, content, cls) => {
   if (cls) el.className = cls;
   return el;
 };
+// Only the decorative pixels animate; the assurance text is always readable.
+function reveal() {
+  const icons = [
+    ["..###..", ".#...#.", ".#...#.", "#######", "###.###", "###.###", "#######"],
+    ["....#..", ".#..##.", "#..#..#", "#..#..#", "#..#..#", ".##..#.", "..#...."],
+  ];
+  const color = getComputedStyle(document.documentElement)
+    .getPropertyValue("--signal")
+    .trim();
+  document.querySelectorAll(".assure .pix").forEach((icon, index) => {
+    const context = icon.getContext("2d");
+    if (!context) return;
+    const cells = icons[index].flatMap((row, y) =>
+      [...row].flatMap((cell, x) => (cell === "#" ? [[x, y]] : [])),
+    );
+    // Fisher–Yates gives each pixel an independent place in the build.
+    for (let i = cells.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cells[i], cells[j]] = [cells[j], cells[i]];
+    }
+    context.fillStyle = color;
+    const begin = performance.now() + index * 100;
+    let drawn = 0;
+    const build = (now) => {
+      const progress = reduced.matches
+        ? 1
+        : Math.min(1, Math.max(0, (now - begin) / 350));
+      const count = Math.floor(progress * cells.length);
+      while (drawn < count) {
+        const [x, y] = cells[drawn++];
+        context.fillRect(x, y, 1, 1);
+      }
+      if (progress < 1) requestAnimationFrame(build);
+    };
+    build(performance.now());
+  });
+}
 function load() {
   ready = false;
   $("progress").hidden = false;
@@ -282,30 +319,87 @@ function finish(r) {
   else if (r.amountScore >= 6)
     verdict(
       r.sets.some((set) => set.deposits.length > 1)
-        ? "This amount matches deposits as a single deposit or as a sum of 2–3 deposits."
+        ? "Your amount matches public deposits."
         : `This amount points to ${r.pointCount} ${r.pointCount === 1 ? "deposit" : "deposits"}.`,
-      ...(r.sets.length
-        ? [
-            "If your deposit is in one of these matches, an analyst can link your withdrawal to it. If not, your risk is low.",
-          ]
-        : []),
     );
   else if (r.matches)
     verdict(
-      `This amount points to no deposit. It hides among about ${r.crowd} deposits.`,
+      "No strong amount match was found among the public deposits.",
     );
   else
     verdict(
       "No deposit, and no set of 2 or 3 deposits, adds up to this amount.",
     );
-  if ([r.q1, r.q2, r.q3].includes("unsure"))
-    box.append(
+  if (r.sets?.length) {
+    const matches = text("section", "", "matches");
+    matches.setAttribute("aria-labelledby", "matches-heading");
+    const table = document.createElement("table");
+    const head = table.createTHead().insertRow();
+    for (const name of ["Amounts sent", "Dates (UTC)"]) {
+      const th = text("th", name);
+      th.scope = "col";
+      head.append(th);
+    }
+    const body = table.createTBody();
+    const amountSent = (nano) => {
+      const gross = (BigInt(nano) * NANO * 10000n) / 9975n;
+      const rounded = (gross + 500000000000n) / 1000000000000n;
+      return `${rounded / 1000000n}.${(rounded % 1000000n).toString().padStart(6, "0")}`;
+    };
+    const shown = new Set();
+    for (const set of r.sets) {
+      const amounts =
+          set.deposits.map((d) => amountSent(d.amount)).join(" + ") + " ETH",
+        dates = set.deposits.map((d) => date(d.time)).join(" · ");
+      // Different deposits can look the same once rounded; list them once.
+      if (shown.has(amounts + dates)) continue;
+      shown.add(amounts + dates);
+      const row = body.insertRow();
+      const amountCell = row.insertCell(),
+        dateCell = row.insertCell();
+      for (const [index, deposit] of set.deposits.entries()) {
+        const leg = text("span", "", "match-leg");
+        if (index) leg.append(text("span", "+ ", "match-plus"));
+        leg.append(document.createTextNode(`${amountSent(deposit.amount)} ETH`));
+        amountCell.append(leg);
+        dateCell.append(text("span", date(deposit.time), "match-leg"));
+      }
+    }
+    const heading = text(
+      "h3",
+      `${shown.size} matching deposit ${shown.size === 1 ? "set" : "sets"}`,
+    );
+    heading.id = "matches-heading";
+    table.setAttribute("aria-labelledby", heading.id);
+    matches.append(
+      heading,
       text(
         "p",
-        "You selected Not sure. The score uses the worse answer.",
-        "uncertain",
+        "A match is relevant only if it includes your deposit.",
+        "match-context",
+      ),
+      table,
+      text(
+        "p",
+        "Amount sent is what left the depositing address, before the 0.25% shield fee. Matches use the amount after that fee.",
+        "hint",
+      ),
+      text(
+        "p",
+        "A set can be 1 deposit, or 2–3 added together. A match alone does not prove a link.",
+        "hint",
       ),
     );
+    if (r.matches > r.sets.length)
+      matches.append(
+        text(
+          "p",
+          `Showing ${shown.size} distinct ${shown.size === 1 ? "set" : "sets"} from the ${r.sets.length} strongest matches. Similar-looking sets are listed once.`,
+          "hint",
+        ),
+      );
+    box.append(matches);
+  }
   if (r.amountScore >= 6) {
     const safe = text("div", "", "safer");
     if (r.safer) {
@@ -336,54 +430,14 @@ function finish(r) {
     } else safe.append(text("p", "Withdraw a different amount."));
     box.append(safe);
   }
-  if (r.sets?.length) {
-    const details = document.createElement("details");
-    details.className = "matches";
-    details.append(text("summary", "See the matching deposits"));
-    const table = document.createElement("table");
-    const head = table.createTHead().insertRow();
-    for (const name of ["Amounts sent", "Dates (UTC)"]) {
-      const th = text("th", name);
-      th.scope = "col";
-      head.append(th);
-    }
-    const body = table.createTBody();
-    const amountSent = (nano) => {
-      const gross = (BigInt(nano) * NANO * 10000n) / 9975n;
-      const rounded = (gross + 500000000000n) / 1000000000000n;
-      return `${rounded / 1000000n}.${(rounded % 1000000n).toString().padStart(6, "0")}`;
-    };
-    const shown = new Set();
-    for (const set of r.sets) {
-      const amounts =
-          set.deposits.map((d) => amountSent(d.amount)).join(" + ") + " ETH",
-        dates = set.deposits.map((d) => date(d.time)).join(" · ");
-      // Different deposits can look the same once rounded; list them once.
-      if (shown.has(amounts + dates)) continue;
-      shown.add(amounts + dates);
-      const row = body.insertRow();
-      row.insertCell().textContent = amounts;
-      row.insertCell().textContent = dates;
-    }
-    details.append(
-      table,
+  if ([r.q1, r.q2, r.q3].includes("unsure"))
+    box.append(
       text(
         "p",
-        "Amount sent is what left the depositing address, before the 0.25% shield fee.",
-        "hint",
-      ),
-      text(
-        "p",
-        "A match can be 1 deposit, or 2–3 deposits added together.",
-        "hint",
+        "You selected Not sure. The score uses the worse answer.",
+        "uncertain",
       ),
     );
-    if (r.matches > r.sets.length)
-      details.append(
-        text("p", "The list shows the 5 strongest matches.", "hint"),
-      );
-    box.append(details);
-  }
   const note = text("div", "", "result-note");
   note.append(
     text(
@@ -417,4 +471,5 @@ function finish(r) {
 window.addEventListener("resize", () => {
   if (!panel.hidden && !busy) draw(lastResult);
 });
+reveal();
 load();

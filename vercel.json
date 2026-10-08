@@ -37,5 +37,17 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/how-it-works",
+      "destination": "/about/",
+      "permanent": true
+    },
+    {
+      "source": "/how-it-works/:path*",
+      "destination": "/about/:path*",
+      "permanent": true
+    }
   ]
 }
