@@ -146,13 +146,6 @@ main {
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.5;
-  margin-bottom: 4px;
-}
-.assure span {
-  display: block;
-  color: var(--muted);
-  font-size: 0.8125rem;
-  line-height: 1.6;
 }
 .assure a {
   text-decoration-color: var(--tick);
@@ -769,9 +762,6 @@ details p {
   }
   .assure .pix {
     margin: 2px 0 0;
-  }
-  .assure strong {
-    margin-bottom: 2px;
   }
   .matches {
     padding: 16px 12px;

@@ -25,7 +25,7 @@ Import the GitHub repository into Vercel. The included `vercel.json` selects sta
 - Node.js: 22 or later.
 - Web Analytics and Speed Insights: leave disabled.
 - Set `SITE_URL` to your production HTTPS origin, such as your actual domain or Vercel production URL. No path, query or credentials.
-- Optionally set `SOURCE_URL` to the GitHub repository URL. Without it, the site offers a source ZIP from its own origin.
+- Optionally set `SOURCE_URL` to override the default Open source GitHub link (`https://github.com/ddddubbby/railcheck`). The build still emits `dist/source.zip` for offline review; the UI links to the repository.
 
 If `SITE_URL` is not set, the build can use `VERCEL_PROJECT_PRODUCTION_URL` in Vercel's production environment. Local builds and previews remain unindexed when neither production origin is available. Canonical URLs, sitemap, Open Graph/X metadata and WebApplication structured data are generated once the production origin is configured.
 
