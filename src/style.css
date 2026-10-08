@@ -415,6 +415,13 @@ canvas {
 .result th:last-child {
   text-align: right;
 }
+.result table.match-sets td {
+  vertical-align: top;
+  line-height: 1.45;
+}
+.result table.match-sets td:last-child {
+  max-width: 11rem;
+}
 .result .table-label {
   font-size: 0.875rem;
   font-weight: 500;

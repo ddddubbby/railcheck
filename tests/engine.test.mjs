@@ -5,9 +5,11 @@ import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import {
   countSets,
+  listMatchingSets,
   parseAmount,
   formatWei,
   check,
+  amountScore,
   NANO,
   afterUnshieldFee,
 } from "../lib/engine/index.mjs";
@@ -90,6 +92,10 @@ test("fixture match, safer amount and conservative floors", () => {
   const r = check(pool, amount, "no", "no", "no", now);
   assert.equal(r.band, "Critical");
   assert.ok(r.points.length);
+  assert.ok(r.sets.length);
+  assert.equal(r.sets[0].size, 1);
+  assert.equal(r.sets[0].legs.length, 1);
+  assert.ok(r.setCount >= 1);
   assert.ok(r.safer);
   assert.ok(check(pool, parseAmount(r.safer), "no", "no", "no", now).score <= 5);
   for (const q of ["yes", "unsure"]) {
@@ -107,6 +113,79 @@ test("fixture match, safer amount and conservative floors", () => {
   assert.equal(unchanged.score, unchanged.amountScore);
   assert.ok(Number.isInteger(r.crowd) && r.crowd <= r.n);
   console.log("Fixture match:", r.score, "Safer amount:", r.safer);
+});
+test("matching sets prefer smallest size and show partners", () => {
+  const now = 1_800_000_000;
+  const deposits = [
+    { id: 0, amount: 50_000_000, time: now - 10 }, // 0.05
+    { id: 1, amount: 50_000_000, time: now - 20 },
+    { id: 2, amount: 19_950_000_000, time: now - 30 }, // 19.95
+    { id: 3, amount: 19_950_000_000, time: now - 40 },
+    { id: 4, amount: 3_500_000_000, time: now - 50 }, // 3.5
+    { id: 5, amount: 1_000_000_000, time: now - 60 }, // 1.0
+    { id: 6, amount: 4_500_000_000, time: now - 70 }, // exact 4.5 single
+  ];
+  const twenty = amountScore(deposits, parseAmount("20"));
+  assert.equal(twenty.score, amountScore(deposits, parseAmount("20")).score);
+  assert.ok(twenty.totals[0] === 0 && twenty.totals[1] > 0);
+  assert.ok(twenty.sets.length >= 1);
+  assert.ok(twenty.sets.every((s) => s.size === 2 && s.legs.length === 2));
+  assert.ok(
+    twenty.sets.every(
+      (s) =>
+        s.legs[0].amount + s.legs[1].amount >= 19_999_995_000 &&
+        s.legs[0].amount + s.legs[1].amount <= 20_000_005_000,
+    ),
+  );
+  assert.ok(twenty.sets[0].legs[0].amount < twenty.sets[0].legs[1].amount);
+  assert.ok(twenty.setCount >= twenty.sets.length);
+
+  const split = amountScore(deposits, parseAmount("4.5"));
+  assert.ok(split.totals[0] >= 1);
+  assert.equal(split.sets[0].size, 1);
+  assert.equal(split.sets[0].legs[0].amount, 4_500_000_000);
+  assert.ok(split.sets.every((s) => s.size === 1));
+
+  const pairOnly = amountScore(
+    deposits.filter((d) => d.amount !== 4_500_000_000),
+    parseAmount("4.5"),
+  );
+  assert.equal(pairOnly.totals[0], 0);
+  assert.ok(pairOnly.sets.every((s) => s.size === 2));
+  assert.ok(
+    pairOnly.sets.some(
+      (s) =>
+        s.legs.some((l) => l.amount === 3_500_000_000) &&
+        s.legs.some((l) => l.amount === 1_000_000_000),
+    ),
+  );
+});
+test("listMatchingSets ranks by posterior without changing counts", () => {
+  const deposits = [
+    { id: 0, amount: 100_000_000, time: 1 },
+    { id: 1, amount: 200_000_000, time: 2 },
+    { id: 2, amount: 300_000_000, time: 3 },
+  ];
+  const wei = 300_000_000n * NANO;
+  const sorted = deposits.slice().sort((a, b) => a.amount - b.amount);
+  const { counts, totals } = countSets(
+    sorted.map((d) => d.amount),
+    wei,
+  );
+  assert.deepEqual(totals, [1, 1, 0]);
+  const pByIndex = [0.1, 0.2, 0.9];
+  const { sets, setCount } = listMatchingSets(
+    sorted,
+    wei,
+    pByIndex,
+    counts,
+    totals,
+    5,
+  );
+  assert.equal(setCount, 1);
+  assert.equal(sets.length, 1);
+  assert.equal(sets[0].size, 1);
+  assert.equal(sets[0].legs[0].amount, 300_000_000);
 });
 test("180-day cutoff and stale empty pools are explicit", () => {
   assert.throws(

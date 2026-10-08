@@ -55,7 +55,9 @@
             </li>
             <li>
               The strongest deposit match sets the amount score. Many competing
-              matches can reduce it.
+              matches can reduce it. The result table shows matching sets of 1,
+              2 or 3 deposits (each leg with its amount sent and date), not lone
+              legs that only make sense with partners.
             </li>
             <li>
               An address match sets a score of at least 100. A past transaction
@@ -96,7 +98,7 @@
               <tr>
                 <td>6–20</td>
                 <td>Medium</td>
-                <td>The amount points to a deposit.</td>
+                <td>The amount matches a deposit set.</td>
               </tr>
               <tr>
                 <td>21–50</td>
@@ -172,7 +174,8 @@
             <summary>Why does the withdrawal amount matter?</summary>
             <p>
               An amount can equal 1 deposit or a sum of 2 or 3 deposits. A rare
-              match can point to its source.
+              match can point to its source. The result table lists those sets,
+              with each deposit’s amount sent and date.
             </p>
           </details>
           <details>
