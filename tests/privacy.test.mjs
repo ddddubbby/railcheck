@@ -50,14 +50,7 @@ test("worker loads 2 common data files and makes no network request when checkin
   assert.equal(calls.length, 2);
   calls.length = 0;
   await self.onmessage({
-    data: {
-      type: "check",
-      amount: "3.502749352",
-      q1: "no",
-      q2: "no",
-      q3: "no",
-      id: 1,
-    },
+    data: { type: "check", amount: "3.502749352", q1: "no", q2: "no", q3: "no", id: 1 },
   });
   assert.equal(messages.at(-1).type, "result");
   assert.equal(calls.length, 0);

@@ -47,14 +47,19 @@
           withdrawal amount
         </h1>
         <p class="lede">
-          Enter the amount that you will unshield. railcheck compares it with
-          every deposit of the last 180 days. The check runs on your device.
+          See if your amount points back to your deposit before you unshield.
         </p>
+        <ul class="trust sys" aria-label="About this check">
+          <li>Runs on your device</li>
+          <li>No wallet</li>
+          <li>No address</li>
+          <li>Open source</li>
+        </ul>
         <div class="notice" id="notice" role="status" hidden></div>
         <form id="check-form" novalidate autocomplete="off">
-          <div class="group">
-            <label class="field-label sys" for="amount"
-              >Amount to unshield</label
+          <div class="step">
+            <label class="step-label sys" for="amount"
+              ><span class="step-number">1</span>Amount to unshield</label
             >
             <div class="amount-wrap">
               <input
@@ -70,33 +75,47 @@
             <p class="hint" id="recipient" hidden></p>
             <p class="error" id="amount-error" hidden></p>
           </div>
-          <fieldset class="group" id="q1-group" aria-describedby="q1-error">
-            <legend>
-              Will you withdraw to the address that made the deposit?
-            </legend>
-            <div class="choices">{{Q1}}</div>
-            <p class="error" id="q1-error" hidden>Select an answer.</p>
-          </fieldset>
-          <fieldset class="group" id="q2-group" aria-describedby="q2-error">
-            <legend>
-              Did the destination address ever send funds to the deposit
-              address, or get funds from it?
-            </legend>
-            <div class="choices">{{Q2}}</div>
-            <p class="error" id="q2-error" hidden>Select an answer.</p>
-          </fieldset>
-          <fieldset class="group" id="q3-group" aria-describedby="q3-hint q3-error">
-            <legend>
-              Will you withdraw the rest of a deposit that you already partly
-              withdrew?
-            </legend>
-            <p class="hint" id="q3-hint">
-              For example, you deposited 9.12 ETH, withdrew 3 ETH, and now
-              withdraw the remaining 6.12 ETH.
-            </p>
-            <div class="choices">{{Q3}}</div>
-            <p class="error" id="q3-error" hidden>Select an answer.</p>
-          </fieldset>
+          <div class="step">
+            <h2 class="step-label sys">
+              <span class="step-number">2</span>Destination address
+            </h2>
+            <fieldset class="group" id="q1-group" aria-describedby="q1-error">
+              <legend>
+                Will you withdraw to the address that made the deposit?
+              </legend>
+              <div class="choices">{{Q1}}</div>
+              <p class="error" id="q1-error" hidden>Select an answer.</p>
+            </fieldset>
+            <fieldset class="group" id="q2-group" aria-describedby="q2-error">
+              <legend>
+                Did the destination address ever send funds to the deposit
+                address, or get funds from it?
+              </legend>
+              <div class="choices">{{Q2}}</div>
+              <p class="error" id="q2-error" hidden>Select an answer.</p>
+            </fieldset>
+          </div>
+          <div class="step">
+            <h2 class="step-label sys">
+              <span class="step-number">3</span>Earlier withdrawals
+            </h2>
+            <fieldset
+              class="group"
+              id="q3-group"
+              aria-describedby="q3-example q3-error"
+            >
+              <legend>
+                Will you withdraw the rest of a deposit that you already partly
+                withdrew?
+              </legend>
+              <p class="hint example" id="q3-example">
+                For example, you deposited 9.12 ETH, withdrew 3 ETH, and now
+                withdraw the remaining 6.12 ETH.
+              </p>
+              <div class="choices">{{Q3}}</div>
+              <p class="error" id="q3-error" hidden>Select an answer.</p>
+            </fieldset>
+          </div>
           <button class="primary" id="check-button" type="submit">
             Check<span class="busy-cells" aria-hidden="true">▪▪▪</span>
           </button>
@@ -123,6 +142,10 @@
             </div>
           </div>
           <canvas id="crowd" aria-hidden="true"></canvas>
+          <p class="crowd-caption" id="crowd-caption" hidden>
+            Each cell is a group of deposits from the last 180 days. Lit cells
+            match your amount.
+          </p>
           <p id="scan-label" class="scan-label" hidden>
             Checking the deposits…
           </p>

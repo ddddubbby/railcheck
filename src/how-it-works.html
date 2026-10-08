@@ -24,7 +24,8 @@
         <h1>How railcheck works</h1>
         <p class="lede">
           An amount can point to a deposit. An address link can reveal more.
-          railcheck checks these 2 risks.
+          So can withdrawing the rest of a deposit. railcheck checks these 3
+          risks.
         </p>
         <section>
           <h2>What railcheck checks</h2>
@@ -59,11 +60,8 @@
             </li>
             <li>
               An address match sets a score of at least 100. A past transaction
-              between the addresses sets at least 90.
-            </li>
-            <li>
-              Withdrawing the rest of a partly withdrawn deposit sets at least
-              90.
+              between the addresses sets at least 90. Withdrawing the rest of a
+              deposit that you already partly withdrew also sets at least 90.
             </li>
             <li>
               Not sure uses the worse answer. It does not prove that a link
@@ -107,7 +105,7 @@
                 <td>51–100</td>
                 <td>Critical</td>
                 <td>
-                  The amount or your address answers give a strong signal.
+                  The amount or your answers give a strong signal.
                 </td>
               </tr>
             </tbody>
@@ -145,9 +143,9 @@
             </li>
             <li>The model assumes that a broadcaster sends the withdrawal.</li>
             <li>
-              If this withdrawal is the rest of a deposit you already partly
-              withdrew, answer Yes to that question. The combined amounts can
-              create a link.
+              Withdrawing the rest of a deposit can create a link, because
+              your withdrawals add up to that deposit. railcheck asks about this.
+              It does not check other withdrawals.
             </li>
             <li>
               A lower amount score does not remove a link between addresses.
@@ -164,8 +162,9 @@
               Can someone link my RAILGUN withdrawal to my deposit?
             </summary>
             <p>
-              Yes. An amount or an address link can connect a withdrawal to a
-              deposit. Other data can also create a link.
+              Yes. An amount, an address link, or withdrawals that add up to a
+              deposit can connect a withdrawal to that deposit. Other data can
+              also create a link.
             </p>
           </details>
           <details>
