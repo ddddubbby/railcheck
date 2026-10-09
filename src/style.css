@@ -18,16 +18,32 @@
   --line: rgba(255, 255, 255, 0.1);
   --text: rgba(255, 255, 255, 0.92);
   --muted: rgba(255, 255, 255, 0.62);
+  /* Lines and gridlines only; too faint for text (3.8:1). */
   --tick: rgba(255, 255, 255, 0.4);
+  --edge: #76767b;
+  /* Brand accent: icons, focus, hover, selection. */
   --signal: #aebce5;
-  --deposit: #83d9bb;
-  --withdrawal: #eaa394;
-  --chart-label: #85858e;
+  --signal-hover: #c2cceb;
+  --signal-active: #98a6d0;
+  /* Chart series. Kept apart from the risk colours below. */
+  --deposit: var(--signal);
+  --withdrawal: var(--muted);
+  /* Risk and status only. */
   --low: #5fe0ac;
   --medium: #e8c36a;
   --high: #f59e5b;
   --critical: #ff6072;
-  font-family: Geist, Arial, sans-serif;
+  /* Type: sans for words, mono for data and .sys labels. */
+  --sans: Geist, Arial, sans-serif;
+  --mono: GeistMono, monospace;
+  --fs-caption: 0.75rem;
+  --fs-small: 0.875rem;
+  --fs-body: 1rem;
+  --fs-lead: 1.125rem;
+  --fs-stat: 1.75rem;
+  /* Card side padding. The hero uses it too, so all text shares one edge. */
+  --card-pad: 24px;
+  font-family: var(--sans);
   font-size: 16px;
   font-variant-numeric: tabular-nums;
 }
@@ -78,13 +94,13 @@ h1 {
   margin: 0 0 20px;
 }
 h2 {
-  font-size: 1.125rem;
+  font-size: var(--fs-lead);
   font-weight: 500;
   line-height: 1.5;
   margin: 0 0 16px;
 }
 h3 {
-  font-size: 1.125rem;
+  font-size: var(--fs-lead);
   font-weight: 500;
 }
 .shell {
@@ -104,7 +120,7 @@ header {
   margin-bottom: 40px;
 }
 .brand {
-  font-family: GeistMono, monospace;
+  font-family: var(--mono);
   text-decoration: none;
   font-size: 1.25rem;
   font-weight: 600;
@@ -114,14 +130,14 @@ header {
   align-items: center;
 }
 .nav-link {
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   text-decoration: none;
   min-height: 44px;
   display: flex;
   align-items: center;
 }
 main {
-  font-size: 1.125rem;
+  font-size: var(--fs-lead);
 }
 .lede {
   color: var(--muted);
@@ -136,6 +152,8 @@ main {
 }
 .hero {
   margin-bottom: 34px;
+  /* Line up with the text inside the cards: their padding plus 1px border. */
+  padding-inline: calc(var(--card-pad) + 1px);
 }
 .hero h1 {
   font-size: clamp(2rem, 4.4vw, 3rem);
@@ -145,10 +163,10 @@ main {
 }
 .hero .lede {
   max-width: 570px;
-  font-size: 1.0625rem;
+  font-size: var(--fs-lead);
   line-height: 1.65;
   margin: 0;
-  text-wrap: pretty;
+  text-wrap: balance;
 }
 .assure {
   display: flex;
@@ -172,48 +190,36 @@ main {
 }
 .assure strong {
   display: block;
-  font-size: 0.8125rem;
+  font-size: var(--fs-small);
   font-weight: 400;
   line-height: 1.5;
-  color: #b5b5bf;
+  color: var(--muted);
 }
 .assure a {
-  text-decoration-color: #65656f;
+  text-decoration-color: var(--tick);
 }
 .pulse {
-  background: #101015;
+  background: var(--inset);
   border: 1px solid var(--line);
   border-radius: 8px;
-  padding: 24px 24px 0;
+  padding: 24px var(--card-pad) 0;
   margin: 0 0 32px;
   overflow: hidden;
 }
 .pulse-top {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  gap: 16px;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 16px;
 }
 .pulse-top h2 {
   margin: 0;
-  font-size: 0.9375rem;
-  line-height: 1.45;
-}
-.pulse-top h2 span {
-  display: inline-block;
-  margin-left: 12px;
-  color: var(--muted);
-  font-size: 0.75rem;
-  font-weight: 400;
 }
 .pulse-period {
-  font-family: GeistMono, monospace;
-  font-size: 0.6875rem;
-  white-space: nowrap;
-  padding: 5px 8px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: #b9b9c3;
+  margin: 0;
+  font-size: var(--fs-caption);
+  color: var(--muted);
 }
 .pulse-stats {
   display: grid;
@@ -227,37 +233,32 @@ main {
 .pulse-stats dt {
   display: flex;
   align-items: center;
-  gap: 7px;
-  font-size: 0.8125rem;
+  gap: 8px;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 .activity-key {
-  font-family: GeistMono, monospace;
-  font-size: 0.875rem;
+  font-family: var(--mono);
 }
-.deposit-key,
-.deposit-readout > span:first-child {
+.deposit-key {
   color: var(--deposit);
 }
-.withdrawal-key,
-.withdrawal-readout > span:first-child {
+.withdrawal-key {
   color: var(--withdrawal);
 }
 .pulse-stats dd {
   margin: 8px 0 0;
-  font-size: 2rem;
-  letter-spacing: -0.035em;
-  font-weight: 450;
+  font-family: var(--mono);
+  font-size: var(--fs-stat);
+  font-weight: 400;
   line-height: 1.15;
 }
 .pulse-stats dd span {
   display: block;
-  margin-top: 7px;
-  font:
-    0.75rem/1.4 GeistMono,
-    monospace;
+  margin-top: 6px;
+  font-size: var(--fs-caption);
+  line-height: 1.4;
   color: var(--muted);
-  letter-spacing: -0.02em;
 }
 .pulse-chart-label {
   display: flex;
@@ -265,10 +266,7 @@ main {
   gap: 12px;
   margin: 20px 0 0;
   color: var(--muted);
-  font-size: 0.625rem;
-}
-.pulse-chart-label > span + span {
-  color: var(--chart-label);
+  font-size: var(--fs-caption);
 }
 .pulse-chart {
   position: relative;
@@ -294,16 +292,18 @@ main {
   outline-offset: 5px;
   border-radius: 2px;
 }
+/* Readout values are data, so they are all mono: value, then detail. */
 .pulse-readout {
   border-top: 1px solid var(--line);
   padding: 16px 0;
   display: grid;
   grid-template-columns: 1.25fr 1fr 1fr;
   gap: 10px;
+  font-family: var(--mono);
 }
 .pulse-readout p {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: var(--fs-small);
   line-height: 1.5;
 }
 .pulse-readout span {
@@ -311,10 +311,21 @@ main {
 }
 .pulse-readout span + span {
   margin-top: 4px;
-  font:
-    0.6875rem/1.5 GeistMono,
-    monospace;
+  font-size: var(--fs-caption);
   color: var(--muted);
+  white-space: nowrap;
+}
+.deposit-readout > span:first-child::before,
+.withdrawal-readout > span:first-child::before {
+  margin-right: 6px;
+}
+.deposit-readout > span:first-child::before {
+  content: "↑" / "";
+  color: var(--deposit);
+}
+.withdrawal-readout > span:first-child::before {
+  content: "↓" / "";
+  color: var(--withdrawal);
 }
 .pulse-bottom {
   display: flex;
@@ -327,7 +338,7 @@ main {
 }
 .pulse-bottom > p {
   margin: 0;
-  font-size: 0.6875rem;
+  font-size: var(--fs-caption);
   color: var(--muted);
 }
 .activity-details {
@@ -336,16 +347,16 @@ main {
 }
 .activity-details summary {
   min-height: 24px;
-  font-size: 0.6875rem;
+  font-size: var(--fs-caption);
   color: var(--muted);
-  gap: 5px;
+  gap: 6px;
 }
 .activity-details summary::before {
   display: none;
 }
 .activity-details summary::after {
   content: "+";
-  font-family: GeistMono, monospace;
+  font-family: var(--mono);
 }
 .activity-details[open] {
   flex-basis: 100%;
@@ -354,7 +365,7 @@ main {
   content: "−";
 }
 .activity-details p {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: var(--muted);
   line-height: 1.6;
   margin: 8px 0 4px;
@@ -364,7 +375,7 @@ form {
   border-radius: 8px;
   background: var(--panel);
   border: 1px solid var(--line);
-  padding: 28px 24px 24px;
+  padding: 28px var(--card-pad) 24px;
 }
 .step {
   padding-bottom: 24px;
@@ -380,8 +391,8 @@ form {
   gap: 10px;
   margin: 0 0 14px;
   line-height: 1.5;
-  font-family: Geist, Arial, sans-serif;
-  font-size: 0.9375rem;
+  font-family: var(--sans);
+  font-size: var(--fs-body);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -394,8 +405,8 @@ form {
   height: 22px;
   border: 1px solid var(--line);
   color: var(--signal);
-  font-family: GeistMono, monospace;
-  font-size: 0.75rem;
+  font-family: var(--mono);
+  font-size: var(--fs-caption);
   letter-spacing: 0;
 }
 .example {
@@ -406,7 +417,7 @@ form {
   border: 1px solid var(--medium);
   border-left: 3px solid var(--medium);
   padding: 14px 16px;
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   line-height: 1.45;
   margin: 0 0 28px;
 }
@@ -429,8 +440,8 @@ form {
   margin: 0 0 28px;
 }
 .sys {
-  font-family: GeistMono, monospace;
-  font-size: 0.8125rem;
+  font-family: var(--mono);
+  font-size: var(--fs-caption);
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -442,7 +453,7 @@ form {
 .amount-wrap {
   display: flex;
   align-items: center;
-  border: 1px solid #76767b;
+  border: 1px solid var(--edge);
   background: var(--inset);
   border-radius: 2px;
 }
@@ -458,17 +469,17 @@ form {
   color: var(--text);
   border: 0;
   padding: 14px 16px;
-  font-family: GeistMono, monospace;
-  font-size: 1.125rem;
+  font-family: var(--mono);
+  font-size: var(--fs-lead);
   outline: none;
 }
 .amount-wrap input:focus-visible {
   outline: none;
 }
 .amount-wrap span {
-  font-family: GeistMono, monospace;
+  font-family: var(--mono);
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   padding-right: 16px;
 }
 .amount-wrap:has([aria-invalid="true"]) {
@@ -476,7 +487,7 @@ form {
 }
 .hint,
 .error {
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   margin: 8px 0 0;
   line-height: 1.45;
 }
@@ -501,7 +512,7 @@ legend {
   padding: 0;
   margin-bottom: 12px;
   line-height: 1.5;
-  font-size: 1rem;
+  font-size: var(--fs-body);
 }
 .choices {
   display: grid;
@@ -522,9 +533,9 @@ legend {
   align-items: center;
   justify-content: center;
   min-height: 48px;
-  border: 1px solid #76767b;
+  border: 1px solid var(--edge);
   border-radius: 2px;
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   cursor: pointer;
   transition: border-color 120ms;
 }
@@ -557,8 +568,8 @@ legend {
   min-height: 48px;
   border: 1px solid var(--signal);
   border-radius: 2px;
-  font-family: GeistMono, monospace;
-  font-size: 0.8125rem;
+  font-family: var(--mono);
+  font-size: var(--fs-small);
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -567,19 +578,19 @@ legend {
   min-height: 52px;
   background: var(--signal);
   color: var(--inset);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--fs-small);
+  font-weight: 500;
 }
 .primary:hover {
-  background: #c2cceb;
+  background: var(--signal-hover);
 }
 .primary:active {
-  background: #98a6d0;
+  background: var(--signal-active);
 }
 .secondary {
   background: none;
   color: var(--text);
-  border-color: #76767b;
+  border-color: var(--edge);
 }
 .secondary:hover {
   border-color: var(--text);
@@ -603,7 +614,7 @@ legend {
   position: relative;
   background: var(--panel);
   border: 1px solid var(--line);
-  padding: 24px;
+  padding: 24px var(--card-pad);
   margin-top: 32px;
   scroll-margin-top: 24px;
   --band: var(--low);
@@ -636,18 +647,17 @@ legend {
 }
 .result-top h2 {
   margin: 0;
-  font-size: 0.8125rem;
 }
 #result-heading:focus {
   outline: none;
 }
 .crowd-caption {
-  font-size: 0.8125rem;
+  font-size: var(--fs-small);
   color: var(--muted);
   margin: -16px 0 24px;
 }
 .verdict {
-  font-size: 1.125rem;
+  font-size: var(--fs-lead);
 }
 .matches {
   border-top: 2px solid var(--band);
@@ -656,18 +666,18 @@ legend {
   padding: 20px;
 }
 .matches h3 {
-  font-size: 1.0625rem;
+  font-size: var(--fs-lead);
   line-height: 1.4;
   margin: 0 0 8px;
   letter-spacing: -0.015em;
 }
 .matches .match-context {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   line-height: 1.6;
 }
 .matches .hint {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   margin: 8px 0 0;
 }
 .match-leg {
@@ -690,12 +700,12 @@ legend {
 .score-value {
   font-size: 4.5rem;
   line-height: 1;
-  font-family: GeistMono, monospace;
+  font-family: var(--mono);
 }
 .score-max {
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   color: var(--muted);
-  font-family: GeistMono, monospace;
+  font-family: var(--mono);
 }
 .meter {
   display: grid;
@@ -730,7 +740,7 @@ legend {
 .result table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8125rem;
+  font-size: var(--fs-small);
   margin: 20px 0 16px;
 }
 .result th {
@@ -746,7 +756,7 @@ legend {
   border-bottom: 1px solid var(--line);
 }
 .result td:first-child {
-  font-family: GeistMono, monospace;
+  font-family: var(--mono);
   padding-right: 16px;
 }
 .result td:last-child,
@@ -755,7 +765,7 @@ legend {
   white-space: nowrap;
 }
 .result .table-label {
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   font-weight: 500;
   margin: 20px 0 0;
 }
@@ -772,7 +782,7 @@ legend {
   margin-top: 12px;
 }
 .result-note {
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   color: var(--muted);
   padding-top: 24px;
   margin-top: 24px;
@@ -782,14 +792,14 @@ legend {
   margin: 0;
 }
 .uncertain {
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 footer {
   margin-top: 32px;
   padding: 24px 0 32px;
   border-top: 1px solid var(--line);
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   line-height: 1.5;
   color: var(--muted);
 }
@@ -841,12 +851,12 @@ footer p {
   scroll-margin-top: 24px;
 }
 .reading .eyebrow {
-  font-size: 0.75rem;
+  font-size: var(--fs-caption);
   color: var(--signal);
   margin-bottom: 16px;
 }
 .reading .lede {
-  font-size: 1.125rem;
+  font-size: var(--fs-lead);
   line-height: 1.65;
 }
 .contents {
@@ -856,7 +866,7 @@ footer p {
   padding: 12px 0;
   border-block: 1px solid var(--line);
   margin: 28px 0 40px;
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
 }
 .contents a {
   display: flex;
@@ -872,12 +882,12 @@ footer p {
   padding-top: 32px;
 }
 .reading h2 {
-  font-size: 1.125rem;
+  font-size: var(--fs-lead);
   margin-bottom: 12px;
 }
 .reading p,
 .reading li {
-  font-size: 1rem;
+  font-size: var(--fs-body);
   color: var(--muted);
 }
 .reading ul,
@@ -891,7 +901,7 @@ footer p {
 .bands {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
 }
 .bands th,
 .bands td {
@@ -912,7 +922,7 @@ details {
 }
 summary {
   cursor: pointer;
-  font-size: 1rem;
+  font-size: var(--fs-body);
   line-height: 1.5;
   min-height: 44px;
   list-style: none;
@@ -934,7 +944,7 @@ details p {
   padding: 40px 0 80px;
 }
 .scan-label {
-  font-size: 0.875rem;
+  font-size: var(--fs-small);
   color: var(--muted);
 }
 @media (max-width: 750px) {
@@ -944,6 +954,9 @@ details p {
   }
 }
 @media (max-width: 639px) {
+  :root {
+    --card-pad: 16px;
+  }
   .shell {
     padding: 0 16px;
   }
@@ -952,7 +965,7 @@ details p {
     margin-bottom: 32px;
   }
   .brand {
-    font-size: 1.125rem;
+    font-size: var(--fs-lead);
   }
   h1 {
     font-size: 2rem;
@@ -973,7 +986,7 @@ details p {
     font-size: clamp(1.75rem, 7.5vw, 2.6rem);
   }
   .hero .lede {
-    font-size: 0.9375rem;
+    font-size: var(--fs-body);
     line-height: 1.6;
   }
   .assure {
@@ -981,35 +994,17 @@ details p {
     margin-top: 20px;
   }
   .assure strong {
-    font-size: 0.75rem;
+    font-size: var(--fs-caption);
   }
   .pulse {
-    padding: 18px 16px 0;
+    padding: 18px var(--card-pad) 0;
     margin-bottom: 24px;
   }
-  .pulse-top {
-    gap: 8px;
-    align-items: start;
-  }
-  .pulse-top h2 span {
-    display: block;
-    margin: 4px 0 0;
-    font-size: 0.6875rem;
-  }
   .pulse-stats {
-    margin-top: 22px;
+    margin-top: 20px;
   }
   .pulse-stats > div + div {
     padding-left: 16px;
-  }
-  .pulse-stats dd {
-    font-size: 1.75rem;
-  }
-  .pulse-stats dd span {
-    font-size: 0.625rem;
-  }
-  .pulse-stats dt {
-    font-size: 0.75rem;
   }
   #pulse {
     height: 128px;
@@ -1018,33 +1013,33 @@ details p {
     margin-top: 16px;
   }
   .pulse-readout {
-    grid-template-columns: 1.25fr 1fr 1fr;
-    gap: 8px;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 8px;
   }
-  .pulse-readout p {
-    font-size: 0.6875rem;
+  .pulse-readout .pulse-time {
+    grid-column: 1 / -1;
   }
-  .pulse-readout span + span {
-    font-size: 0.625rem;
+  .pulse-time span {
+    display: inline;
   }
   .pulse-time span + span {
-    max-width: 11ch;
+    margin-left: 8px;
   }
   .matches {
     padding: 16px 12px;
     margin-inline: -4px;
   }
   .result table {
-    font-size: 0.75rem;
+    font-size: var(--fs-caption);
   }
   .result td:first-child {
     padding-right: 8px;
   }
   .step-label.sys {
-    font-size: 0.875rem;
+    font-size: var(--fs-small);
   }
   main {
-    font-size: 1.0625rem;
+    font-size: var(--fs-body);
   }
   .lede {
     margin-bottom: 24px;
@@ -1053,10 +1048,10 @@ details p {
   .primary,
   .secondary,
   .result-top h2 {
-    font-size: 0.75rem;
+    font-size: var(--fs-caption);
   }
   .result {
-    padding: 20px 16px;
+    padding: 20px var(--card-pad);
   }
   .score-value {
     font-size: 3.5rem;
@@ -1072,7 +1067,7 @@ details p {
     margin-bottom: 24px;
   }
   form {
-    padding: 20px 16px 16px;
+    padding: 20px var(--card-pad) 16px;
   }
   .choice input:checked + span::before {
     margin-right: 4px;

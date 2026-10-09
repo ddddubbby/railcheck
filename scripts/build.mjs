@@ -51,6 +51,12 @@ const pulse = pulseStats(
   manifest,
 );
 const number = (n) => n.toLocaleString("en");
+// Headline totals share one precision so the two columns line up.
+const total = (wei) =>
+  new Intl.NumberFormat("en", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(wei) / 1e18);
 const eth = (wei) =>
   new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(
     Number(wei) / 1e18,
@@ -152,8 +158,8 @@ for (const [source, destination, path] of [
     )
     .replace("{{PULSE_DEPOSITS}}", number(pulse.depositCount))
     .replace("{{PULSE_WITHDRAWALS}}", number(pulse.withdrawalCount))
-    .replace("{{PULSE_DEPOSIT_ETH}}", eth(pulse.depositWei))
-    .replace("{{PULSE_WITHDRAWAL_ETH}}", eth(pulse.withdrawalWei))
+    .replace("{{PULSE_DEPOSIT_ETH}}", total(pulse.depositWei))
+    .replace("{{PULSE_WITHDRAWAL_ETH}}", total(pulse.withdrawalWei))
     .replace("{{PULSE_DAY}}", shortDate(latest.start))
     .replace(
       "{{PULSE_TIME}}",

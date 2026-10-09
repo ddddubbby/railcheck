@@ -68,8 +68,8 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     const activity = JSON.parse(
       html.match(/data-activity="([^"]+)"/)[1].replaceAll("&quot;", '"'),
     );
-    assert.equal(activity.end - activity.start, 7 * 86400);
-    assert.equal(activity.bins.length, 169);
+    assert.equal(activity.end - activity.start, 3 * 86400);
+    assert.equal(activity.bins.length, 73);
     assert.ok(activity.bins.some((b) => b.withdrawals > 0));
     assert.match(
       html,

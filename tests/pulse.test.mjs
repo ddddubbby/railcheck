@@ -7,7 +7,7 @@ const manifest = {
   lastBlock: 26146598,
   lastBlockHash: "anchor",
 };
-const start = end - 7 * 86400;
+const start = end - 3 * 86400;
 const snapshot = (withdrawals = []) => ({
   version: 1,
   chainId: 1,
@@ -36,7 +36,7 @@ test("UTC-hour bins include both window edges, preserve totals, and exclude olde
     ]),
     manifest,
   );
-  assert.equal(p.bins.length, 169);
+  assert.equal(p.bins.length, 73);
   assert.equal(p.bins[0].start, start);
   assert.equal(p.bins[0].end, boundary);
   assert.equal(p.bins.at(-1).end, end);
@@ -74,4 +74,17 @@ test("empty windows remain valid and mismatched or malformed snapshots fail clos
     { time: end, amountWei: "1.5" },
   ])
     assert.throws(() => pulseStats([], snapshot([row]), manifest));
+});
+test("a snapshot covering a longer window is trimmed to the activity window", () => {
+  const older = { ...snapshot(), fromTime: start - 4 * 86400 };
+  older.withdrawals = [
+    { time: start - 86400, amountWei: "5" },
+    { time: start, amountWei: "7" },
+  ];
+  const p = pulseStats([], older, manifest);
+  assert.equal(p.withdrawalCount, 1);
+  assert.equal(p.withdrawalWei, 7n);
+  assert.throws(() =>
+    pulseStats([], { ...older, fromTime: start + 1 }, manifest),
+  );
 });
