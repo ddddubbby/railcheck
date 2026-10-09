@@ -13,6 +13,7 @@ railcheck is a free, open-source tool that helps you spot three ways a planned w
 - Show a risk score with an explanation of the signals behind it.
 - Suggest a smaller amount when an alternative meets the model's lower-risk criteria.
 - Show when the public deposit snapshot was updated, and warn when it is stale.
+- Explore seven days of confirmed deposits and withdrawals on an hourly timeline. Mint spikes rise for deposits; coral spikes fall for withdrawals. Hover, tap or use the arrow keys to inspect each UTC hour. The dashboard is built into the page and makes no extra requests.
 
 ## How to use it
 
@@ -47,7 +48,9 @@ npm run build
 npm run dev
 ```
 
-Open <http://127.0.0.1:4173>. A verified Ethereum deposit snapshot is included.
+Open <http://127.0.0.1:4173>. Verified Ethereum deposit and withdrawal snapshots are included.
+
+`npm run data:update` refreshes both snapshots at the same block with 64 confirmations. Builds verify their hashes and reject mismatched checkpoints. The chart uses UTC-hour bins (three-hour bins on narrow screens), with a shared linear transaction-count scale. Deposits exclude internal reshields; withdrawals include DeFi unshields. Amounts are after protocol fees. The [RAILGUN contract](https://github.com/Railgun-Privacy/contract/blob/main/contracts/logic/RailgunLogic.sol) defines the Shield and Unshield events.
 
 ## License
 

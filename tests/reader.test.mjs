@@ -140,3 +140,61 @@ test("pool encoding retains dust, preserves exact CSV wei and rejects bad rows",
   assert.equal(pool[1].amount, 1e9);
   assert.throws(() => parseCsv("block,time,amount_wei\n2,100,1\n1,101,2\n"));
 });
+
+test("Unshield decoder counts WETH transactions once, sums outputs and keeps received amount separate from fees", async () => {
+  const { foldUnshieldLogs, UNSHIELD_TOPIC } = await import(
+    "../scripts/lib/reader.mjs"
+  );
+  const log = {
+    address: RAILGUN_PROXY,
+    transactionHash: "0x" + "ab".repeat(32),
+    blockNumber: "0x2",
+    logIndex: "0x1",
+    topics: [UNSHIELD_TOPIC],
+    data: "0x" + [1, 0, WETH, 0, 9975, 25].map(word).join(""),
+  };
+  const next = { ...log, logIndex: "0x2" };
+  assert.deepEqual(foldUnshieldLogs([log, next, log]).kept, [
+    { block: 2, amountWei: 19950n },
+  ]);
+  assert.equal(
+    foldUnshieldLogs([
+      { ...log, data: "0x" + [1, 0, 1, 0, 9975, 25].map(word).join("") },
+    ]).kept.length,
+    0,
+  );
+  for (const change of [
+    { removed: true },
+    { address: WETH },
+    { data: "0x" },
+    { transactionHash: undefined },
+    { topics: [NULLIFIED_TOPIC] },
+  ])
+    assert.throws(() => foldUnshieldLogs([{ ...log, ...change }]));
+});
+test("withdrawal reader splits ranges, uses real block timestamps, and rejects out-of-range logs", async () => {
+  const { readWithdrawals, UNSHIELD_TOPIC } = await import(
+    "../scripts/lib/reader.mjs"
+  );
+  const log = {
+    address: RAILGUN_PROXY,
+    transactionHash: "0x" + "aa".repeat(32),
+    blockNumber: "0x2",
+    logIndex: "0x1",
+    topics: [UNSHIELD_TOPIC],
+    data: "0x" + [1, 0, WETH, 0, 100, 1].map(word).join(""),
+  };
+  const rpc = async (method, [p]) => {
+    if (method === "eth_getBlockByNumber") return { timestamp: "0x64" };
+    assert.deepEqual(p.topics, [[UNSHIELD_TOPIC]]);
+    if (Number(p.toBlock) - Number(p.fromBlock) > 1) throw Error("limit");
+    return Number(p.fromBlock) <= 2 && Number(p.toBlock) >= 2 ? [log] : [];
+  };
+  assert.deepEqual(await readWithdrawals(rpc, 1, 4), [
+    { block: 2, amountWei: 100n, time: 100 },
+  ]);
+  await assert.rejects(
+    readWithdrawals(async () => [log], 3, 4),
+    /outside/,
+  );
+});
