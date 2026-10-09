@@ -391,11 +391,6 @@ form {
   gap: 10px;
   margin: 0 0 14px;
   line-height: 1.5;
-  font-family: var(--sans);
-  font-size: var(--fs-body);
-  font-weight: 500;
-  text-transform: none;
-  letter-spacing: 0;
 }
 .step-number {
   display: inline-flex;
@@ -1034,9 +1029,6 @@ details p {
   }
   .result td:first-child {
     padding-right: 8px;
-  }
-  .step-label.sys {
-    font-size: var(--fs-small);
   }
   main {
     font-size: var(--fs-body);
