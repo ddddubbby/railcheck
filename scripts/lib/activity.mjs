@@ -1,8 +1,8 @@
 import { blockAtTime, readWithdrawals } from "./reader.mjs";
 
-export const ACTIVITY_SECONDS = 7 * 86400;
+export const ACTIVITY_SECONDS = 3 * 86400;
 
-// A separate seven-day snapshot leaves the anonymity engine's pool format intact.
+// A separate three-day snapshot leaves the anonymity engine's pool format intact.
 // Recipients and transaction hashes are discarded before writing to disk.
 export async function withdrawalSnapshot(rpc, manifest, onProgress = () => {}) {
   const { dataTime, lastBlock, lastBlockHash } = manifest;

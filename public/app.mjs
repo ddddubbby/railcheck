@@ -87,7 +87,11 @@ function reveal() {
     build(performance.now());
   });
 }
-// Each spike is a real UTC-hour bin. No artificial sweep or replay clock.
+// A pixel timeline of real UTC-hour bins: each square is a fixed number of
+// transactions, deposits stacked up from the baseline, withdrawals down. The
+// motion is presentation only: the grid builds in, a playhead replays the
+// window left to right, and busy hours twinkle more. Counts never animate
+// beyond their real values.
 function heartbeat() {
   const chart = $("activity-chart"),
     strip = $("pulse"),
@@ -99,11 +103,8 @@ function heartbeat() {
   const root = getComputedStyle(document.documentElement);
   const deposit = root.getPropertyValue("--deposit").trim();
   const withdrawal = root.getPropertyValue("--withdrawal").trim();
-  const muted = root.getPropertyValue("--chart-label").trim();
-  let maximum = Math.max(
-    1,
-    ...bins.flatMap((b) => [b.deposits, b.withdrawals]),
-  );
+  const signal = root.getPropertyValue("--signal").trim();
+  const muted = root.getPropertyValue("--muted").trim();
   const shortDate = (time) =>
     new Date(time * 1000).toLocaleDateString("en-GB", {
       day: "numeric",
@@ -122,12 +123,39 @@ function heartbeat() {
       ? "<0.001"
       : value.toLocaleString("en", { maximumFractionDigits: 3 });
   };
+  const LABEL = 22, // date labels under the grid
+    INTRO_COLUMN = 9, // ms between columns as the grid builds in
+    INTRO_ROW = 26, // ms between rows within a column
+    SWEEP = 5200, // playhead crossing time
+    REST = 1600, // pause at the newest hour before the next pass
+    TRAIL = 9, // columns of afterglow behind the playhead
+    IDLE = 2500; // quiet time after interaction before the replay resumes
   let width = 0,
     height = 0,
-    selected = Number(slider.value);
-  const xAt = (time) => 5 + ((time - start) / (end - start)) * (width - 10);
-  const update = (index) => {
-    selected = Math.max(0, Math.min(bins.length - 1, index));
+    pitch = 4,
+    cell = 3,
+    columnWidth = 1,
+    baseline = 0,
+    rowsUp = 1,
+    rowsDown = 1,
+    unit = 1,
+    jitter = [],
+    weights = [],
+    sparkles = [],
+    selected = Number(slider.value),
+    selectedAt = -Infinity,
+    begin = performance.now(),
+    sweepFrom = 0,
+    touched = -Infinity,
+    visible = true,
+    running = false;
+  const cellsFor = (count) => Math.ceil(count / unit);
+  const columnX = (index) =>
+    Math.round(index * columnWidth + (columnWidth - cell) / 2);
+  const update = (index, quiet) => {
+    const next = Math.max(0, Math.min(bins.length - 1, index));
+    if (next !== selected) selectedAt = performance.now();
+    selected = next;
     slider.value = String(selected);
     const b = bins[selected];
     $("activity-day").textContent = shortDate(b.start);
@@ -142,82 +170,146 @@ function heartbeat() {
       "aria-valuetext",
       `${shortDate(b.start)}, ${clock(b.start)} to ${clock(b.end)} UTC: ${b.deposits} deposits, ${eth(b.depositWei)} ETH; ${b.withdrawals} withdrawals, ${eth(b.withdrawalWei)} ETH`,
     );
-    paint();
+    if (!quiet) touched = performance.now();
+    start_();
   };
-  const paint = () => {
+  const square = (index, row, side) =>
+    context.fillRect(
+      columnX(index),
+      baseline - side * row * pitch,
+      cell,
+      cell,
+    );
+  const paint = (now) => {
     if (!width) return;
+    const still = reduced.matches,
+      elapsed = still ? Infinity : now - begin,
+      introEnd =
+        bins.length * INTRO_COLUMN + Math.max(rowsUp, rowsDown) * INTRO_ROW + 140,
+      idle = now - touched > IDLE,
+      // The replay starts after the build-in, and again after each interaction.
+      from = Math.max(sweepFrom, begin + introEnd),
+      phase =
+        !still && idle && now > from ? (now - from) % (SWEEP + REST) : -1,
+      head = phase >= 0 && phase < SWEEP ? (phase / SWEEP) * bins.length : -1;
+    if (!idle) sweepFrom = now;
     context.clearRect(0, 0, width, height);
-    const baseline = (height - 30) / 2,
-      amplitude = baseline - 16;
-    context.lineWidth = 1;
-    // Sparse calendar ticks, with the exact timestamp position preserved.
-    const stride = width < 430 ? 2 : 1;
-    context.font = "11px GeistMono, monospace";
+    // Day ticks: a dotted pixel column at each UTC midnight, then its label.
+    const stride = ((end - start) / 86400) * 56 > width ? 2 : 1;
+    context.font = "12px GeistMono, monospace";
+    context.textAlign = "center";
     for (
       let t = Math.ceil(start / 86400) * 86400, i = 0;
       t < end;
       t += 86400, i++
     ) {
       if (i % stride) continue;
-      const x = xAt(t);
-      context.strokeStyle = "rgba(255,255,255,.045)";
-      context.beginPath();
-      context.moveTo(x, 6);
-      context.lineTo(x, height - 26);
-      context.stroke();
+      const index = bins.findIndex((b) => t < b.end),
+        b = bins[index],
+        x = Math.round(
+          (index + (t - b.start) / (b.end - b.start)) * columnWidth,
+        );
+      context.fillStyle = "rgba(255,255,255,.09)";
+      for (let y = baseline % (pitch * 2); y < height - LABEL; y += pitch * 2)
+        context.fillRect(x, y, 1, 1);
       context.fillStyle = muted;
-      context.textAlign = "center";
       context.fillText(
         shortDate(t),
         Math.max(23, Math.min(width - 23, x)),
         height - 5,
       );
     }
-    context.strokeStyle = "rgba(255,255,255,.19)";
-    context.beginPath();
-    context.moveTo(0, baseline);
-    context.lineTo(width, baseline);
-    context.stroke();
-    const active = bins[selected],
-      activeX = xAt((active.start + active.end) / 2);
-    context.fillStyle = "rgba(255,255,255,.04)";
-    context.fillRect(activeX - 7, 3, 14, height - 30);
-    context.setLineDash([2, 4]);
-    context.strokeStyle = "rgba(255,255,255,.32)";
-    context.beginPath();
-    context.moveTo(activeX, 3);
-    context.lineTo(activeX, height - 27);
-    context.stroke();
-    context.setLineDash([]);
+    // The zero row.
+    context.fillStyle = "rgba(255,255,255,.10)";
+    for (let i = 0; i < bins.length; i++) square(i, 0, 1);
+    // The selected hour: a faint full-height column behind its squares.
+    context.fillStyle = "rgba(174,188,229,.07)";
+    context.fillRect(
+      columnX(selected) - 2,
+      0,
+      cell + 4,
+      height - LABEL,
+    );
+    // The playhead: a faint full-height column ahead of the afterglow.
+    if (head >= 0) {
+      context.fillStyle = "rgba(174,188,229,.10)";
+      context.fillRect(
+        columnX(Math.floor(head)) - 2,
+        0,
+        cell + 4,
+        height - LABEL,
+      );
+    }
     bins.forEach((b, index) => {
-      const x = xAt((b.start + b.end) / 2),
-        active = index === selected;
-      for (const [count, direction, color] of [
-        [b.deposits, -1, deposit],
-        [b.withdrawals, 1, withdrawal],
+      const isSelected = index === selected,
+        behind = head - index,
+        glow =
+          behind >= 0 && behind < TRAIL ? 1 - behind / TRAIL : 0,
+        base = still ? 0.8 : 0.5;
+      for (const [count, side, color] of [
+        [b.deposits, 1, deposit],
+        [b.withdrawals, -1, withdrawal],
       ]) {
-        if (!count) continue;
-        const y = baseline + direction * (count / maximum) * amplitude;
-        context.strokeStyle = color;
-        context.globalAlpha = active ? 1 : 0.5;
-        context.beginPath();
-        context.moveTo(x - 1.5, baseline);
-        context.lineTo(x, y);
-        context.lineTo(x + 1.5, baseline);
-        context.stroke();
-        context.globalAlpha = active ? 1 : 0.9;
-        context.fillStyle = color;
-        const size = active ? 5 : width < 430 ? 2 : 3;
-        context.fillRect(x - size / 2, y - size / 2, size, size);
+        const n = cellsFor(count);
+        for (let row = 1; row <= n; row++) {
+          const born =
+            index * INTRO_COLUMN + row * INTRO_ROW + (jitter[index]?.[row] || 0);
+          if (elapsed < born) continue;
+          // A rebuilt selection grows from the baseline, one square at a time.
+          if (isSelected && !still && now - selectedAt < row * 16) continue;
+          const partial = row === n && count % unit ? 0.55 : 1;
+          let alpha = isSelected ? 1 : base + (1 - base) * glow;
+          context.fillStyle = color;
+          if (elapsed - born < 90 || (behind >= 0 && behind < 1)) {
+            // New squares and the playhead burn white for a moment.
+            context.fillStyle = "#fff";
+            alpha = 0.9;
+          }
+          context.globalAlpha = alpha * partial;
+          square(index, row, side);
+        }
       }
     });
+    // Twinkles: brief white squares, picked in proportion to activity.
+    context.fillStyle = "#fff";
+    sparkles = sparkles.filter((s) => now - s.at < 320);
+    for (const s of sparkles) {
+      context.globalAlpha = 0.85 * (1 - (now - s.at) / 320);
+      square(s.index, s.row, s.side);
+    }
+    // The snapshot cursor on the newest hour blinks like a terminal caret.
+    context.globalAlpha = still || Math.floor(now / 530) % 2 ? 1 : 0.15;
+    context.fillStyle = signal;
+    square(bins.length - 1, 0, 1);
     context.globalAlpha = 1;
+    if (!still && elapsed > introEnd && weights.length && Math.random() < 0.1) {
+      let pick = Math.random() * weights.at(-1).total;
+      const w = weights.find((w) => (pick -= w.count) < 0) || weights.at(-1);
+      sparkles.push({
+        index: w.index,
+        side: w.side,
+        row: 1 + Math.floor(Math.random() * cellsFor(w.count)),
+        at: now,
+      });
+    }
   };
+  const loop = (now) => {
+    paint(now);
+    if (visible && !reduced.matches) requestAnimationFrame(loop);
+    else running = false;
+  };
+  function start_() {
+    if (running) return;
+    running = true;
+    requestAnimationFrame(loop);
+  }
   const resize = () => {
     const time = (bins[selected].start + bins[selected].end) / 2;
     width = strip.clientWidth;
     height = strip.clientHeight;
-    if (width < 430) {
+    // Group into 3-hour bins only when hourly columns would be under 4 px.
+    const grouped = hours.length * 4 > width;
+    if (grouped) {
       const groups = new Map();
       for (const hour of hours) {
         const key = Math.floor(hour.start / 10800);
@@ -237,31 +329,62 @@ function heartbeat() {
       }
       bins = [...groups.values()];
     } else bins = hours;
-    maximum = Math.max(1, ...bins.flatMap((b) => [b.deposits, b.withdrawals]));
+    // Square pixels. The rows are shared between the busiest deposit hour and
+    // the busiest withdrawal hour, so the baseline sits where both peaks fit.
+    // Prefer the largest square that keeps one square at 2 transactions or
+    // fewer; the column width caps the square size.
+    columnWidth = width / bins.length;
+    const up = Math.max(1, ...bins.map((b) => b.deposits)),
+      down = Math.max(1, ...bins.map((b) => b.withdrawals)),
+      unitAt = (p) =>
+        Math.ceil((up + down) / Math.max(2, Math.floor((height - LABEL) / p) - 1));
+    pitch = Math.max(4, Math.min(7, Math.floor(columnWidth)));
+    while (pitch > 4 && unitAt(pitch) > 2) pitch--;
+    cell = pitch - 1;
+    unit = unitAt(pitch);
+    rowsUp = Math.ceil(up / unit);
+    rowsDown = Math.ceil(down / unit);
+    const spare = Math.floor((height - LABEL) / pitch) - 1 - rowsUp - rowsDown;
+    baseline = (rowsUp + Math.floor(spare / 2)) * pitch + (pitch - cell);
+    jitter = bins.map(() =>
+      Array.from({ length: Math.max(rowsUp, rowsDown) + 1 }, () =>
+        Math.random() * 140,
+      ),
+    );
+    let total = 0;
+    weights = bins.flatMap((b, index) =>
+      [
+        [b.deposits, 1],
+        [b.withdrawals, -1],
+      ]
+        .filter(([count]) => count)
+        .map(([count, side]) => ({ index, side, count, total: (total += count) })),
+    );
     slider.max = String(bins.length - 1);
-    $("activity-resolution").textContent =
-      width < 430 ? "Transactions per 3 hours" : "Transactions per hour";
+    $("activity-resolution").textContent = grouped
+      ? "Transactions per 3 hours"
+      : "Transactions per hour";
+    $("activity-unit").textContent =
+      unit === 1
+        ? "Each square is 1 transaction"
+        : `Each square is ${unit} transactions`;
     const dpr = window.devicePixelRatio || 1;
     strip.width = Math.round(width * dpr);
     strip.height = Math.round(height * dpr);
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
     const next = bins.findIndex((b) => time < b.end);
-    update(next < 0 ? bins.length - 1 : next);
+    update(next < 0 ? bins.length - 1 : next, true);
+    paint(performance.now());
   };
   const point = (event) => {
     const bounds = strip.getBoundingClientRect();
-    const time =
-      start +
-      Math.max(
-        0,
-        Math.min(1, (event.clientX - bounds.left - 5) / (bounds.width - 10)),
-      ) *
-        (end - start);
-    const index = bins.findIndex((b) => time < b.end);
-    update(index < 0 ? bins.length - 1 : index);
+    const index = Math.floor(
+      ((event.clientX - bounds.left) / bounds.width) * bins.length,
+    );
+    update(index);
   };
   // Keep the native range for keyboard and assistive technology; pointer
-  // selection uses timestamps rather than its equally spaced thumb positions.
+  // selection maps straight to the column under the cursor.
   slider.addEventListener("input", () => update(Number(slider.value)));
   slider.addEventListener("pointermove", point);
   slider.addEventListener("pointerdown", (event) => {
@@ -269,10 +392,14 @@ function heartbeat() {
     slider.focus({ preventScroll: true });
     point(event);
   });
+  // Off screen, the timeline stops drawing.
+  new IntersectionObserver(([entry]) => {
+    visible = entry.isIntersecting;
+    if (visible) start_();
+  }).observe(strip);
   new ResizeObserver(resize).observe(strip);
   document.fonts.ready.then(resize);
   resize();
-  update(selected);
 }
 function load() {
   ready = false;

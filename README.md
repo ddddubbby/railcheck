@@ -13,7 +13,7 @@ railcheck is a free, open-source tool that helps you spot three ways a planned w
 - Show a risk score with an explanation of the signals behind it.
 - Suggest a smaller amount when an alternative meets the model's lower-risk criteria.
 - Show when the public deposit snapshot was updated, and warn when it is stale.
-- Explore seven days of confirmed deposits and withdrawals on an hourly timeline. Mint spikes rise for deposits; coral spikes fall for withdrawals. Hover, tap or use the arrow keys to inspect each UTC hour. The dashboard is built into the page and makes no extra requests.
+- Explore three days of confirmed deposits and withdrawals on an hourly timeline. Deposit spikes rise and withdrawal spikes fall. Hover, tap or use the arrow keys to inspect each UTC hour. The dashboard is built into the page and makes no extra requests.
 
 ## How to use it
 

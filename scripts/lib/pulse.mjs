@@ -9,7 +9,7 @@ export function pulseStats(deposits, snapshot, manifest) {
     snapshot.chainId !== 1 ||
     snapshot.token !== "WETH" ||
     snapshot.dataTime !== end ||
-    snapshot.fromTime !== start ||
+    snapshot.fromTime > start ||
     snapshot.lastBlock !== manifest.lastBlock ||
     snapshot.lastBlockHash !== manifest.lastBlockHash ||
     !Array.isArray(snapshot.withdrawals)
@@ -43,14 +43,17 @@ export function pulseStats(deposits, snapshot, manifest) {
     depositWei += wei;
     depositCount++;
   }
+  // A snapshot may cover a longer window (for example one written before the
+  // window shrank); rows before the window are dropped, not trusted less.
   for (const w of snapshot.withdrawals) {
     if (
       !Number.isSafeInteger(w.time) ||
-      w.time < start ||
+      w.time < snapshot.fromTime ||
       w.time > end ||
       !/^[1-9]\d*$/.test(w.amountWei)
     )
       throw Error("Invalid withdrawal snapshot row.");
+    if (w.time < start) continue;
     const bin = bins[Math.floor((w.time - firstHour) / 3600)];
     bin.withdrawals++;
     const wei = BigInt(w.amountWei);
