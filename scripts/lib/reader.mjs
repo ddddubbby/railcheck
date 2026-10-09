@@ -5,6 +5,9 @@ export const SHIELD_TOPIC =
   "0x3a5b9dc26075a3801a6ddccf95fec485bb7500a91b44cec1add984c21ee6db3b";
 export const NULLIFIED_TOPIC =
   "0x781745c57906dc2f175fec80a9c691744c91c48a34a83672c41c2604774eb11f";
+// RailgunLogic.sol: Unshield(address,(uint8,address,uint256),uint256,uint256).
+export const UNSHIELD_TOPIC =
+  "0xd93cf895c7d5b2cd7dc7a098b678b3089f37d91f48d9b83a0800a91cbdf05284";
 export const CONFIRMATIONS = 64;
 const hex = (n) => `0x${n.toString(16)}`;
 
@@ -152,12 +155,81 @@ export async function blockAtTime(rpc, timestamp, head) {
   return low;
 }
 
-export async function readDeposits(
+export function foldUnshieldLogs(logs) {
+  const transactions = new Map(),
+    seen = new Set();
+  for (const log of logs) {
+    const block = Number(log.blockNumber),
+      index = Number(log.logIndex);
+    if (
+      log.removed ||
+      log.address?.toLowerCase() !== RAILGUN_PROXY ||
+      log.topics?.length !== 1 ||
+      log.topics[0].toLowerCase() !== UNSHIELD_TOPIC ||
+      !/^0x[a-f0-9]{64}$/i.test(log.transactionHash || "") ||
+      !Number.isSafeInteger(block) ||
+      block < 0 ||
+      !Number.isSafeInteger(index) ||
+      index < 0
+    )
+      throw Error("Invalid Unshield log.");
+    if (!/^0x(?:[a-f0-9]{64}){6}$/i.test(log.data || ""))
+      throw Error("Malformed Unshield event data.");
+    const [recipient, type, address, subId, amount] = log.data
+      .slice(2)
+      .match(/.{64}/g)
+      .map((w) => BigInt(`0x${w}`));
+    if (recipient >= 2n ** 160n || type > 2n || address >= 2n ** 160n)
+      throw Error("Invalid Unshield fields.");
+    const key = log.transactionHash.toLowerCase(),
+      id = `${key}:${index}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    if (type !== 0n || address !== BigInt(WETH) || amount === 0n) continue;
+    if (subId !== 0n) throw Error("Invalid ERC20 token sub-ID.");
+    const row = transactions.get(key) || { block, index, amountWei: 0n };
+    if (row.block !== block) throw Error("Inconsistent transaction block.");
+    row.amountWei += amount;
+    row.index = Math.min(row.index, index);
+    transactions.set(key, row);
+  }
+  return {
+    removedInternal: 0,
+    kept: [...transactions.values()]
+      .sort((a, b) => a.block - b.block || a.index - b.index)
+      .map(({ block, amountWei }) => ({ block, amountWei })),
+  };
+}
+
+export function readDeposits(rpc, fromBlock, toBlock, onProgress = () => {}) {
+  return readEvents(
+    rpc,
+    fromBlock,
+    toBlock,
+    onProgress,
+    [SHIELD_TOPIC, NULLIFIED_TOPIC],
+    foldShieldLogs,
+  );
+}
+
+export async function readWithdrawals(
   rpc,
   fromBlock,
   toBlock,
   onProgress = () => {},
 ) {
+  const result = await readEvents(
+    rpc,
+    fromBlock,
+    toBlock,
+    onProgress,
+    [UNSHIELD_TOPIC],
+    foldUnshieldLogs,
+  );
+  return result.deposits;
+}
+
+async function readEvents(rpc, fromBlock, toBlock, onProgress, topics, fold) {
   const times = new Map(),
     deposits = [];
   let removedInternal = 0;
@@ -167,7 +239,7 @@ export async function readDeposits(
       logs = await rpc("eth_getLogs", [
         {
           address: RAILGUN_PROXY,
-          topics: [[SHIELD_TOPIC, NULLIFIED_TOPIC]],
+          topics: [topics],
           fromBlock: hex(start),
           toBlock: hex(end),
         },
@@ -194,7 +266,7 @@ export async function readDeposits(
         times.set(block, time);
       }
     }
-    const folded = foldShieldLogs(logs);
+    const folded = fold(logs);
     removedInternal += folded.removedInternal;
     const missing = [...new Set(folded.kept.map((r) => r.block))].filter(
       (n) => !times.has(n),
@@ -215,7 +287,9 @@ export async function readDeposits(
     deposits.push(
       ...folded.kept.map((d) => ({ ...d, time: times.get(d.block) })),
     );
-    onProgress(`Read blocks ${start}–${end}: ${folded.kept.length} deposits.`);
+    onProgress(
+      `Read blocks ${start}–${end}: ${folded.kept.length} transactions.`,
+    );
   }
   for (let start = fromBlock; start <= toBlock; start += 200000)
     await readRange(start, Math.min(toBlock, start + 199999));

@@ -13,6 +13,8 @@ import {
   CONFIRMATIONS,
 } from "./lib/reader.mjs";
 import { parseCsv, writeCsv, encodePool, WINDOW_SECONDS } from "./lib/data.mjs";
+import { withdrawalSnapshot } from "./lib/activity.mjs";
+import { createHash } from "node:crypto";
 const rpc = makeRpc();
 if (Number(await rpc("eth_chainId")) !== 1)
   throw Error("RPC_URL must be on Ethereum mainnet.");
@@ -84,6 +86,10 @@ const { bytes, manifest } = encodePool(rows, {
 });
 mkdirSync("public/data", { recursive: true });
 mkdirSync("data", { recursive: true });
+manifest.activity = await withdrawalSnapshot(rpc, manifest, console.log);
+manifest.activitySha256 = createHash("sha256")
+  .update(JSON.stringify(manifest.activity))
+  .digest("hex");
 // Write the manifest last. A deployment never uses a partially written pool snapshot.
 const updates = [
   ["data/deposits.csv", writeCsv(rows)],

@@ -8,6 +8,7 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { decode } from "../lib/pool/index.mjs";
+import { pulseStats } from "./lib/pulse.mjs";
 const date = (t) =>
   new Date(t * 1000).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -32,10 +33,42 @@ if (
   bytes.length !== manifest.size
 )
   throw Error("Pool integrity check failed.");
-decode(
-  bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+const activityBytes = JSON.stringify(manifest.activity);
+if (
+  !activityBytes ||
+  createHash("sha256").update(activityBytes).digest("hex") !==
+  manifest.activitySha256
+)
+  throw Error(
+    "Activity snapshot integrity check failed. Run npm run data:update.",
+  );
+const pulse = pulseStats(
+  decode(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    manifest,
+  ),
+  JSON.parse(activityBytes),
   manifest,
 );
+const number = (n) => n.toLocaleString("en");
+const eth = (wei) =>
+  new Intl.NumberFormat("en", { maximumFractionDigits: 3 }).format(
+    Number(wei) / 1e18,
+  );
+const selected = Math.max(0, pulse.bins.length - 2); // Latest complete UTC hour.
+const latest = pulse.bins[selected];
+const shortDate = (time) =>
+  new Date(time * 1000).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  });
+const clock = (time) =>
+  new Date(time * 1000).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+  });
 let origin = process.env.SITE_URL?.trim();
 if (
   !origin &&
@@ -92,7 +125,44 @@ for (const [source, destination, path] of [
   html = html
     .replace("{{METER}}", "<i></i>".repeat(10))
     .replaceAll("{{DATA_DATE}}", `Data updated ${date(manifest.dataTime)}`)
-    .replaceAll("{{CONTENT_DATE}}", "8 Oct 2026");
+    .replaceAll("{{CONTENT_DATE}}", "8 Oct 2026")
+    .replace(
+      "{{PULSE_UPDATED}}",
+      `Snapshot · ${shortDate(pulse.end)}, ${clock(pulse.end)} UTC`,
+    )
+    .replace(
+      "{{PULSE_META}}",
+      `Updated ${date(pulse.end)} at ${clock(pulse.end)} UTC · Block ${number(manifest.lastBlock)}`,
+    )
+    .replace(
+      "{{PULSE_DATA}}",
+      escape(
+        JSON.stringify({
+          start: pulse.start,
+          end: pulse.end,
+          bins: pulse.bins,
+        }),
+      ),
+    )
+    .replace("{{PULSE_MAX}}", String(pulse.bins.length - 1))
+    .replace("{{PULSE_SELECTED}}", String(selected))
+    .replace(
+      "{{PULSE_SUMMARY}}",
+      `${number(pulse.depositCount)} deposits and ${number(pulse.withdrawalCount)} withdrawals from ${shortDate(pulse.start)} to ${date(pulse.end)}, grouped by UTC hour. ${eth(pulse.depositWei)} ETH shielded and ${eth(pulse.withdrawalWei)} ETH unshielded.`,
+    )
+    .replace("{{PULSE_DEPOSITS}}", number(pulse.depositCount))
+    .replace("{{PULSE_WITHDRAWALS}}", number(pulse.withdrawalCount))
+    .replace("{{PULSE_DEPOSIT_ETH}}", eth(pulse.depositWei))
+    .replace("{{PULSE_WITHDRAWAL_ETH}}", eth(pulse.withdrawalWei))
+    .replace("{{PULSE_DAY}}", shortDate(latest.start))
+    .replace(
+      "{{PULSE_TIME}}",
+      `${clock(latest.start)}–${clock(latest.end)} UTC`,
+    )
+    .replace("{{PULSE_HOUR_DEPOSITS}}", number(latest.deposits))
+    .replace("{{PULSE_HOUR_WITHDRAWALS}}", number(latest.withdrawals))
+    .replace("{{PULSE_HOUR_DEPOSIT_ETH}}", eth(latest.depositWei))
+    .replace("{{PULSE_HOUR_WITHDRAWAL_ETH}}", eth(latest.withdrawalWei));
   if (sourceURL)
     html = html.replaceAll(
       'href="https://github.com/ddddubbby/railcheck"',

@@ -37,8 +37,24 @@ const text = (tag, content, cls) => {
 // Only the decorative pixels animate; the assurance text is always readable.
 function reveal() {
   const icons = [
-    ["..###..", ".#...#.", ".#...#.", "#######", "###.###", "###.###", "#######"],
-    ["....#..", ".#..##.", "#..#..#", "#..#..#", "#..#..#", ".##..#.", "..#...."],
+    [
+      "..###..",
+      ".#...#.",
+      ".#...#.",
+      "#######",
+      "###.###",
+      "###.###",
+      "#######",
+    ],
+    [
+      "....#..",
+      ".#..##.",
+      "#..#..#",
+      "#..#..#",
+      "#..#..#",
+      ".##..#.",
+      "..#....",
+    ],
   ];
   const color = getComputedStyle(document.documentElement)
     .getPropertyValue("--signal")
@@ -70,6 +86,193 @@ function reveal() {
     };
     build(performance.now());
   });
+}
+// Each spike is a real UTC-hour bin. No artificial sweep or replay clock.
+function heartbeat() {
+  const chart = $("activity-chart"),
+    strip = $("pulse"),
+    slider = $("activity-hour");
+  const context = strip?.getContext("2d");
+  if (!context || !chart?.dataset.activity) return;
+  const { start, end, bins: hours } = JSON.parse(chart.dataset.activity);
+  let bins = hours;
+  const root = getComputedStyle(document.documentElement);
+  const deposit = root.getPropertyValue("--deposit").trim();
+  const withdrawal = root.getPropertyValue("--withdrawal").trim();
+  const muted = root.getPropertyValue("--chart-label").trim();
+  let maximum = Math.max(
+    1,
+    ...bins.flatMap((b) => [b.deposits, b.withdrawals]),
+  );
+  const shortDate = (time) =>
+    new Date(time * 1000).toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC",
+    });
+  const clock = (time) =>
+    new Date(time * 1000).toLocaleTimeString("en-GB", {
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "UTC",
+    });
+  const eth = (wei) => {
+    const value = Number(wei) / 1e18;
+    return value > 0 && value < 0.001
+      ? "<0.001"
+      : value.toLocaleString("en", { maximumFractionDigits: 3 });
+  };
+  let width = 0,
+    height = 0,
+    selected = Number(slider.value);
+  const xAt = (time) => 5 + ((time - start) / (end - start)) * (width - 10);
+  const update = (index) => {
+    selected = Math.max(0, Math.min(bins.length - 1, index));
+    slider.value = String(selected);
+    const b = bins[selected];
+    $("activity-day").textContent = shortDate(b.start);
+    $("activity-time").textContent = `${clock(b.start)}–${clock(b.end)} UTC`;
+    $("activity-deposits").textContent =
+      `${b.deposits} deposit${b.deposits === 1 ? "" : "s"}`;
+    $("activity-withdrawals").textContent =
+      `${b.withdrawals} withdrawal${b.withdrawals === 1 ? "" : "s"}`;
+    $("activity-deposit-eth").textContent = `${eth(b.depositWei)} ETH`;
+    $("activity-withdrawal-eth").textContent = `${eth(b.withdrawalWei)} ETH`;
+    slider.setAttribute(
+      "aria-valuetext",
+      `${shortDate(b.start)}, ${clock(b.start)} to ${clock(b.end)} UTC: ${b.deposits} deposits, ${eth(b.depositWei)} ETH; ${b.withdrawals} withdrawals, ${eth(b.withdrawalWei)} ETH`,
+    );
+    paint();
+  };
+  const paint = () => {
+    if (!width) return;
+    context.clearRect(0, 0, width, height);
+    const baseline = (height - 30) / 2,
+      amplitude = baseline - 16;
+    context.lineWidth = 1;
+    // Sparse calendar ticks, with the exact timestamp position preserved.
+    const stride = width < 430 ? 2 : 1;
+    context.font = "11px GeistMono, monospace";
+    for (
+      let t = Math.ceil(start / 86400) * 86400, i = 0;
+      t < end;
+      t += 86400, i++
+    ) {
+      if (i % stride) continue;
+      const x = xAt(t);
+      context.strokeStyle = "rgba(255,255,255,.045)";
+      context.beginPath();
+      context.moveTo(x, 6);
+      context.lineTo(x, height - 26);
+      context.stroke();
+      context.fillStyle = muted;
+      context.textAlign = "center";
+      context.fillText(
+        shortDate(t),
+        Math.max(23, Math.min(width - 23, x)),
+        height - 5,
+      );
+    }
+    context.strokeStyle = "rgba(255,255,255,.19)";
+    context.beginPath();
+    context.moveTo(0, baseline);
+    context.lineTo(width, baseline);
+    context.stroke();
+    const active = bins[selected],
+      activeX = xAt((active.start + active.end) / 2);
+    context.fillStyle = "rgba(255,255,255,.04)";
+    context.fillRect(activeX - 7, 3, 14, height - 30);
+    context.setLineDash([2, 4]);
+    context.strokeStyle = "rgba(255,255,255,.32)";
+    context.beginPath();
+    context.moveTo(activeX, 3);
+    context.lineTo(activeX, height - 27);
+    context.stroke();
+    context.setLineDash([]);
+    bins.forEach((b, index) => {
+      const x = xAt((b.start + b.end) / 2),
+        active = index === selected;
+      for (const [count, direction, color] of [
+        [b.deposits, -1, deposit],
+        [b.withdrawals, 1, withdrawal],
+      ]) {
+        if (!count) continue;
+        const y = baseline + direction * (count / maximum) * amplitude;
+        context.strokeStyle = color;
+        context.globalAlpha = active ? 1 : 0.5;
+        context.beginPath();
+        context.moveTo(x - 1.5, baseline);
+        context.lineTo(x, y);
+        context.lineTo(x + 1.5, baseline);
+        context.stroke();
+        context.globalAlpha = active ? 1 : 0.9;
+        context.fillStyle = color;
+        const size = active ? 5 : width < 430 ? 2 : 3;
+        context.fillRect(x - size / 2, y - size / 2, size, size);
+      }
+    });
+    context.globalAlpha = 1;
+  };
+  const resize = () => {
+    const time = (bins[selected].start + bins[selected].end) / 2;
+    width = strip.clientWidth;
+    height = strip.clientHeight;
+    if (width < 430) {
+      const groups = new Map();
+      for (const hour of hours) {
+        const key = Math.floor(hour.start / 10800);
+        const b = groups.get(key);
+        if (!b) groups.set(key, { ...hour });
+        else {
+          b.end = hour.end;
+          b.deposits += hour.deposits;
+          b.withdrawals += hour.withdrawals;
+          b.depositWei = (
+            BigInt(b.depositWei) + BigInt(hour.depositWei)
+          ).toString();
+          b.withdrawalWei = (
+            BigInt(b.withdrawalWei) + BigInt(hour.withdrawalWei)
+          ).toString();
+        }
+      }
+      bins = [...groups.values()];
+    } else bins = hours;
+    maximum = Math.max(1, ...bins.flatMap((b) => [b.deposits, b.withdrawals]));
+    slider.max = String(bins.length - 1);
+    $("activity-resolution").textContent =
+      width < 430 ? "Transactions per 3 hours" : "Transactions per hour";
+    const dpr = window.devicePixelRatio || 1;
+    strip.width = Math.round(width * dpr);
+    strip.height = Math.round(height * dpr);
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const next = bins.findIndex((b) => time < b.end);
+    update(next < 0 ? bins.length - 1 : next);
+  };
+  const point = (event) => {
+    const bounds = strip.getBoundingClientRect();
+    const time =
+      start +
+      Math.max(
+        0,
+        Math.min(1, (event.clientX - bounds.left - 5) / (bounds.width - 10)),
+      ) *
+        (end - start);
+    const index = bins.findIndex((b) => time < b.end);
+    update(index < 0 ? bins.length - 1 : index);
+  };
+  // Keep the native range for keyboard and assistive technology; pointer
+  // selection uses timestamps rather than its equally spaced thumb positions.
+  slider.addEventListener("input", () => update(Number(slider.value)));
+  slider.addEventListener("pointermove", point);
+  slider.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    slider.focus({ preventScroll: true });
+    point(event);
+  });
+  new ResizeObserver(resize).observe(strip);
+  document.fonts.ready.then(resize);
+  resize();
+  update(selected);
 }
 function load() {
   ready = false;
@@ -323,9 +526,7 @@ function finish(r) {
         : `This amount points to ${r.pointCount} ${r.pointCount === 1 ? "deposit" : "deposits"}.`,
     );
   else if (r.matches)
-    verdict(
-      "No strong amount match was found among the public deposits.",
-    );
+    verdict("No strong amount match was found among the public deposits.");
   else
     verdict(
       "No deposit, and no set of 2 or 3 deposits, adds up to this amount.",
@@ -360,7 +561,9 @@ function finish(r) {
       for (const [index, deposit] of set.deposits.entries()) {
         const leg = text("span", "", "match-leg");
         if (index) leg.append(text("span", "+ ", "match-plus"));
-        leg.append(document.createTextNode(`${amountSent(deposit.amount)} ETH`));
+        leg.append(
+          document.createTextNode(`${amountSent(deposit.amount)} ETH`),
+        );
         amountCell.append(leg);
         dateCell.append(text("span", date(deposit.time), "match-leg"));
       }
@@ -472,4 +675,5 @@ window.addEventListener("resize", () => {
   if (!panel.hidden && !busy) draw(lastResult);
 });
 reveal();
+heartbeat();
 load();

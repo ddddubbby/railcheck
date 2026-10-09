@@ -30,7 +30,7 @@
     <script type="module" src="/app.mjs"></script>
   </head>
   <body>
-    <div class="shell">
+    <div class="shell home-shell">
       <header>
         <a class="brand" href="/">railcheck</a
         ><a class="nav-link" href="/about/">About</a>
@@ -42,33 +42,136 @@
         aria-label="Loading pool data"
       ></div>
       <main>
-        <h1>
-          Check your RAILGUN<br class="wide-break" />
-          withdrawal anonymity
-        </h1>
-        <p class="lede">
-          See if your unshield amount links your withdrawal to the deposit
-          address.
-        </p>
-        <ul class="assure" aria-label="About this check">
-          <li>
-            <canvas class="pix" aria-hidden="true" width="7" height="7"></canvas>
-            <div>
-              <strong>Your input stays in your browser</strong>
+        <section class="hero" aria-labelledby="hero-heading">
+          <h1 id="hero-heading">
+            Check your RAILGUN<br class="wide-break" />
+            withdrawal anonymity
+          </h1>
+          <p class="lede">
+            See if your unshield amount links your withdrawal to the deposit
+            address.
+          </p>
+          <ul class="assure" aria-label="About this check">
+            <li>
+              <canvas
+                class="pix"
+                aria-hidden="true"
+                width="7"
+                height="7"
+              ></canvas>
+              <div>
+                <strong>Your input stays in your browser</strong>
+              </div>
+            </li>
+            <li>
+              <canvas
+                class="pix"
+                aria-hidden="true"
+                width="7"
+                height="7"
+              ></canvas>
+              <div>
+                <strong
+                  ><a
+                    href="https://github.com/ddddubbby/railcheck"
+                    rel="noopener noreferrer"
+                    >Open source</a
+                  ></strong
+                >
+              </div>
+            </li>
+          </ul>
+        </section>
+        <section class="pulse" aria-labelledby="pulse-heading">
+          <div class="pulse-top">
+            <h2 id="pulse-heading">
+              Pool activity <span>Ethereum · WETH</span>
+            </h2>
+            <span class="pulse-period">Last 7 days</span>
+          </div>
+          <dl class="pulse-stats">
+            <div class="deposit-stat">
+              <dt>
+                <span class="activity-key deposit-key" aria-hidden="true"
+                  >↑</span
+                >Deposits
+              </dt>
+              <dd>{{PULSE_DEPOSITS}}<span>{{PULSE_DEPOSIT_ETH}} ETH</span></dd>
             </div>
-          </li>
-          <li>
-            <canvas class="pix" aria-hidden="true" width="7" height="7"></canvas>
-            <div>
-              <strong
-                ><a
-                  href="https://github.com/ddddubbby/railcheck"
-                  rel="noopener noreferrer"
-                  >Open source</a></strong
+            <div class="withdrawal-stat">
+              <dt>
+                <span class="activity-key withdrawal-key" aria-hidden="true"
+                  >↓</span
+                >Withdrawals
+              </dt>
+              <dd>
+                {{PULSE_WITHDRAWALS}}<span>{{PULSE_WITHDRAWAL_ETH}} ETH</span>
+              </dd>
+            </div>
+          </dl>
+          <p class="pulse-chart-label">
+            <span id="activity-resolution">Transactions per hour</span
+            ><span>Explore the timeline</span>
+          </p>
+          <div
+            class="pulse-chart"
+            id="activity-chart"
+            data-activity="{{PULSE_DATA}}"
+          >
+            <canvas id="pulse" aria-hidden="true"></canvas>
+            <input
+              class="pulse-scrubber"
+              id="activity-hour"
+              type="range"
+              min="0"
+              max="{{PULSE_MAX}}"
+              value="{{PULSE_SELECTED}}"
+              aria-label="Explore pool activity"
+              aria-describedby="activity-help"
+            />
+          </div>
+          <p class="sr-only">{{PULSE_SUMMARY}}</p>
+          <div class="pulse-readout" aria-live="off">
+            <p class="pulse-time">
+              <span id="activity-day">{{PULSE_DAY}}</span
+              ><span id="activity-time">{{PULSE_TIME}}</span>
+            </p>
+            <p class="deposit-readout">
+              <span id="activity-deposits"
+                >{{PULSE_HOUR_DEPOSITS}} deposits</span
+              ><span id="activity-deposit-eth"
+                >{{PULSE_HOUR_DEPOSIT_ETH}} ETH</span
               >
-            </div>
-          </li>
-        </ul>
+            </p>
+            <p class="withdrawal-readout">
+              <span id="activity-withdrawals"
+                >{{PULSE_HOUR_WITHDRAWALS}} withdrawals</span
+              ><span id="activity-withdrawal-eth"
+                >{{PULSE_HOUR_WITHDRAWAL_ETH}} ETH</span
+              >
+            </p>
+          </div>
+          <div class="pulse-bottom">
+            <p id="activity-help">
+              {{PULSE_UPDATED}}<span class="sr-only">
+                Hover or tap to explore activity.</span
+              ><span class="sr-only"
+                >Use arrow keys to select an hour, Home for the first or End for
+                the last.</span
+              >
+            </p>
+            <details class="activity-details">
+              <summary>Snapshot details</summary>
+              <p>
+                {{PULSE_META}}. Confirmed on Ethereum. Heights show transaction
+                counts per interval; deposits rise and withdrawals fall. Amounts
+                are after protocol fees. WETH only; deposits exclude internal
+                reshields. Withdrawals include DeFi unshields. This is a
+                snapshot, not a live feed.
+              </p>
+            </details>
+          </div>
+        </section>
         <div class="notice" id="notice" role="status" hidden></div>
         <form id="check-form" novalidate autocomplete="off">
           <div class="step">
@@ -131,7 +234,9 @@
             </fieldset>
           </div>
           <button class="primary" id="check-button" type="submit">
-            Check amount<span class="busy-cells" aria-hidden="true">▪▪▪</span>
+            Check amount<span class="busy-cells" aria-hidden="true"
+              >▪▪▪</span
+            >
           </button>
         </form>
         <section class="result" id="result" hidden aria-busy="false">
@@ -173,7 +278,8 @@
         ></div>
         <noscript
           ><p>
-            This check needs JavaScript to run on your device. The <a href="/about/">About page</a>
+            This check needs JavaScript to run on your device. The
+            <a href="/about/">About page</a>
             works without it.
           </p></noscript
         >
@@ -186,7 +292,10 @@
           Independent community project. Not affiliated with
           <a href="https://railgun.org/" rel="noopener noreferrer">RAILGUN</a>.
         </p>
-        <p>Not financial or legal advice. <a href="/about/#disclaimer">Disclaimer</a></p>
+        <p>
+          Not financial or legal advice.
+          <a href="/about/#disclaimer">Disclaimer</a>
+        </p>
         <p id="data-date">{{DATA_DATE}}</p>
       </footer>
     </div>
