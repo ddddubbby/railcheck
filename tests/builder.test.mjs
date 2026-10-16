@@ -78,3 +78,54 @@ test("builder refuses an RPC on another chain", async () => {
   const c = chain();
   await assert.rejects(buildPool({ rpc: c.rpc, chain: "sepolia" }), /another chain/);
 });
+
+test("builder uses RPC batches, and falls back to single calls", async () => {
+  const c = chain();
+  let batches = 0;
+  c.rpc.batch = async (calls) => {
+    batches++;
+    return Promise.all(calls.map(([m, p]) => c.rpc(m, p)));
+  };
+  const built = await buildPool({ rpc: c.rpc });
+  assert.equal(batches, 1);
+  assert.deepEqual(built.deposits.map((d) => d.group), [0, 0]);
+
+  c.rpc.batch = async () => { throw Error("no batch"); };
+  const fallback = await buildPool({ rpc: c.rpc });
+  assert.deepEqual(fallback.deposits.map((d) => d.group), [0, 0]);
+});
+
+test("builder accepts the integrator's own sender lookup", async () => {
+  const c = chain();
+  const asked = [];
+  const built = await buildPool({
+    rpc: c.rpc,
+    senders: async (hashes) => (asked.push(...hashes), hashes.map((_, i) => "0x" + String(i).repeat(40))),
+  });
+  assert.equal(asked.length, 2);
+  assert.deepEqual(built.deposits.map((d) => d.group), [0, 1]);
+});
+
+test("block search finds the first block at a time, with uneven block times", async () => {
+  const { blockAtTime } = await import("@railcheck/builder/reader");
+  const times = [0];
+  for (let n = 1; n <= 50000; n++) times.push(times[n - 1] + 1 + ((n * 7919) % 23));
+  const rpc = async (_m, [n]) => ({ timestamp: hex(times[Number(n)]) });
+  for (const target of [0, 5, times[777], times[777] + 1, times[49999], times[50000]]) {
+    const want = times.findIndex((t) => t >= target);
+    assert.equal(await blockAtTime(rpc, target, 50000), want);
+  }
+});
+
+test("builder stops soon when the RPC refuses every log request", async () => {
+  const c = chain();
+  const rpc = async (m, p) => {
+    if (m === "eth_getLogs") {
+      c.ranges.push(p);
+      throw Error("rate limit");
+    }
+    return c.rpc(m, p);
+  };
+  await assert.rejects(buildPool({ rpc }), /rate limit/);
+  assert.ok(c.ranges.length < 60, `${c.ranges.length} log calls`);
+});

@@ -31,9 +31,51 @@ export function memoryStore(state = null) {
   return { get: async () => state, set: async (next) => void (state = next) };
 }
 
+const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+
+/**
+ * The default sender lookup: eth_getTransactionByHash, in JSON-RPC batches when the
+ * RPC supports them (`rpc.batch`), else single calls. A failed batch falls back to
+ * single calls. Returns one lowercase address per hash, in order.
+ */
+export function rpcSenders(rpc, { batchSize = 100, concurrency = 4 } = {}) {
+  const one = async (hash) => {
+    const tx = await rpc("eth_getTransactionByHash", [hash]);
+    if (!ADDRESS.test(tx?.from || "")) throw Error("Missing transaction sender.");
+    return tx.from.toLowerCase();
+  };
+  const chunk = async (hashes) => {
+    if (rpc.batch && batchSize > 1)
+      try {
+        const txs = await rpc.batch(hashes.map((h) => ["eth_getTransactionByHash", [h]]));
+        if (txs.every((tx) => ADDRESS.test(tx?.from || "")))
+          return txs.map((tx) => tx.from.toLowerCase());
+      } catch {
+        // Fall back to single calls.
+      }
+    const out = [];
+    for (let i = 0; i < hashes.length; i += 8)
+      out.push(...(await Promise.all(hashes.slice(i, i + 8).map(one))));
+    return out;
+  };
+  return async (hashes) => {
+    const size = Math.max(1, batchSize),
+      chunks = [];
+    for (let i = 0; i < hashes.length; i += size) chunks.push(hashes.slice(i, i + size));
+    const results = [];
+    for (let i = 0; i < chunks.length; i += concurrency)
+      results.push(...(await Promise.all(chunks.slice(i, i + concurrency).map(chunk))));
+    return results.flat();
+  };
+}
+
 /**
  * Updates the stored pool and returns { deposits, snapshot, asset } for core `prepare`.
  * `rpc` is a function (method, params) => result, or pass `urls` instead.
+ * Tuning: `concurrency` (parallel log ranges and sender batches), `rangeSize`
+ * (first eth_getLogs block range; it shrinks if the RPC refuses it), `batchSize`
+ * (senders per JSON-RPC batch; 1 means single calls), or your own
+ * `senders(hashes) => addresses` (for example, from an indexer).
  */
 export async function buildPool({
   chain = "mainnet",
@@ -41,10 +83,15 @@ export async function buildPool({
   urls,
   store = memoryStore(),
   onProgress = () => {},
+  concurrency = 4,
+  batchSize = 100,
+  rangeSize = 200000,
+  senders,
 }) {
   const c = typeof chain === "string" ? CHAINS[chain] : chain;
   if (!c) throw Error(`Unknown chain: ${chain}.`);
   rpc ??= makeRpc({ urls });
+  senders ??= rpcSenders(rpc, { batchSize, concurrency });
   const chainId = Number(await rpc("eth_chainId", []));
   if (chainId !== c.chainId) throw Error("The RPC serves another chain.");
 
@@ -68,22 +115,18 @@ export async function buildPool({
   let rows = state?.rows ?? [];
   const from = state ? state.lastBlock + 1 : await blockAtTime(rpc, cutoff, head);
   if (from <= head) {
-    const { deposits } = await readDeposits(rpc, from, head, onProgress, c);
+    const { deposits } = await readDeposits(rpc, from, head, onProgress, { ...c, concurrency, rangeSize });
     const fresh = deposits.map((d) => ({
       block: d.block,
       time: d.time,
       amountWei: String(d.amountWei),
       hash: d.hash,
     }));
-    for (let i = 0; i < fresh.length; i += 8)
-      await Promise.all(
-        fresh.slice(i, i + 8).map(async (row) => {
-          const tx = await rpc("eth_getTransactionByHash", [row.hash]);
-          if (!/^0x[0-9a-fA-F]{40}$/.test(tx?.from || ""))
-            throw Error("Missing transaction sender.");
-          row.sender = tx.from.toLowerCase();
-        }),
-      );
+    const addresses = await senders(fresh.map((r) => r.hash));
+    fresh.forEach((row, i) => {
+      if (!ADDRESS.test(addresses[i] || "")) throw Error("Missing transaction sender.");
+      row.sender = addresses[i].toLowerCase();
+    });
     rows = rows.concat(fresh.map(({ hash, ...row }) => row));
     onProgress(`Read ${fresh.length} new deposits.`);
   }

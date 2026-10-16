@@ -114,7 +114,7 @@ export function makeRpc({
       "https://eth.drpc.org",
     ].filter(Boolean);
   let id = 0;
-  return async (method, params = []) => {
+  const call = async (method, params = []) => {
     for (const endpoint of endpoints) {
       for (let attempt = 0; attempt <= retries; attempt++) {
         try {
@@ -141,20 +141,72 @@ export function makeRpc({
       `Ethereum RPC failed for ${method}. Try RPC_URL with an archive-capable mainnet endpoint.`,
     );
   };
+  /** Many calls in one JSON-RPC batch request: [[method, params]] → results, in order. */
+  call.batch = async (calls) => {
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetchImpl(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            calls.map(([method, params], i) => ({ jsonrpc: "2.0", id: i, method, params })),
+          ),
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        const body = await response.json();
+        if (!Array.isArray(body) || body.length !== calls.length) throw Error();
+        const results = [];
+        for (const item of body) {
+          if (item.error || !Object.hasOwn(item, "result")) throw Error();
+          results[item.id] = item.result;
+        }
+        return results;
+      } catch {
+        // Try the next endpoint.
+      }
+    }
+    throw Error("Ethereum RPC batch failed.");
+  };
+  return call;
 }
 
+/**
+ * First block with timestamp >= `timestamp`. It guesses from the time gap
+ * (interpolation), and bisects on alternate steps, so it always ends.
+ */
 export async function blockAtTime(rpc, timestamp, head) {
-  let low = 0,
-    high = head;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    const block = await rpc("eth_getBlockByNumber", [hex(middle), false]);
-    if (!block || !Number.isSafeInteger(Number(block.timestamp)))
-      throw Error("Missing block timestamp.");
-    if (Number(block.timestamp) < timestamp) low = middle + 1;
-    else high = middle;
+  const timeOf = async (n) => {
+    const block = await rpc("eth_getBlockByNumber", [hex(n), false]);
+    const time = Number(block?.timestamp);
+    if (!Number.isSafeInteger(time)) throw Error("Missing block timestamp.");
+    return time;
+  };
+  let high = head,
+    tHigh = await timeOf(head);
+  if (tHigh < timestamp) return head + 1;
+  // Find a low block before the timestamp: guess 12 s blocks, then step back further.
+  let step = Math.ceil((tHigh - timestamp) / 12) + 100,
+    low = Math.max(0, head - step),
+    tLow = await timeOf(low);
+  while (tLow >= timestamp && low > 0) {
+    high = low;
+    tHigh = tLow;
+    step *= 2;
+    low = Math.max(0, high - step);
+    tLow = await timeOf(low);
   }
-  return low;
+  if (tLow >= timestamp) return low;
+  // Now tLow < timestamp <= tHigh.
+  for (let bisect = false; high - low > 1; bisect = !bisect) {
+    let middle = bisect
+      ? Math.floor((low + high) / 2)
+      : low + Math.floor(((timestamp - tLow) * (high - low)) / (tHigh - tLow || 1));
+    middle = Math.min(high - 1, Math.max(low + 1, middle));
+    const time = await timeOf(middle);
+    if (time < timestamp) (low = middle), (tLow = time);
+    else (high = middle), (tHigh = time);
+  }
+  return high;
 }
 
 export function foldUnshieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {}) {
@@ -238,7 +290,8 @@ async function readEvents(rpc, fromBlock, toBlock, onProgress, topics, fold, poo
   const times = new Map(),
     deposits = [];
   let removedInternal = 0;
-  async function readRange(start, end) {
+  async function readRange(start, end, out) {
+    if (failed) throw failed;
     let logs;
     try {
       logs = await rpc("eth_getLogs", [
@@ -251,10 +304,13 @@ async function readEvents(rpc, fromBlock, toBlock, onProgress, topics, fold, poo
       ]);
     } catch (error) {
       // Providers have different range/result limits. Never skip a failed range.
-      if (start === end) throw error;
+      // A refusal can be a range limit or a rate limit. Split, but never below
+      // minRange: past that point, more calls only make a rate limit worse.
+      if (end - start + 1 <= minRange) throw (failed ||= error);
       const middle = Math.floor((start + end) / 2);
-      await readRange(start, middle);
-      await readRange(middle + 1, end);
+      size = Math.min(size, Math.max(minRange, middle - start + 1));
+      await readRange(start, middle, out);
+      await readRange(middle + 1, end, out);
       return;
     }
     if (!Array.isArray(logs)) throw Error("Invalid Ethereum log response.");
@@ -289,14 +345,30 @@ async function readEvents(rpc, fromBlock, toBlock, onProgress, topics, fold, poo
           times.set(block, Number(b.timestamp));
         }),
       );
-    deposits.push(
-      ...folded.kept.map((d) => ({ ...d, time: times.get(d.block) })),
-    );
+    out.push(...folded.kept.map((d) => ({ ...d, time: times.get(d.block) })));
     onProgress(
       `Read blocks ${start}–${end}: ${folded.kept.length} transactions.`,
     );
   }
-  for (let start = fromBlock; start <= toBlock; start += 200000)
-    await readRange(start, Math.min(toBlock, start + 199999));
+  // Workers read ranges in parallel (pool.concurrency). After a split, later ranges
+  // use the smaller size that worked. Results keep block order.
+  let size = pool.rangeSize ?? 200000,
+    next = fromBlock;
+  const minRange = pool.minRange ?? 1000;
+  let failed = null; // the first final error stops every worker
+  const parts = [];
+  async function worker() {
+    while (next <= toBlock) {
+      const start = next,
+        end = Math.min(toBlock, start + size - 1),
+        out = [];
+      next = end + 1;
+      parts.push([start, out]);
+      await readRange(start, end, out);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.max(1, pool.concurrency ?? 1) }, worker));
+  parts.sort((a, b) => a[0] - b[0]);
+  for (const [, out] of parts) deposits.push(...out);
   return { deposits, removedInternal };
 }

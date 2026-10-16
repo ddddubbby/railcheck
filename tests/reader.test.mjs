@@ -102,7 +102,7 @@ test("reader splits provider-limited ranges and falls back to block timestamps",
     if (method === "eth_getBlockByNumber") return { timestamp: "0x64" };
     throw Error("Unexpected method");
   };
-  const result = await readDeposits(rpc, 1, 4);
+  const result = await readDeposits(rpc, 1, 4, undefined, { minRange: 1 });
   assert.equal(result.deposits.length, 1);
   assert.equal(result.deposits[0].time, 100);
   assert.ok(calls.filter((c) => c[0] === "eth_getLogs").length > 1);
@@ -190,7 +190,7 @@ test("withdrawal reader splits ranges, uses real block timestamps, and rejects o
     if (Number(p.toBlock) - Number(p.fromBlock) > 1) throw Error("limit");
     return Number(p.fromBlock) <= 2 && Number(p.toBlock) >= 2 ? [log] : [];
   };
-  assert.deepEqual(await readWithdrawals(rpc, 1, 4), [
+  assert.deepEqual(await readWithdrawals(rpc, 1, 4, undefined, { minRange: 1 }), [
     { block: 2, amountWei: 100n, time: 100 },
   ]);
   await assert.rejects(
