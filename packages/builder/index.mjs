@@ -32,7 +32,7 @@ export function memoryStore(state = null) {
 }
 
 /**
- * Updates the stored pool and returns { deposits, snapshot } for core `prepare`.
+ * Updates the stored pool and returns { deposits, snapshot, asset } for core `prepare`.
  * `rpc` is a function (method, params) => result, or pass `urls` instead.
  */
 export async function buildPool({
@@ -108,6 +108,7 @@ export async function buildPool({
   });
   return {
     deposits,
+    asset: { chainId: c.chainId, address: c.token, symbol: "WETH", decimals: 18 },
     snapshot: {
       pool: c.pool,
       chainId: c.chainId,

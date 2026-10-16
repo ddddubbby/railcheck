@@ -49,6 +49,7 @@ test("builder reads the window, then only new blocks, with sender groups", async
   assert.deepEqual(first.deposits.map((d) => d.group), [0, 0]);
   assert.equal(first.snapshot.block, 26131700 - 64);
   assert.equal(first.snapshot.grouping, "tx-sender");
+  assert.equal(first.asset.address, "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
 
   c.head = 26131800;
   c.ranges = [];

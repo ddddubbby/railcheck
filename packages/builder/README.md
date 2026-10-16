@@ -12,12 +12,12 @@ Builds the railcheck pool from your own Ethereum RPC. Preview release.
 import { buildPool } from "@railcheck/builder";
 import { prepare, plan } from "@railcheck/core";
 
-const { deposits, snapshot } = await buildPool({
+const { deposits, snapshot, asset } = await buildPool({
   chain: "mainnet", // or "sepolia"
   urls: ["https://your-rpc.example"], // or rpc: (method, params) => result
   store, // { get: async () => state, set: async (state) => {} }
 });
-const pool = prepare(deposits, { snapshot });
+const pool = prepare(deposits, { snapshot, asset });
 const advice = plan(pool, { action: "unshield", amount, constraint: "fixed" });
 ```
 
