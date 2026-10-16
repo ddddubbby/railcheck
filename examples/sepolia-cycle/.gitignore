@@ -1,0 +1,9 @@
+node_modules/
+.env
+engine.db/
+engine-mainnet.db/
+artifacts/
+*.log
+wallet-info.json
+last-proved-unshield.json
+presend-v2-report.json
