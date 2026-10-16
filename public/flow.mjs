@@ -1,0 +1,363 @@
+// One flow for shield and unshield: assess, optionally adjust, review.
+// Amounts and answers stay in memory: no storage, no URL, no network after load.
+import { parseAmount, formatWei } from "./lib/engine/index.mjs";
+const $ = (id) => document.getElementById(id),
+  form = $("flow-form"),
+  panel = $("result"),
+  canvas = $("crowd"),
+  ctx = canvas.getContext("2d"),
+  reduced = matchMedia("(prefers-reduced-motion: reduce)");
+let worker,
+  ready = false,
+  request = 0,
+  last = null,
+  pool = 0,
+  start = 0,
+  frame,
+  lastSets = [],
+  lastLit = [];
+const ANSWER = { yes: true, no: false, unsure: undefined };
+const eth = (wei) => formatWei(BigInt(wei));
+const date = (t) =>
+  new Date(t * 1000).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+const el = (tag, content, cls) => {
+  const node = document.createElement(tag);
+  if (content !== undefined) node.textContent = content;
+  if (cls) node.className = cls;
+  return node;
+};
+const action = () => form.querySelector("input[name=action]:checked")?.value || "unshield";
+const value = (name) => form.querySelector(`input[name=${name}]:checked`)?.value;
+
+function notice(message) {
+  $("notice").hidden = !message;
+  $("notice").textContent = message || "";
+}
+function load() {
+  $("progress").hidden = false;
+  worker = new Worker("/worker.mjs", { type: "module" });
+  worker.onmessage = ({ data }) => {
+    if (data.type === "ready") {
+      ready = true;
+      $("progress").hidden = true;
+      $("data-date").textContent = "Data updated " + date(data.manifest.dataTime);
+      pool = data.manifest.count;
+      notice();
+    }
+    if (data.type === "error" && data.id === undefined) return notice(data.message);
+    if (data.id !== request) return;
+    if (data.type === "plan") {
+      // Keep the scan on screen briefly so the result does not flash.
+      // aria-busy stays true until render puts the result on the page.
+      const wait = reduced.matches ? 0 : Math.max(0, 600 - (performance.now() - start));
+      setTimeout(() => {
+        if (data.id !== request) return;
+        render(data);
+        stop();
+      }, wait);
+    }
+    if (data.type === "error") {
+      stop();
+      panel.hidden = true;
+      notice(data.message);
+    }
+  };
+  worker.onerror = () =>
+    notice("The pool data did not load. Check your connection, then try again.");
+  worker.postMessage({ type: "load" });
+}
+
+// The form follows the action: shield has no address questions.
+function sync() {
+  const shield = action() === "shield";
+  $("amount-label").textContent = shield ? "Amount to shield" : "Amount to unshield";
+  $("constraint-legend").textContent = shield
+    ? "Can the amount change a little?"
+    : "Can the amount be smaller?";
+  $("flexible-label").textContent = shield ? "Yes, within 10%" : "Yes, down to 70%";
+  $("questions").hidden = shield;
+  $("check-button").textContent = shield ? "Check shield amount" : "Check unshield amount";
+  fee();
+}
+function fee() {
+  const hint = $("fee-hint");
+  try {
+    const wei = parseAmount($("amount").value),
+      after = wei - (wei * 25n) / 10000n;
+    hint.textContent =
+      action() === "shield"
+        ? `The pool records ${formatWei(after)} ETH after the 0.25% shield fee.`
+        : `The recipient gets ${formatWei(after)} ETH after the 0.25% unshield fee.`;
+    hint.hidden = false;
+  } catch {
+    hint.hidden = true;
+  }
+}
+// Reads an amount field: its text, "" when optional and empty, or null when invalid.
+function field(id, optional = false) {
+  const input = $(id),
+    error = $(id + "-error"),
+    text = input.value.trim();
+  try {
+    if (!(optional && !text)) parseAmount(text);
+    error.hidden = true;
+    input.removeAttribute("aria-invalid");
+    return text;
+  } catch (e) {
+    error.textContent = e.message;
+    error.hidden = false;
+    input.setAttribute("aria-invalid", "true");
+    input.focus();
+    return null;
+  }
+}
+function submit(event) {
+  event?.preventDefault();
+  const amount = field("amount");
+  if (amount === null) return;
+  const message = { type: "plan", action: action(), amount, constraint: value("constraint") };
+  if (message.action === "unshield") {
+    const answers = {};
+    for (const q of ["q1", "q2", "q3"]) {
+      answers[q] = value(q);
+      $(q + "-error").hidden = !!answers[q];
+    }
+    const missing = ["q1", "q2", "q3"].find((q) => !answers[q]);
+    if (missing) return form.querySelector(`input[name=${missing}]`).focus();
+    const balance = field("balance", true);
+    if (balance === null) return;
+    message.context = {
+      addressReuse: ANSWER[answers.q1],
+      pastTransfer: ANSWER[answers.q2],
+      restOfDeposit: ANSWER[answers.q3],
+    };
+    message.balance = balance;
+  }
+  if (!ready)
+    return notice("The pool data did not load. Check your connection, then try again.");
+  request++;
+  last = message;
+  $("check-button").setAttribute("aria-busy", "true");
+  start = performance.now();
+  panel.hidden = false;
+  panel.setAttribute("aria-busy", "true");
+  $("readout").hidden = true;
+  $("band").textContent = "";
+  $("result-copy").replaceChildren();
+  $("scan-label").hidden = false;
+  if (!reduced.matches) animate();
+  else draw([]);
+  worker.postMessage({ ...message, id: request });
+}
+// The pixel crowd: each cell is a group of deposits; lit cells match the amount.
+function draw(ids, scan = 0) {
+  const width = canvas.clientWidth,
+    height = 64,
+    dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(width * dpr);
+  canvas.height = height * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, width, height);
+  const count = pool || 1,
+    group = Math.ceil(count / 600),
+    cells = Math.ceil(count / group),
+    columns = Math.max(1, Math.floor(width / 7)),
+    rows = Math.ceil(cells / columns),
+    stepY = height / Math.max(rows, 1),
+    stepX = width / columns,
+    lit = new Set(ids.map((id) => Math.floor(id / group))),
+    color = getComputedStyle(panel).getPropertyValue("--band").trim();
+  for (let i = 0; i < cells; i++) {
+    const x = i % columns,
+      y = Math.floor(i / columns);
+    ctx.fillStyle = lit.has(i)
+      ? color
+      : scan && Math.abs(x / columns - scan) < 0.07
+        ? "rgba(174,188,229,.6)"
+        : "rgba(255,255,255,.10)";
+    ctx.fillRect(x * stepX, y * stepY, Math.max(1, stepX - 2), Math.max(1, stepY - 2));
+  }
+}
+function animate() {
+  draw([], ((performance.now() - start) % 600) / 600);
+  frame = requestAnimationFrame(animate);
+}
+function stop() {
+  cancelAnimationFrame(frame);
+  $("check-button").removeAttribute("aria-busy");
+  panel.setAttribute("aria-busy", "false");
+}
+function readout(score, band) {
+  $("readout").hidden = false;
+  $("scan-label").hidden = true;
+  const meter = $("meter");
+  meter.setAttribute("aria-valuenow", score);
+  meter.setAttribute("aria-valuetext", `${score} out of 100. ${band}.`);
+  [...meter.children].forEach((cell, i) => cell.classList.toggle("on", i < Math.ceil(score / 10)));
+  if (reduced.matches) return ($("score").textContent = score);
+  const begin = performance.now();
+  const decode = () => {
+    if (performance.now() - begin >= 280) return ($("score").textContent = score);
+    $("score").textContent = String(Math.floor(Math.random() * 100)).padStart(2, "0");
+    requestAnimationFrame(decode);
+  };
+  decode();
+}
+
+const QUESTION = { addressReuse: "same address", pastTransfer: "past transfers", restOfDeposit: "rest of deposit" };
+// The most important finding first, in a few words.
+function headline(a) {
+  const codes = a.findings.map((f) => f.code),
+    link = a.findings.find((f) => f.code === "address-link");
+  if (a.action === "shield")
+    return a.status === "clear"
+      ? "This deposit blends in."
+      : "This deposit stands out. Withdrawing all of it later would be easy to match.";
+  if (link)
+    return link.reason === "address-reuse"
+      ? "Same address as the deposit. That links them, whatever the amount."
+      : "The addresses have a transfer history. That links them, whatever the amount.";
+  if (codes.includes("rest-of-deposit"))
+    return "This is the rest of a deposit. Your withdrawals would add up to it.";
+  if (codes.includes("amount-stands-out")) return "This amount points to deposits.";
+  if (a.status === "incomplete") return "No amount issue, but some answers are not sure.";
+  return "No issue found by the available checks.";
+}
+function render({ result: r, sets, lit, count, manifest }) {
+  const a = r.assessment,
+    parts = [];
+  if (a.status === "not-checked") {
+    panel.dataset.band = "Medium";
+    $("readout").hidden = true;
+    $("scan-label").hidden = true;
+    draw([]);
+    return show("Not checked", [
+      el("p", a.findings[0].code === "stale-data" ? "The pool data is too old. Reload later." : "The pool data does not cover 180 days.", "verdict"),
+    ]);
+  }
+  const band = a.status === "incomplete" ? "Incomplete" : a.band;
+  panel.dataset.band = band === "Incomplete" ? "Medium" : a.band;
+  lastSets = sets || [];
+  lastLit = lit || [];
+  readout(a.score, band);
+  draw(lastLit);
+  parts.push(el("p", headline(a), "verdict"));
+  if (a.findings.some((f) => f.code === "address-link")) parts.push(el("p", "Use a new address."));
+  else if (a.status === "attention" && a.unknown?.length) parts.push(el("p", "Some answers are not sure."));
+  parts.push(
+    el(
+      "p",
+      a.action === "shield"
+        ? `The pool records ${eth(a.amounts.poolCredit)} ETH.`
+        : `The recipient gets ${eth(a.amounts.recipientAmount)} ETH.`,
+      "hint",
+    ),
+  );
+  if (a.status === "attention" && !a.findings.some((f) => f.code === "address-link")) {
+    if (r.constraint !== "flexible") parts.push(el("p", "Your amount is fixed, so no alternative is shown."));
+    else if (r.alternatives.length)
+      for (const alt of r.alternatives) {
+        const amount = a.action === "shield" ? alt.amounts.shieldInput : alt.amounts.unshieldAmount,
+          use = el("button", `Use ${eth(amount)} ETH · scores ${alt.score}`, "secondary");
+        use.type = "button";
+        use.onclick = () => choose(amount);
+        parts.push(use);
+      }
+    else
+      parts.push(
+        el(
+          "p",
+          a.action === "shield"
+            ? "No Low amount within 10%. Keep yours."
+            : `No Low amount between ${eth(r.searched.from)} and ${eth(r.searched.to)} ETH.`,
+        ),
+      );
+  }
+  if (a.action === "unshield" && r.remainingBalance !== null)
+    parts.push(el("p", `Balance left: ${eth(r.remainingBalance)} ETH.`, "hint"));
+  if (a.action === "shield") parts.push(el("p", "Check again when you unshield.", "hint"));
+  // What was checked, in one line. Unknown answers stay visible.
+  const answers =
+    a.action === "unshield"
+      ? Object.entries(QUESTION).map(([q, label]) => {
+          const v = last.context[q];
+          return `${label} ${v === undefined ? "unknown" : v ? "yes" : "no"}`;
+        })
+      : [];
+  parts.push(el("p", `Checked: amount${answers.length ? ", " + answers.join(", ") : ""}. Not covered: timing, IP addresses.`, "hint"));
+  const details = el("details");
+  details.append(el("summary", "Details"));
+  if (a.action === "shield")
+    details.append(
+      el(
+        "p",
+        a.senders === null
+          ? `${a.deposits} ${a.deposits === 1 ? "deposit has" : "deposits have"} this pool amount.`
+          : `${a.senders} transaction ${a.senders === 1 ? "sender" : "senders"}, ${a.deposits} deposits with this pool amount.`,
+      ),
+    );
+  if (a.action === "unshield" && a.modelScore !== a.score) details.append(el("p", `Amount score ${a.modelScore}.`));
+  if (lastSets.length) details.append(matchTable(lastSets));
+  if (a.notes.includes("split-completes-total")) details.append(el("p", "Withdrawing the rest later completes the total of your deposit."));
+  details.append(el("p", `${count.toLocaleString("en")} deposits, last 180 days, data of ${date(manifest.dataTime)}.`, "hint"));
+  parts.push(details);
+  show(band, parts);
+}
+function matchTable(sets) {
+  const table = el("table"),
+    head = table.createTHead().insertRow(),
+    body = table.createTBody(),
+    sent = (nano) => {
+      const gross = (BigInt(nano) * 10n ** 9n * 10000n) / 9975n;
+      return formatWei(((gross + 500000000000n) / 1000000000000n) * 1000000000000n);
+    };
+  for (const name of ["Matching deposits sent", "Dates (UTC)"]) {
+    const th = el("th", name);
+    th.scope = "col";
+    head.append(th);
+  }
+  for (const set of sets) {
+    const row = body.insertRow();
+    row.insertCell().textContent = set.deposits.map((d) => `${sent(d.amount)} ETH`).join(" + ");
+    row.insertCell().textContent = set.deposits.map((d) => date(d.time)).join(" · ");
+  }
+  return table;
+}
+function show(band, parts) {
+  $("band").textContent = band || "";
+  $("result-heading").textContent = action() === "shield" ? "Shield risk" : "Unshield risk";
+  $("result-copy").replaceChildren(...parts);
+  panel.hidden = false;
+  $("announcement").textContent = `${band}. ${parts[0].textContent}`;
+  $("result-heading").focus({ preventScroll: true });
+  panel.scrollIntoView({ block: "start", behavior: reduced.matches ? "instant" : "smooth" });
+}
+window.addEventListener("resize", () => {
+  if (!panel.hidden && !$("readout").hidden) draw(lastLit);
+});
+// Choosing an alternative updates the same result. A smaller unshield amount is
+// not the rest of a deposit, so a "yes" there becomes "no"; other answers stay.
+function choose(amount) {
+  $("amount").value = formatWei(BigInt(amount));
+  if (action() === "unshield" && value("q3") === "yes")
+    form.querySelector("input[name=q3][value=no]").checked = true;
+  fee();
+  submit();
+}
+// A changed input makes the old result stale.
+form.addEventListener("input", (e) => {
+  if (e.target.id === "amount") fee();
+  $("result").hidden = true;
+});
+form.addEventListener("change", (e) => {
+  if (e.target.name === "action") sync();
+  $("result").hidden = true;
+});
+form.addEventListener("submit", submit);
+sync();
+load();

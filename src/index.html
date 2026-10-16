@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>railcheck: RAILGUN shield and unshield privacy check</title>
+    <meta
+      name="description"
+      content="Check if a RAILGUN deposit or withdrawal amount links back to you. Free, open source, runs in your browser."
+    />
+    <meta name="theme-color" content="#121218" />
+    <link rel="icon" href="/favicon.svg" />
+    <link rel="stylesheet" href="/style.css" />
+    <link
+      rel="preload"
+      href="/fonts/geist.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/geist-mono.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link rel="alternate" type="text/markdown" href="/index.md" />
+    <link rel="describedby" href="/llms.txt" />
+    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://railcheck.xyz/#org","name":"railcheck","url":"https://railcheck.xyz/","sameAs":["https://github.com/ddddubbby/railcheck"]},{"@type":"WebApplication","@id":"https://railcheck.xyz/#app","name":"railcheck","url":"https://railcheck.xyz/","description":"Check if a RAILGUN shield or unshield amount links back to you. All calculation runs on your device.","applicationCategory":"FinanceApplication","operatingSystem":"Web","publisher":{"@id":"https://railcheck.xyz/#org"},"featureList":["Checks a planned shield or unshield amount against RAILGUN ETH deposits on Ethereum from the last 180 days","Looks for sets of 1, 2 or 3 deposits that add up to an unshield amount","Scores shield exit risk and unshield link risk from 0 to 100","Runs in the browser with no wallet connection"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"isAccessibleForFree":true,"license":"https://opensource.org/license/mit/"}]}</script>
+    <script type="module" src="/app.mjs"></script>
+    <script type="module" src="/flow.mjs"></script>
+  </head>
+  <body>
+    <div class="shell home-shell">
+      <header>
+        <a class="brand" href="/">railcheck</a
+        ><a class="nav-link" href="/about/">About</a>
+      </header>
+      <div
+        class="progress"
+        id="progress"
+        role="progressbar"
+        aria-label="Loading pool data"
+      ></div>
+      <main>
+        <section class="hero" aria-labelledby="hero-heading">
+          <h1 id="hero-heading">
+            Check your RAILGUN privacy<br class="wide-break" />
+            before you shield or unshield
+          </h1>
+          <p class="lede">
+            See if your shield or unshield amount links your withdrawal to
+            your deposit, before you send it.
+          </p>
+          <ul class="assure" aria-label="About this check">
+            <li>
+              <canvas
+                class="pix"
+                aria-hidden="true"
+                width="7"
+                height="7"
+              ></canvas>
+              <div>
+                <strong>Your input stays in your browser</strong>
+              </div>
+            </li>
+            <li>
+              <canvas
+                class="pix"
+                aria-hidden="true"
+                width="7"
+                height="7"
+              ></canvas>
+              <div>
+                <strong
+                  ><a
+                    href="https://github.com/ddddubbby/railcheck"
+                    rel="noopener noreferrer"
+                    >Open source</a
+                  ></strong
+                >
+              </div>
+            </li>
+          </ul>
+        </section>
+        <section class="pulse" aria-labelledby="pulse-heading">
+          <div class="pulse-top">
+            <h2 class="sys" id="pulse-heading">RAILGUN ETH pool activity</h2>
+            <p class="pulse-period">Ethereum · WETH · Last 3 days</p>
+          </div>
+          <dl class="pulse-stats">
+            <div class="deposit-stat">
+              <dt>
+                <span class="activity-key deposit-key" aria-hidden="true"
+                  >↑</span
+                >Deposits
+              </dt>
+              <dd>{{PULSE_DEPOSITS}}<span>{{PULSE_DEPOSIT_ETH}} ETH</span></dd>
+            </div>
+            <div class="withdrawal-stat">
+              <dt>
+                <span class="activity-key withdrawal-key" aria-hidden="true"
+                  >↓</span
+                >Withdrawals
+              </dt>
+              <dd>
+                {{PULSE_WITHDRAWALS}}<span>{{PULSE_WITHDRAWAL_ETH}} ETH</span>
+              </dd>
+            </div>
+          </dl>
+          <p class="pulse-chart-label">
+            <span id="activity-resolution">Transactions per hour</span
+            ><span id="activity-unit">Each square is 1 transaction</span>
+          </p>
+          <div
+            class="pulse-chart"
+            id="activity-chart"
+            data-activity="{{PULSE_DATA}}"
+          >
+            <canvas id="pulse" aria-hidden="true"></canvas>
+            <input
+              class="pulse-scrubber"
+              id="activity-hour"
+              type="range"
+              min="0"
+              max="{{PULSE_MAX}}"
+              value="{{PULSE_SELECTED}}"
+              aria-label="Explore pool activity"
+              aria-describedby="activity-help"
+            />
+          </div>
+          <p class="sr-only">{{PULSE_SUMMARY}}</p>
+          <div class="pulse-readout" aria-live="off">
+            <p class="pulse-time">
+              <span id="activity-day">{{PULSE_DAY}}</span
+              ><span id="activity-time">{{PULSE_TIME}}</span>
+            </p>
+            <p class="deposit-readout">
+              <span id="activity-deposits"
+                >{{PULSE_HOUR_DEPOSITS}} deposits</span
+              ><span id="activity-deposit-eth"
+                >{{PULSE_HOUR_DEPOSIT_ETH}} ETH</span
+              >
+            </p>
+            <p class="withdrawal-readout">
+              <span id="activity-withdrawals"
+                >{{PULSE_HOUR_WITHDRAWALS}} withdrawals</span
+              ><span id="activity-withdrawal-eth"
+                >{{PULSE_HOUR_WITHDRAWAL_ETH}} ETH</span
+              >
+            </p>
+          </div>
+          <div class="pulse-bottom">
+            <p id="activity-help">
+              {{PULSE_UPDATED}}<span class="sr-only">
+                Hover or tap to explore activity.</span
+              ><span class="sr-only"
+                >Use arrow keys to select an hour, Home for the first or End for
+                the last.</span
+              >
+            </p>
+            <details class="activity-details">
+              <summary>Snapshot details</summary>
+              <p>
+                {{PULSE_META}}. Confirmed on Ethereum. Heights show transaction
+                counts per interval; deposits rise and withdrawals fall. Amounts
+                are after protocol fees. WETH only; deposits exclude internal
+                reshields. Withdrawals include DeFi unshields. This is a
+                snapshot, not a live feed.
+              </p>
+            </details>
+          </div>
+        </section>
+        <div class="notice" id="notice" role="status" hidden></div>
+        <form id="flow-form" novalidate autocomplete="off">
+          <div class="step">
+            <fieldset class="group" aria-describedby="action-hint">
+              <legend class="step-label sys"><span class="step-number">1</span>What do you want to do?</legend>
+              <div class="choices pair">
+                <label class="choice"><input type="radio" name="action" value="shield" /><span>Shield</span></label
+                ><label class="choice"><input type="radio" name="action" value="unshield" checked /><span>Unshield</span></label>
+              </div>
+              <p class="hint" id="action-hint">Shield moves funds into RAILGUN. Unshield moves them out.</p>
+            </fieldset>
+          </div>
+          <div class="step">
+            <label class="step-label sys" for="amount"><span class="step-number">2</span><span id="amount-label">Amount to unshield</span></label>
+            <div class="amount-wrap">
+              <input
+                id="amount"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="fee-hint amount-error"
+                placeholder="0.00"
+              /><span>ETH</span>
+            </div>
+            <p class="hint" id="fee-hint" hidden></p>
+            <p class="error" id="amount-error" hidden></p>
+            <fieldset class="group constraint">
+              <legend id="constraint-legend">Can the amount be smaller?</legend>
+              <div class="choices pair">
+                <label class="choice"><input type="radio" name="constraint" value="fixed" /><span>No, it is fixed</span></label
+                ><label class="choice"><input type="radio" name="constraint" value="flexible" checked /><span id="flexible-label">Yes, down to 70%</span></label>
+              </div>
+            </fieldset>
+          </div>
+          <div class="step" id="questions">
+            <h2 class="step-label sys"><span class="step-number">3</span>Destination and earlier withdrawals</h2>
+            <fieldset class="group" id="q1-group" aria-describedby="q1-error">
+              <legend>Will you withdraw to the address that made the deposit?</legend>
+              <div class="choices">{{Q1}}</div>
+              <p class="error" id="q1-error" hidden>Select an answer.</p>
+            </fieldset>
+            <fieldset class="group" id="q2-group" aria-describedby="q2-error">
+              <legend>
+                Did the destination address ever send funds to the deposit
+                address, or get funds from it?
+              </legend>
+              <div class="choices">{{Q2}}</div>
+              <p class="error" id="q2-error" hidden>Select an answer.</p>
+            </fieldset>
+            <fieldset class="group" id="q3-group" aria-describedby="q3-example q3-error">
+              <legend>
+                Will you withdraw the rest of a deposit that you already partly
+                withdrew?
+              </legend>
+              <p class="hint example" id="q3-example">
+                For example, you deposited 9.12 ETH, withdrew 3 ETH, and now
+                withdraw the remaining 6.12 ETH.
+              </p>
+              <div class="choices">{{Q3}}</div>
+              <p class="error" id="q3-error" hidden>Select an answer.</p>
+            </fieldset>
+            <label class="balance-label" for="balance">Private balance (optional)</label>
+            <div class="amount-wrap">
+              <input
+                id="balance"
+                type="text"
+                inputmode="decimal"
+                autocomplete="off"
+                spellcheck="false"
+                aria-describedby="balance-hint balance-error"
+                placeholder="0.00"
+              /><span>ETH</span>
+            </div>
+            <p class="hint" id="balance-hint">Shows what stays in your private balance.</p>
+            <p class="error" id="balance-error" hidden></p>
+          </div>
+          <button class="primary" id="check-button" type="submit">Check amount</button>
+        </form>
+        <section class="result" id="result" hidden aria-busy="false">
+          <div class="result-top">
+            <h2 class="sys" id="result-heading" tabindex="-1">Risk score</h2>
+            <span class="sys band" id="band"></span>
+          </div>
+          <div id="readout" hidden>
+            <div class="score" aria-hidden="true">
+              <span class="score-value" id="score">0</span
+              ><span class="score-max">/ 100</span>
+            </div>
+            <div
+              class="meter"
+              id="meter"
+              role="meter"
+              aria-label="Risk score"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              {{METER}}
+            </div>
+          </div>
+          <canvas id="crowd" aria-hidden="true"></canvas>
+          <p id="scan-label" class="scan-label" hidden>Checking the deposits…</p>
+          <div class="result-copy" id="result-copy"></div>
+        </section>
+        <section class="explainer" aria-labelledby="explainer-heading">
+          <h2 id="explainer-heading">What railcheck checks</h2>
+          <p>railcheck compares your amount with RAILGUN ETH deposits on Ethereum from the last 180 days. Everything runs in this tab, and it never asks for an address. <a href="/about/#method">How the check works</a></p>
+        </section>
+        <div
+          class="sr-only"
+          id="announcement"
+          role="status"
+          aria-live="polite"
+        ></div>
+        <noscript
+          ><p>
+            This check needs JavaScript to run on your device. The
+            <a href="/about/">About page</a>
+            works without it.
+          </p></noscript
+        >
+      </main>
+      <footer>
+        <div class="footer-links">
+          <a href="/about/">About</a>
+        </div>
+        <p>
+          Independent community project. Not affiliated with
+          <a href="https://railgun.org/" rel="noopener noreferrer">RAILGUN</a>.
+        </p>
+        <p>
+          Not financial or legal advice.
+          <a href="/about/#disclaimer">Disclaimer</a>
+        </p>
+        <p id="data-date">{{DATA_DATE}}</p>
+      </footer>
+    </div>
+  </body>
+</html>
