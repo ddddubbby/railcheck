@@ -64,7 +64,7 @@ export function encodePool(
   const manifest = {
     version: grouped ? 2 : 1,
     pool: "railgun-ethereum",
-    token: "WETH",
+    token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
     chainId: 1,
     file: "railgun-eth.bin",
     sha256: createHash("sha256").update(bytes).digest("hex"),

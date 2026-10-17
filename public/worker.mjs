@@ -16,7 +16,7 @@ self.onmessage = async ({ data }) => {
         !/^railgun-eth\.bin$/.test(manifest.file) ||
         manifest.demo ||
         manifest.chainId !== 1 ||
-        manifest.token !== "WETH"
+        manifest.token !== "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
       )
         throw Error();
       const r = await fetch("./data/" + manifest.file, { credentials: "omit" });

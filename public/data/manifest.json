@@ -1,7 +1,7 @@
 {
   "version": 1,
   "pool": "railgun-ethereum",
-  "token": "WETH",
+  "token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
   "chainId": 1,
   "file": "railgun-eth.bin",
   "sha256": "c2bfdf7c8970c6133f1c4bfea1bee4f56e573424cf20be9613b1a506f3745a32",

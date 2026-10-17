@@ -17,7 +17,9 @@ test("pool file v2 stores one group number per deposit and decodes it", () => {
   assert.equal(bytes.length, 16 + 3 * 16);
   const deposits = decode(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), manifest);
   assert.deepEqual(deposits.map((d) => d.group), [0, 1, 0]);
-  const { lastBlockHash, ...rest } = manifest;
+  // The only address in the manifest is the public WETH token contract. No depositor addresses.
+  const { lastBlockHash, token, ...rest } = manifest;
+  assert.equal(token, "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
   assert.ok(lastBlockHash && !JSON.stringify(rest).match(/0x[0-9a-f]{40}/i), "no address in the manifest");
 });
 test("stored rows get their transaction; groups follow each sender's first appearance", () => {

@@ -14,7 +14,7 @@ test("worker loads 2 common data files and makes no network request when checkin
   const manifest = JSON.parse(readFileSync("tests/fixtures/manifest.json"));
   delete manifest.demo;
   manifest.chainId = 1;
-  manifest.token = "WETH";
+  manifest.token = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
   const raw = readFileSync("tests/fixtures/pool.bin");
   const buffer = raw.buffer.slice(
     raw.byteOffset,

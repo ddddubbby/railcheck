@@ -31,7 +31,7 @@ const escape = (value) =>
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 const manifest = JSON.parse(readFileSync("public/data/manifest.json", "utf8"));
-if (manifest.demo || manifest.chainId !== 1 || manifest.token !== "WETH")
+if (manifest.demo || manifest.chainId !== 1 || manifest.token !== "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
   throw Error(
     "Build requires live Ethereum WETH data. Run npm run data:update.",
   );
