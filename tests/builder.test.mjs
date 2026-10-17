@@ -129,3 +129,10 @@ test("builder stops soon when the RPC refuses every log request", async () => {
   await assert.rejects(buildPool({ rpc }), /rate limit/);
   assert.ok(c.ranges.length < 60, `${c.ranges.length} log calls`);
 });
+
+test("prepare refuses a snapshot from another chain than the asset", async () => {
+  const built = await buildPool({ rpc: chain().rpc });
+  const sepolia = { ...built.snapshot, chainId: 11155111 };
+  assert.throws(() => prepare(built.deposits, { snapshot: sepolia }), /different chains/);
+  assert.equal(prepare(built.deposits, built).asset.chainId, 1);
+});
