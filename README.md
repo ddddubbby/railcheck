@@ -1,45 +1,42 @@
 # railcheck
 
-Check your RAILGUN withdrawal privacy before you unshield.
+Local privacy advice for RAILGUN shields and unshields.
 
-railcheck is a free, open-source tool that helps you spot three ways a planned withdrawal can become linked to a deposit: a distinctive amount, an existing connection between addresses, and withdrawing the rest of a deposit you already partly withdrew. It runs the check on your device, without connecting a wallet or asking for an address.
+railcheck tells you if a shield or unshield amount can link back to you, before you send. The check runs on your device. It never asks for an address.
 
-## What it can do
+- **Web check:** [railcheck.xyz](https://railcheck.xyz/)
+- **Wallet SDK:** add the same check to a wallet. See [For wallets](https://railcheck.xyz/docs/).
 
-- Compare a planned ETH withdrawal with public RAILGUN WETH deposits on Ethereum from the last 180 days.
-- Look for matches to individual deposits and combinations of two or three deposits, accounting for the unshield fee.
-- Flag address reuse and prior transfers between the deposit and destination addresses, based on your answers.
-- Flag withdrawing the rest of a partly withdrawn deposit, based on your answer.
-- Show a risk score with an explanation of the signals behind it.
-- Suggest a smaller amount when an alternative meets the model's lower-risk criteria.
-- Show when the public deposit snapshot was updated, and warn when it is stale.
-- Explore three days of confirmed deposits and withdrawals on an hourly timeline. Deposit spikes rise and withdrawal spikes fall. Hover, tap or use the arrow keys to inspect each UTC hour. The dashboard is built into the page and makes no extra requests.
+This preview covers RAILGUN WETH on Ethereum mainnet and Sepolia.
 
-## How to use it
+## Packages
 
-1. Enter the amount you plan to unshield.
-2. Answer two questions about the destination address and one about earlier withdrawals. You never enter an address.
-3. Read the result and, when available, consider the suggested amount.
+| Package | Function |
+| --- | --- |
+| [`@railcheck/core`](lib/) | The advice engine. It makes no network calls. |
+| [`@railcheck/builder`](packages/builder/) | Builds the pool of shields from your own RPC. |
+| [`@railcheck/kohaku`](packages/kohaku/) | Gets advice before `prepareShield` and `prepareUnshield` in a Kohaku-style plugin. |
 
-The check does not submit a transaction or move funds. Support currently covers RAILGUN ETH withdrawals on Ethereum.
+## Privacy
 
-## Privacy by design
+Your amount and answers stay on your device. The check has no server, no analytics and no wallet connection. For the method, the data and the limits, see [How it works](https://railcheck.xyz/how-it-works/).
 
-Your amount and answers remain in memory in your browser. They are not sent to a server, stored, or included in a URL. There is no wallet connection, analytics, cookies or third-party page content.
+A score is the output of a model. A Low score does not guarantee privacy.
 
-The site loads the same public deposit snapshot for every visitor. Once that snapshot is loaded, running a check makes no network requests. Hosting providers still receive ordinary requests for site files.
+## Repository
 
-## Understand the result
-
-The score is a model-based indication of amount matching, address-link and split-withdrawal risk, not a measured probability of identification or a guarantee of anonymity. Address and split-withdrawal checks rely on your answers; railcheck does not inspect a wallet's history.
-
-It does not cover every source of information an observer might have, including timing, IP addresses, exchange records and other off-chain data. A lower score means fewer signals under this model. The [About page](src/about.html) explains the assumptions and limitations.
-
-railcheck is an independent project and is not an official RAILGUN product.
+| Folder | Content |
+| --- | --- |
+| `lib/` | `@railcheck/core` |
+| `packages/` | `@railcheck/builder` and `@railcheck/kohaku` |
+| `src/`, `public/` | The website. The text pages are Markdown in `src/`. |
+| `scripts/` | The site build and the daily pool data update |
+| `examples/sepolia-cycle/` | A real wallet flow on Sepolia: build the pool, get advice, shield and unshield |
+| `tests/` | Tests |
 
 ## Run locally
 
-Requires Node.js 22 or later. There are no npm dependencies.
+You need Node.js 22 or later. There are no runtime dependencies. The build uses `marked`.
 
 ```sh
 npm ci --ignore-scripts
@@ -48,10 +45,12 @@ npm run build
 npm run dev
 ```
 
-Open <http://127.0.0.1:4173>. Verified Ethereum deposit and withdrawal snapshots are included.
+Open <http://127.0.0.1:4173>.
 
-`npm run data:update` refreshes both snapshots at the same block with 64 confirmations. Builds verify their hashes and reject mismatched checkpoints. The chart uses UTC-hour bins (three-hour bins on narrow screens), with a shared linear transaction-count scale. Deposits exclude internal reshields; withdrawals include DeFi unshields. Amounts are after protocol fees. The [RAILGUN contract](https://github.com/Railgun-Privacy/contract/blob/main/contracts/logic/RailgunLogic.sol) defines the Shield and Unshield events.
+`npm run data:update` updates the pool data at one block, with 64 confirmations. It needs an RPC in `RPC_URL`.
 
 ## License
 
-MIT. The bundled Geist fonts retain their [SIL Open Font License](public/fonts/LICENSE.txt).
+MIT. The Geist fonts use the [SIL Open Font License](public/fonts/LICENSE.txt).
+
+railcheck is an independent project. It is not related to RAILGUN.

@@ -1,27 +1,36 @@
 # @railcheck/kohaku (preview)
 
-railcheck privacy advice for wallets built on the [Kohaku](https://github.com/ethereum/kohaku) plugin interface. The advice runs on the device, before the wallet prepares a shield or an unshield.
+railcheck advice for wallets on the [Kohaku](https://github.com/ethereum/kohaku) plugin interface. The advice runs on the device, before the wallet prepares a shield or an unshield.
+
+## Install
+
+```sh
+npm install @railcheck/kohaku @railcheck/core
+```
+
+You need a pool from `prepare` in [`@railcheck/core`](../../lib/).
+
+## Example
 
 ```js
 import { guard } from "@railcheck/kohaku";
 
 const safe = guard(plugin, {
-  pool,                              // from @railcheck/core prepare()
-  constraint: "flexible", // only when the user allows a smaller amount; default "fixed"
-  onAdvice: async (advice) => {
-    // Show advice.assessment (status, findings). Return a new amount, or null to keep the request.
-    return advice.alternatives[0]?.amounts.unshieldAmount ?? null;
-  },
-  // Only facts the wallet can establish; leave the others undefined (not sure).
-  getContext: async (assetAmount, to) => ({ addressReuse: false, pastTransfer: false }),
+  pool,
+  constraint: "fixed",
+  getContext: async (assetAmount, to) => ({ addressReuse: to === shieldAddress }),
+  onAdvice: async (advice) => null, // Show the advice. Return a new amount, or null.
 });
 
-await safe.prepareUnshield({ asset: { __type: "native" }, amount }, to); // prepares one time
+await safe.prepareUnshield({ asset: { __type: "erc20", contract: WETH }, amount }, to);
 ```
 
-- `adviseShield(pool, assetAmount)` and `adviseUnshield(pool, assetAmount, options)` return the advice without wrapping.
-- The wallet passes the final unshield amount, after broadcaster costs.
-- One asset per call. `prepare*Multi` calls pass through with no advice.
-- An unsupported asset gives an assessment with `status: "not-checked"` and never blocks the call.
+- The plugin prepares the transaction one time, with the amount from `onAdvice`.
+- `adviseShield` and `adviseUnshield` give the advice without a wrapper.
+- An asset that the pool does not cover gives `not-checked`. It does not stop the call.
+- One asset for each call. `prepare*Multi` calls pass through with no advice.
+- Compatibility with the official `@kohaku-eth/railgun` plugin is a target. It is not tested.
 
-This preview covers RAILGUN WETH on Ethereum. Compatibility with the restored official `@kohaku-eth/railgun` plugin is a design target and is not yet tested.
+All options: [railcheck.xyz/docs](https://railcheck.xyz/docs/#kohaku-adapter).
+
+MIT license. railcheck is not related to RAILGUN.

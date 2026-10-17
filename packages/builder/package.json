@@ -2,11 +2,39 @@
   "name": "@railcheck/builder",
   "version": "0.1.0-preview.0",
   "description": "Builds the railcheck RAILGUN pool from your own Ethereum RPC.",
+  "keywords": [
+    "railgun",
+    "privacy",
+    "ethereum",
+    "wallet",
+    "shield",
+    "unshield",
+    "rpc"
+  ],
+  "homepage": "https://railcheck.xyz/docs/",
+  "bugs": {
+    "url": "https://github.com/ddddubbby/railcheck/issues"
+  },
   "type": "module",
   "license": "MIT",
-  "exports": { ".": "./index.mjs", "./reader": "./reader.mjs" },
-  "files": ["index.mjs", "reader.mjs", "README.md"],
-  "dependencies": { "@railcheck/core": "0.1.0-preview.0" },
-  "engines": { "node": ">=22" },
-  "repository": { "type": "git", "url": "git+https://github.com/ddddubbby/railcheck.git", "directory": "packages/builder" }
+  "exports": {
+    ".": "./index.mjs",
+    "./reader": "./reader.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "reader.mjs",
+    "README.md"
+  ],
+  "dependencies": {
+    "@railcheck/core": "0.1.0-preview.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ddddubbby/railcheck.git",
+    "directory": "packages/builder"
+  }
 }
