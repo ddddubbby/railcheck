@@ -1,9 +1,11 @@
 /**
  * The real wallet flow on Sepolia:
  * 1. Build the pool from the wallet's own RPC (@railcheck/builder).
- * 2. Get advice before prepareUnshield (@railcheck/kohaku guard).
- * 3. Prove and simulate the unshield. Send only with --send and APPROVE_TRANSACTIONS=1.
- * Run: node src/flow-demo.mjs [--send]
+ * 2. With --shield: get advice before prepareShield, then shield SHIELD_ETH.
+ * 3. Get advice before prepareUnshield (@railcheck/kohaku guard).
+ * 4. Prove and simulate the unshield.
+ * Transactions go out only with --send and APPROVE_TRANSACTIONS=1.
+ * Run: node src/flow-demo.mjs [--shield] [--send]
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -17,14 +19,17 @@ import {
 } from '@railgun-community/shared-models';
 import {
   balanceForERC20Token,
+  gasEstimateForShieldBaseToken,
   gasEstimateForUnprovenUnshield,
+  getShieldPrivateKeySignatureMessage,
   generateUnshieldProof,
   loadWalletByID,
   populateProvedUnshield,
+  populateShieldBaseToken,
   refreshBalances,
   walletForID,
 } from '@railgun-community/wallet';
-import { JsonRpcProvider, Wallet, parseEther, formatEther } from 'ethers';
+import { JsonRpcProvider, Wallet, parseEther, formatEther, keccak256 } from 'ethers';
 import { buildPool } from '@railcheck/builder';
 import { prepare, toJSON } from '@railcheck/core';
 import { guard } from '@railcheck/kohaku';
@@ -32,6 +37,7 @@ import {
   NETWORK,
   RPC_URL,
   ETHERSCAN_TX_BASE,
+  SHIELD_ETH,
   UNSHIELD_ETH,
   WETH_ADDRESS,
   ROOT_DIR,
@@ -40,6 +46,7 @@ import { startEngine, stopEngine } from './engine.mjs';
 
 const TXID = TXIDVersion.V2_PoseidonMerkle;
 const SEND = process.argv.includes('--send') && process.env.APPROVE_TRANSACTIONS === '1';
+const SHIELD = process.argv.includes('--shield');
 const POOL_STATE = path.join(ROOT_DIR, 'pool-state.json');
 const json = (v) => JSON.stringify(v, (_k, x) => (typeof x === 'bigint' ? x.toString() : x), 2);
 
@@ -73,24 +80,27 @@ async function main() {
 
   console.log('\n=== 2. WALLET ===');
   const { MNEMONIC, ENCRYPTION_KEY, RAILGUN_WALLET_ID } = process.env;
-  if (!MNEMONIC || !ENCRYPTION_KEY || !RAILGUN_WALLET_ID) throw Error('Missing wallet values in .env.');
+  if (!MNEMONIC || !ENCRYPTION_KEY || !RAILGUN_WALLET_ID || !process.env.RAILGUN_ADDRESS)
+    throw Error('Missing wallet values in .env. Run npm run create-wallet.');
   await startEngine({ debug: false });
   await loadWalletByID(ENCRYPTION_KEY, RAILGUN_WALLET_ID, false);
   const provider = new JsonRpcProvider(RPC_URL);
   const signer = Wallet.fromPhrase(MNEMONIC, provider);
-  const amount = parseEther(UNSHIELD_ETH);
-  const chain = NETWORK_CONFIG[NETWORK].chain;
-  let spendable = 0n;
-  for (let i = 0; i < 90 && spendable < amount; i++) {
-    await refreshBalances(chain, [RAILGUN_WALLET_ID]).catch(() => {});
-    spendable = await balanceForERC20Token(TXID, walletForID(RAILGUN_WALLET_ID), NETWORK, WETH_ADDRESS, true).catch(() => 0n);
-    console.log(`Spendable WETH: ${formatEther(spendable)}`);
-    if (spendable < amount) await new Promise((r) => setTimeout(r, 20_000));
-  }
-  if (spendable < amount) throw Error('Not enough spendable WETH.');
+  const report = { network: NETWORK, pool: { deposits: built.deposits.length, snapshot: built.snapshot } };
+  const ask = (label) => async (a) => {
+    report[label] = toJSON(a);
+    console.log(json(report[label]));
+    return null; // keep the requested amount
+  };
 
-  // A minimal Kohaku-style plugin: prepareUnshield proves and populates the transaction.
+  // A minimal Kohaku-style plugin: prepare* returns a populated transaction.
   const plugin = {
+    async prepareShield(assetAmount, to) {
+      const key = keccak256(await signer.signMessage(getShieldPrivateKeySignatureMessage()));
+      const erc20 = { tokenAddress: WETH_ADDRESS, amount: assetAmount.amount };
+      const { gasEstimate } = await gasEstimateForShieldBaseToken(TXID, NETWORK, to, key, erc20, signer.address);
+      return populateShieldBaseToken(TXID, NETWORK, to, key, erc20, await gasDetails(gasEstimate));
+    },
     async prepareUnshield(assetAmount, to) {
       const recipient = { tokenAddress: assetAmount.asset.contract, amount: assetAmount.amount, recipientAddress: to };
       const { gasEstimate } = await gasEstimateForUnprovenUnshield(
@@ -102,47 +112,63 @@ async function main() {
       return populateProvedUnshield(TXID, NETWORK, RAILGUN_WALLET_ID, [recipient], [], undefined, true, minGasPrice, gas);
     },
   };
+  const simulateAndSend = async (label, populated) => {
+    const { to, data, value } = populated.transaction;
+    await provider.call({ to, data, value, from: signer.address });
+    console.log('eth_call: pass');
+    report[label] = { simulate: 'pass' };
+    if (!SEND) return false;
+    const tx = await signer.sendTransaction(populated.transaction);
+    const receipt = await tx.wait();
+    Object.assign(report[label], { status: receipt.status === 1 ? 'pass' : 'fail', hash: tx.hash, block: receipt.blockNumber, link: ETHERSCAN_TX_BASE + tx.hash });
+    console.log(json(report[label]));
+    if (receipt.status !== 1) throw Error(`${label} failed on-chain.`);
+    return true;
+  };
 
-  console.log('\n=== 3. ADVICE BEFORE prepareUnshield ===');
-  let advice;
+  if (SHIELD) {
+    console.log('\n=== 3. ADVICE BEFORE prepareShield ===');
+    const safe = guard(plugin, { pool, constraint: 'fixed', onAdvice: ask('shieldAdvice') });
+    const populated = await safe.prepareShield({ asset: { __type: 'native' }, amount: parseEther(SHIELD_ETH) }, process.env.RAILGUN_ADDRESS);
+    console.log('\n=== 4. SHIELD ===');
+    if (!(await simulateAndSend('shield', populated))) return finish('Shield not sent. To send: add --send and APPROVE_TRANSACTIONS=1.');
+  }
+
+  const amount = parseEther(UNSHIELD_ETH);
+  const chain = NETWORK_CONFIG[NETWORK].chain;
+  let spendable = 0n;
+  for (let i = 0; i < 90 && spendable < amount; i++) {
+    await refreshBalances(chain, [RAILGUN_WALLET_ID]).catch(() => {});
+    spendable = await balanceForERC20Token(TXID, walletForID(RAILGUN_WALLET_ID), NETWORK, WETH_ADDRESS, true).catch(() => 0n);
+    console.log(`Spendable WETH: ${formatEther(spendable)}`);
+    if (spendable < amount) await new Promise((r) => setTimeout(r, 20_000));
+  }
+  if (spendable < amount) throw Error('Not enough spendable WETH.');
+
+  console.log('\n=== 5. ADVICE BEFORE prepareUnshield ===');
   const safe = guard(plugin, {
     pool,
     constraint: 'fixed',
     // The recipient is the address that shielded, so the wallet knows this is an address link.
     getContext: async (_a, to) => ({ addressReuse: to.toLowerCase() === signer.address.toLowerCase() }),
-    onAdvice: async (a) => {
-      advice = a;
-      console.log(json(toJSON(a)));
-      return null; // keep the requested amount
-    },
+    onAdvice: ask('unshieldAdvice'),
   });
   const populated = await safe.prepareUnshield(
     { asset: { __type: 'erc20', contract: WETH_ADDRESS }, amount },
     signer.address,
   );
 
-  console.log('\n=== 4. SIMULATE ===');
-  await provider.call({ to: populated.transaction.to, from: signer.address, data: populated.transaction.data });
-  console.log('eth_call: pass');
+  console.log('\n=== 6. UNSHIELD ===');
+  if (!(await simulateAndSend('unshield', populated))) return finish('Unshield not sent. To send: add --send and APPROVE_TRANSACTIONS=1.');
+  return finish('Done.');
 
-  const report = {
-    network: NETWORK,
-    pool: { deposits: built.deposits.length, snapshot: built.snapshot },
-    advice: toJSON(advice),
-    simulate: 'pass',
-  };
-  if (SEND) {
-    console.log('\n=== 5. SEND ===');
-    const tx = await signer.sendTransaction(populated.transaction);
-    const receipt = await tx.wait();
-    report.send = { status: receipt.status === 1 ? 'pass' : 'fail', hash: tx.hash, block: receipt.blockNumber, link: ETHERSCAN_TX_BASE + tx.hash };
-    console.log(json(report.send));
-  } else console.log('\nNot sent. To send: APPROVE_TRANSACTIONS=1 node src/flow-demo.mjs --send');
-  fs.writeFileSync(path.join(ROOT_DIR, 'flow-demo-report.json'), json(report));
-  await stopEngine();
-  process.exit(0);
+  async function finish(message) {
+    console.log(`\n${message}`);
+    fs.writeFileSync(path.join(ROOT_DIR, 'flow-demo-report.json'), json(report));
+    await stopEngine();
+    process.exit(0);
+  }
 }
-
 main().catch(async (err) => {
   console.error('FAIL', err?.message ?? err);
   await stopEngine();
