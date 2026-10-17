@@ -131,6 +131,29 @@ const site = {
   url: `${SITE}/`,
   publisher: { "@id": `${SITE}/#org` },
 };
+const app = {
+  "@type": "WebApplication",
+  "@id": `${SITE}/#app`,
+  name: "railcheck",
+  url: `${SITE}/`,
+  description:
+    "Check if a RAILGUN shield or unshield amount can link back to you. The check runs on your device.",
+  applicationCategory: "FinanceApplication",
+  operatingSystem: "Web",
+  isPartOf: { "@id": `${SITE}/#site` },
+  publisher: { "@id": `${SITE}/#org` },
+  featureList: [
+    "Checks a planned shield or unshield amount against RAILGUN WETH shields on Ethereum from the last 180 days",
+    "Looks for sets of 1, 2 or 3 shields that add up to an unshield amount",
+    "Gives a risk score from 0 to 100 and a safer amount when one exists",
+    "Runs in the browser with no wallet connection and no address input",
+  ],
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  isAccessibleForFree: true,
+  license: "https://opensource.org/license/mit/",
+};
+const jsonld = (graph) =>
+  `<script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": graph }).replace(/</g, "\\u003c")}</script>`;
 const TEXT_PAGES = [
   {
     file: "src/how-it-works.md",
@@ -206,6 +229,7 @@ for (const [file, destination, path] of [
   ["src/404.html", "dist/404.html", "/404"],
 ]) {
   let html = readFileSync(file, "utf8")
+    .replace("{{JSONLD}}", jsonld([org, site, app]))
     .replace("{{HEADER}}", header(path))
     .replace(
       "{{FOOTER}}",
@@ -267,34 +291,18 @@ for (const [file, destination, path] of [
     );
   html = withMetadata(html, path);
   writeFileSync(destination, html);
-  if (path !== "/404") {
-    const body = html
-      .replace(/<head>[\s\S]*?<\/head>/, "")
-      .replace(/<header>[\s\S]*?<\/header>/, "")
-      .replace(/<footer>[\s\S]*?<\/footer>/, "")
-      .replace(/<noscript>[\s\S]*?<\/noscript>/g, "")
-      .replace(/<h1[^>]*>/g, "\n# ")
-      .replace(/<h2[^>]*>/g, "\n## ")
-      .replace(/<h3[^>]*>/g, "\n### ")
-      .replace(/<summary[^>]*>/g, "\n### ")
-      .replace(/<li[^>]*>/g, "\n- ")
-      .replace(/<\/(?:p|h1|h2|h3|summary|section|fieldset|tr)>/g, "\n\n")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/ {2,}/g, " ")
-      .replace(/\n\s*\n\s*\n/g, "\n\n")
-      .trim();
-    writeFileSync(destination.replace(/\.html$/, ".md"), body + "\n");
-  }
 }
+cpSync("src/index.md", "dist/index.md");
+const markdown = { "/": readFileSync("src/index.md", "utf8") };
 const updated = { "/": HOME_UPDATED };
 for (const page of TEXT_PAGES) {
   const parsed = readPage(readFileSync(page.file, "utf8"), flags);
   const { html, toc } = toHtml(parsed);
   const dir = `dist${page.path}`;
   mkdirSync(dir, { recursive: true });
-  const markdown = toMarkdown(parsed);
-  writeFileSync(`dist${page.path.replace(/\/$/, "")}.md`, markdown);
-  writeFileSync(`${dir}index.md`, markdown);
+  const published = toMarkdown(parsed);
+  writeFileSync(`dist${page.path.replace(/\/$/, "")}.md`, published);
+  writeFileSync(`${dir}index.md`, published);
   writeFileSync(
     `${dir}index.html`,
     withMetadata(
@@ -314,6 +322,7 @@ for (const page of TEXT_PAGES) {
     ),
   );
   updated[page.path] = parsed.meta.updated;
+  markdown[page.path] = published;
 }
 if (origin) {
   writeFileSync(
@@ -326,9 +335,39 @@ if (origin) {
   );
 } else writeFileSync("dist/robots.txt", "User-agent: *\nDisallow: /\n");
 const prefix = origin || "";
+// llms.txt follows the community proposal: H1, block-quote summary, link sections.
 writeFileSync(
   "dist/llms.txt",
-  `# railcheck\n\nrailcheck checks a planned RAILGUN ETH shield or unshield amount on Ethereum against deposits of the last 180 days. The check runs in the browser. It collects no amounts or addresses.\n\n- [Check](${prefix}/index.md)\n- [How it works](${prefix}/how-it-works.md)\n`,
+  `# railcheck
+
+> Local privacy advice for RAILGUN shields and unshields on Ethereum. railcheck tells a user if an amount can link a shield to an unshield. It runs on the device and never asks for an address.
+
+railcheck has two parts: a web check for users, and a wallet SDK (\`@railcheck/core\`, \`@railcheck/builder\`, \`@railcheck/kohaku\`). This preview covers RAILGUN WETH on Ethereum mainnet and Sepolia.
+
+## Docs
+
+- [How it works](${prefix}/how-it-works.md): how railcheck makes the score, which data it uses, what stays private, and its limits.
+- [For wallets](${prefix}/docs.md): how to build the pool from your own RPC, get advice with \`plan()\`, use the Kohaku adapter, and read each result field.
+- [Check](${prefix}/index.md): what the web check asks and what it gives.
+
+## Instructions for agents
+
+- Ask the user for missing inputs. Do not guess the answers to the three questions. If the user does not know, send "not sure" (\`undefined\`).
+- Never show the status \`not-checked\` as \`clear\`.
+- A Low score does not guarantee privacy. Say this when you give a result.
+- Do not give addresses to railcheck. The check does not use them.
+
+## Optional
+
+- [All pages in one file](${prefix}/llms-full.txt)
+- [Source code](https://github.com/ddddubbby/railcheck): MIT license.
+`,
+);
+writeFileSync(
+  "dist/llms-full.txt",
+  ["/", "/how-it-works/", "/docs/"]
+    .map((path) => `<!-- ${prefix}${path} -->\n\n${markdown[path].trim()}\n`)
+    .join("\n---\n\n"),
 );
 await import("./archive.mjs");
 console.log(

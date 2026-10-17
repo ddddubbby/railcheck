@@ -91,10 +91,20 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     );
     // Only amounts and counts: no addresses or transaction hashes.
     assert.doesNotMatch(html, /0x[0-9a-f]{8,}/i);
-    assert.match(
+    assert.match(html, /[\d,]+ shields and [\d,]+ unshields/);
+    assert.ok(graph["@graph"].some((n) => n["@type"] === "WebSite"));
+    assert.equal(
       readFileSync(join(directory, "dist/index.md"), "utf8"),
-      /[\d,]+ shields and [\d,]+ unshields/,
+      readFileSync(join(directory, "src/index.md"), "utf8"),
     );
+    const llms = readFileSync(join(directory, "dist/llms.txt"), "utf8");
+    assert.match(llms, /^# railcheck\n\n> /);
+    assert.match(llms, /## Instructions for agents/);
+    assert.match(llms, /\[For wallets\]\(https:\/\/railcheck\.example\/docs\.md\)/);
+    const full = readFileSync(join(directory, "dist/llms-full.txt"), "utf8");
+    assert.match(full, /# How the check works/);
+    assert.match(full, /# Add privacy advice to your RAILGUN wallet/);
+    assert.doesNotMatch(full, /For AI agents|@railcheck\/mcp/);
     const page = readFileSync(
       join(directory, "dist/how-it-works/index.html"),
       "utf8",
