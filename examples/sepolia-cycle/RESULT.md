@@ -41,3 +41,25 @@ Sepolia pre-send: snarkjs.verify **pass** (`01x02`); eth_call **pass**; proof ~3
 ## Gate log
 
 `docs/mainnet-cycle-gate-log-v2.md` in Project store.
+
+## Flow demo
+
+New Sepolia-only test wallet (Brief v2 / lost prior key). Public address: `0x4BAAea6b9fbc6E820dB806e5D18BDe1758dde05C`.
+
+| Step | Result | Notes |
+|------|--------|-------|
+| Build pool | **pass** | 1091 deposits; first run **60.5s**, send run **0.2s** |
+| Shield advice | **pass** | status `clear`, findings none, score 2 / Low |
+| Shield 0.01 ETH | **pass** | eth_call pass; on-chain status 1 |
+| Wallet scan | **pass** | spendable WETH **0.009975** |
+| Unshield advice | **pass*** | status `not-checked`, finding `unsupported-asset` (amount kept 0.005); expected `attention`/`address-link` when asset matches — harness still proceeded |
+| Unshield 0.005 | **pass** | snarkjs `01x02` pass; eth_call pass; on-chain status 1 |
+
+| Tx | Hash | Block | Etherscan |
+|----|------|-------|-----------|
+| Shield | `0x4dc439df07244cb4b22fad26e75446d2ac36b5051847dc674f785581e0a2baa4` | **11931857** | [link](https://sepolia.etherscan.io/tx/0x4dc439df07244cb4b22fad26e75446d2ac36b5051847dc674f785581e0a2baa4) |
+| Unshield | `0x47010c638f5369c6664c5aea2a2e345d0d7ee8e87276e97f479734bd6f361ad3` | **11931867** | [link](https://sepolia.etherscan.io/tx/0x47010c638f5369c6664c5aea2a2e345d0d7ee8e87276e97f479734bd6f361ad3) |
+
+Overall: **PASS** (both txs confirmed). `.env` not committed; durable backups on the VM only.
+
+**Unshield advice: not checked.** That harness ran on the builder from `main`, which did not return the pool asset. It called `prepare` with no asset, so the pool used mainnet WETH, and the Sepolia WETH did not match. The advice correctly gave `not-checked`, never `clear`. Fix: `buildPool` returns `asset`, and `src/flow-demo.mjs` passes it to `prepare`. A rerun of the unshield step with this script is pending.
