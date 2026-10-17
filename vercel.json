@@ -40,13 +40,13 @@
   ],
   "redirects": [
     {
-      "source": "/how-it-works",
-      "destination": "/about/",
+      "source": "/about",
+      "destination": "/how-it-works/",
       "permanent": true
     },
     {
-      "source": "/how-it-works/:path*",
-      "destination": "/about/:path*",
+      "source": "/about/:path*",
+      "destination": "/how-it-works/",
       "permanent": true
     },
     {

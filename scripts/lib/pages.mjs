@@ -138,7 +138,7 @@ export function renderPage({ path, meta, html, toc, sourceURL, jsonld, tools }) 
     <script type="application/ld+json">${JSON.stringify(jsonld).replace(/</g, "\\u003c")}</script>${tools ? '\n    <script type="module" src="/docs.mjs"></script>' : ""}
   </head>
   <body>
-    <div class="shell">
+    <div class="shell doc-shell">
       ${header(path)}
       <div class="doc-layout">
         ${contents}

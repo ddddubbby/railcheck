@@ -33,10 +33,7 @@
   </head>
   <body>
     <div class="shell home-shell">
-      <header>
-        <a class="brand" href="/">railcheck</a
-        ><a class="nav-link" href="/about/">About</a>
-      </header>
+      {{HEADER}}
       <div
         class="progress"
         id="progress"
@@ -278,7 +275,7 @@
         </section>
         <section class="explainer" aria-labelledby="explainer-heading">
           <h2 id="explainer-heading">What railcheck checks</h2>
-          <p>railcheck compares your amount with RAILGUN ETH deposits on Ethereum from the last 180 days. Everything runs in this tab, and it never asks for an address. <a href="/about/#method">How the check works</a></p>
+          <p>railcheck compares your amount with RAILGUN ETH deposits on Ethereum from the last 180 days. Everything runs in this tab, and it never asks for an address. <a href="/how-it-works/#method">How the check works</a></p>
         </section>
         <div
           class="sr-only"
@@ -288,26 +285,13 @@
         ></div>
         <noscript
           ><p>
-            This check needs JavaScript to run on your device. The
-            <a href="/about/">About page</a>
-            works without it.
+            This check needs JavaScript. You can read
+            <a href="/how-it-works/">How it works</a> and
+            <a href="/docs/">For wallets</a> without it.
           </p></noscript
         >
       </main>
-      <footer>
-        <div class="footer-links">
-          <a href="/about/">About</a>
-        </div>
-        <p>
-          Independent community project. Not affiliated with
-          <a href="https://railgun.org/" rel="noopener noreferrer">RAILGUN</a>.
-        </p>
-        <p>
-          Not financial or legal advice.
-          <a href="/about/#disclaimer">Disclaimer</a>
-        </p>
-        <p id="data-date">{{DATA_DATE}}</p>
-      </footer>
+      {{FOOTER}}
     </div>
   </body>
 </html>

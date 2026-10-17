@@ -867,49 +867,76 @@ footer p {
   overflow: hidden;
   clip-path: inset(50%);
 }
-.reading section {
-  margin: 40px 0;
-  scroll-margin-top: 24px;
-}
-.reading .eyebrow {
-  font-size: var(--fs-caption);
-  color: var(--signal);
-  margin-bottom: 16px;
-}
-.reading .lede {
-  font-size: var(--fs-lead);
-  line-height: 1.65;
-}
-.contents {
+.site-nav {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 24px;
-  padding: 12px 0;
-  border-block: 1px solid var(--line);
-  margin: 28px 0 40px;
+  gap: 24px;
+}
+.nav-link[aria-current="page"] {
+  color: var(--signal);
+}
+.toc ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.toc a {
+  display: block;
+  padding: 6px 0;
+  text-decoration: none;
+  color: var(--muted);
   font-size: var(--fs-small);
 }
-.contents a {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  text-decoration: none;
-}
-.reading .privacy-lead {
+.toc a:hover {
   color: var(--text);
+}
+.toc .toc-3 a {
+  padding-left: 12px;
+}
+.toc-title {
+  font-family: var(--mono);
+  font-size: var(--fs-caption);
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.toc {
+  padding-bottom: 16px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--line);
+}
+.reading h2,
+.reading h3 {
+  scroll-margin-top: 24px;
+}
+.reading h2 {
+  font-size: var(--fs-lead);
+  margin: 40px 0 12px;
+}
+.reading h3 {
+  font-size: var(--fs-body);
+  margin: 28px 0 8px;
+}
+.anchor {
+  margin-left: 8px;
+  color: var(--tick);
+  text-decoration: none;
+  opacity: 0;
+}
+h2:hover .anchor,
+h3:hover .anchor,
+.anchor:focus {
+  opacity: 1;
 }
 #disclaimer {
   border-top: 1px solid var(--line);
   padding-top: 32px;
 }
-.reading h2 {
-  font-size: var(--fs-lead);
-  margin-bottom: 12px;
-}
 .reading p,
 .reading li {
   font-size: var(--fs-body);
   color: var(--muted);
+}
+.reading strong {
+  color: var(--text);
 }
 .reading ul,
 .reading ol {
@@ -919,23 +946,112 @@ footer p {
 .reading li {
   margin-bottom: 12px;
 }
-.bands {
+.reading li > ul {
+  margin-top: 8px;
+}
+.table-wrap {
+  overflow-x: auto;
+  margin: 16px 0;
+}
+.reading table {
   width: 100%;
   border-collapse: collapse;
   font-size: var(--fs-small);
 }
-.bands th,
-.bands td {
-  padding: 12px 8px 12px 0;
+.reading th,
+.reading td {
+  padding: 10px 12px 10px 0;
   text-align: left;
   border-bottom: 1px solid var(--line);
   vertical-align: top;
 }
-.bands th {
+.reading th {
   font-weight: 500;
 }
-.bands td {
+.reading td {
   color: var(--muted);
+}
+.reading code {
+  font-family: var(--mono);
+  font-size: 0.875em;
+}
+.reading pre {
+  position: relative;
+  background: var(--inset);
+  border: 1px solid var(--line);
+  padding: 16px;
+  overflow-x: auto;
+  font-size: var(--fs-small);
+  line-height: 1.5;
+}
+.reading pre code {
+  font-size: inherit;
+}
+.doc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding: 12px 0;
+  margin: 0 0 32px;
+  border-block: 1px solid var(--line);
+  font-size: var(--fs-small);
+  color: var(--muted);
+}
+.reading .doc-meta p {
+  margin: 0;
+  font-size: var(--fs-small);
+}
+.doc-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+.doc-tools button,
+.copy-code {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.copy-code {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: var(--fs-caption);
+}
+@media (max-width: 999px) {
+  /* A compact row on narrow screens, so the title stays near the top. */
+  .toc ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 16px;
+  }
+  .toc .toc-3 {
+    display: none;
+  }
+}
+@media (min-width: 1000px) {
+  .doc-shell {
+    max-width: 1040px;
+  }
+  .doc-layout {
+    display: grid;
+    grid-template-columns: 200px minmax(0, 1fr);
+    gap: 48px;
+  }
+  .toc {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    border-bottom: 0;
+  }
 }
 details {
   border-bottom: 1px solid var(--line);
@@ -991,8 +1107,8 @@ details p {
   h1 {
     font-size: 2rem;
   }
-  .contents {
-    column-gap: 16px;
+  .site-nav {
+    gap: 14px;
   }
   .home-shell {
     padding-inline: 20px;

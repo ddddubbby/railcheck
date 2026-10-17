@@ -4,6 +4,7 @@ const roots = new Set([
   "src",
   "public",
   "lib",
+  "packages",
   "scripts",
   "tests",
   "data",
