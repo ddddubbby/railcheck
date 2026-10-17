@@ -209,22 +209,22 @@ function readout(score, band) {
   decode();
 }
 
-const QUESTION = { addressReuse: "same address", pastTransfer: "past transfers", restOfDeposit: "rest of deposit" };
+const QUESTION = { addressReuse: "same address", pastTransfer: "past transfers", restOfDeposit: "rest of shield" };
 // The most important finding first, in a few words.
 function headline(a) {
   const codes = a.findings.map((f) => f.code),
     link = a.findings.find((f) => f.code === "address-link");
   if (a.action === "shield")
     return a.status === "clear"
-      ? "This deposit blends in."
-      : "This deposit stands out. Withdrawing all of it later would be easy to match.";
+      ? "This shield blends in."
+      : "This shield stands out. A later unshield of all of it is easy to match.";
   if (link)
     return link.reason === "address-reuse"
-      ? "Same address as the deposit. That links them, whatever the amount."
+      ? "Same address as the shield. That links them, whatever the amount."
       : "The addresses have a transfer history. That links them, whatever the amount.";
   if (codes.includes("rest-of-deposit"))
-    return "This is the rest of a deposit. Your withdrawals would add up to it.";
-  if (codes.includes("amount-stands-out")) return "This amount points to deposits.";
+    return "This is the rest of a shield. Your unshields add up to it.";
+  if (codes.includes("amount-stands-out")) return "This amount points to shields.";
   if (a.status === "incomplete") return "No amount issue, but some answers are not sure.";
   return "No issue found by the available checks.";
 }
@@ -297,14 +297,14 @@ function render({ result: r, sets, lit, count, manifest }) {
       el(
         "p",
         a.senders === null
-          ? `${a.deposits} ${a.deposits === 1 ? "deposit has" : "deposits have"} this pool amount.`
-          : `${a.senders} transaction ${a.senders === 1 ? "sender" : "senders"}, ${a.deposits} deposits with this pool amount.`,
+          ? `${a.deposits} ${a.deposits === 1 ? "shield has" : "shields have"} this pool amount.`
+          : `${a.senders} transaction ${a.senders === 1 ? "sender" : "senders"}, ${a.deposits} shields with this pool amount.`,
       ),
     );
   if (a.action === "unshield" && a.modelScore !== a.score) details.append(el("p", `Amount score ${a.modelScore}.`));
   if (lastSets.length) details.append(matchTable(lastSets));
-  if (a.notes.includes("split-completes-total")) details.append(el("p", "Withdrawing the rest later completes the total of your deposit."));
-  details.append(el("p", `${count.toLocaleString("en")} deposits, last 180 days, data of ${date(manifest.dataTime)}.`, "hint"));
+  if (a.notes.includes("split-completes-total")) details.append(el("p", "If you unshield the rest later, your unshields add up to your shield."));
+  details.append(el("p", `${count.toLocaleString("en")} shields, last 180 days, data of ${date(manifest.dataTime)}.`, "hint"));
   parts.push(details);
   show(band, parts);
 }
@@ -316,7 +316,7 @@ function matchTable(sets) {
       const gross = (BigInt(nano) * 10n ** 9n * 10000n) / 9975n;
       return formatWei(((gross + 500000000000n) / 1000000000000n) * 1000000000000n);
     };
-  for (const name of ["Matching deposits sent", "Dates (UTC)"]) {
+  for (const name of ["Matching shields sent", "Dates (UTC)"]) {
     const th = el("th", name);
     th.scope = "col";
     head.append(th);

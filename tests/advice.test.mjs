@@ -95,3 +95,14 @@ test("stale or incomplete pool data gives not-checked", () => {
   const partial = prepare(deposits, { now, snapshot: { ...snapshot, time: now - 3600, windowStart: now - 90 * 86400 } });
   assert.deepEqual(assess(partial, { action: "shield", amount: eth("1") }).findings, [{ code: "incomplete-window" }]);
 });
+
+test("plan gives only the documented statuses", async () => {
+  const { STATUS } = await import("../lib/format.mjs");
+  assert.deepEqual(STATUS, ["clear", "incomplete", "attention", "not-checked"]);
+  const seen = new Set();
+  for (const action of ["shield", "unshield"])
+    for (const amount of ["0.1", "1", "1.0731", "2.5", "10"])
+      for (const context of [{}, { addressReuse: true }, { addressReuse: false, pastTransfer: false, restOfDeposit: false }])
+        seen.add(plan(pool, { action, amount: eth(amount), constraint: "flexible", context }).assessment.status);
+  for (const status of seen) assert.ok(STATUS.includes(status), status);
+});

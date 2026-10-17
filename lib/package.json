@@ -2,13 +2,38 @@
   "name": "@railcheck/core",
   "version": "0.1.0-preview.0",
   "description": "Local privacy advice for RAILGUN shields and unshields. No network calls.",
+  "keywords": [
+    "railgun",
+    "privacy",
+    "ethereum",
+    "wallet",
+    "shield",
+    "unshield",
+    "engine"
+  ],
+  "homepage": "https://railcheck.xyz/docs/",
+  "bugs": {
+    "url": "https://github.com/ddddubbby/railcheck/issues"
+  },
   "type": "module",
   "license": "MIT",
   "exports": {
     ".": "./index.mjs",
     "./format": "./format.mjs"
   },
-  "files": ["index.mjs", "format.mjs", "engine/", "pool/", "README.md"],
-  "engines": { "node": ">=22" },
-  "repository": { "type": "git", "url": "git+https://github.com/ddddubbby/railcheck.git", "directory": "lib" }
+  "files": [
+    "index.mjs",
+    "format.mjs",
+    "engine/",
+    "pool/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ddddubbby/railcheck.git",
+    "directory": "lib"
+  }
 }

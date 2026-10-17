@@ -6,7 +6,7 @@
     <title>railcheck: RAILGUN shield and unshield privacy check</title>
     <meta
       name="description"
-      content="Check if a RAILGUN deposit or withdrawal amount links back to you. Free, open source, runs in your browser."
+      content="Check if a RAILGUN shield or unshield (deposit or withdrawal) amount can link back to you. Free and open source. It runs on your device."
     />
     <meta name="theme-color" content="#121218" />
     <link rel="icon" href="/favicon.svg" />
@@ -27,16 +27,13 @@
     />
     <link rel="alternate" type="text/markdown" href="/index.md" />
     <link rel="describedby" href="/llms.txt" />
-    <script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","@id":"https://railcheck.xyz/#org","name":"railcheck","url":"https://railcheck.xyz/","sameAs":["https://github.com/ddddubbby/railcheck"]},{"@type":"WebApplication","@id":"https://railcheck.xyz/#app","name":"railcheck","url":"https://railcheck.xyz/","description":"Check if a RAILGUN shield or unshield amount links back to you. All calculation runs on your device.","applicationCategory":"FinanceApplication","operatingSystem":"Web","publisher":{"@id":"https://railcheck.xyz/#org"},"featureList":["Checks a planned shield or unshield amount against RAILGUN ETH deposits on Ethereum from the last 180 days","Looks for sets of 1, 2 or 3 deposits that add up to an unshield amount","Scores shield exit risk and unshield link risk from 0 to 100","Runs in the browser with no wallet connection"],"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"isAccessibleForFree":true,"license":"https://opensource.org/license/mit/"}]}</script>
+    {{JSONLD}}
     <script type="module" src="/app.mjs"></script>
     <script type="module" src="/flow.mjs"></script>
   </head>
   <body>
     <div class="shell home-shell">
-      <header>
-        <a class="brand" href="/">railcheck</a
-        ><a class="nav-link" href="/about/">About</a>
-      </header>
+      {{HEADER}}
       <div
         class="progress"
         id="progress"
@@ -49,10 +46,6 @@
             Check your RAILGUN privacy<br class="wide-break" />
             before you shield or unshield
           </h1>
-          <p class="lede">
-            See if your shield or unshield amount links your withdrawal to
-            your deposit, before you send it.
-          </p>
           <ul class="assure" aria-label="About this check">
             <li>
               <canvas
@@ -94,7 +87,7 @@
               <dt>
                 <span class="activity-key deposit-key" aria-hidden="true"
                   >↑</span
-                >Deposits
+                >Shields
               </dt>
               <dd>{{PULSE_DEPOSITS}}<span>{{PULSE_DEPOSIT_ETH}} ETH</span></dd>
             </div>
@@ -102,7 +95,7 @@
               <dt>
                 <span class="activity-key withdrawal-key" aria-hidden="true"
                   >↓</span
-                >Withdrawals
+                >Unshields
               </dt>
               <dd>
                 {{PULSE_WITHDRAWALS}}<span>{{PULSE_WITHDRAWAL_ETH}} ETH</span>
@@ -138,14 +131,14 @@
             </p>
             <p class="deposit-readout">
               <span id="activity-deposits"
-                >{{PULSE_HOUR_DEPOSITS}} deposits</span
+                >{{PULSE_HOUR_DEPOSITS}} shields</span
               ><span id="activity-deposit-eth"
                 >{{PULSE_HOUR_DEPOSIT_ETH}} ETH</span
               >
             </p>
             <p class="withdrawal-readout">
               <span id="activity-withdrawals"
-                >{{PULSE_HOUR_WITHDRAWALS}} withdrawals</span
+                >{{PULSE_HOUR_WITHDRAWALS}} unshields</span
               ><span id="activity-withdrawal-eth"
                 >{{PULSE_HOUR_WITHDRAWAL_ETH}} ETH</span
               >
@@ -160,16 +153,7 @@
                 the last.</span
               >
             </p>
-            <details class="activity-details">
-              <summary>Snapshot details</summary>
-              <p>
-                {{PULSE_META}}. Confirmed on Ethereum. Heights show transaction
-                counts per interval; deposits rise and withdrawals fall. Amounts
-                are after protocol fees. WETH only; deposits exclude internal
-                reshields. Withdrawals include DeFi unshields. This is a
-                snapshot, not a live feed.
-              </p>
-            </details>
+            <a class="activity-about" href="/how-it-works/#data">About this data</a>
           </div>
         </section>
         <div class="notice" id="notice" role="status" hidden></div>
@@ -181,7 +165,7 @@
                 <label class="choice"><input type="radio" name="action" value="shield" /><span>Shield</span></label
                 ><label class="choice"><input type="radio" name="action" value="unshield" checked /><span>Unshield</span></label>
               </div>
-              <p class="hint" id="action-hint">Shield moves funds into RAILGUN. Unshield moves them out.</p>
+              <p class="hint" id="action-hint"><a href="/how-it-works/#words">What shield and unshield mean</a></p>
             </fieldset>
           </div>
           <div class="step">
@@ -208,28 +192,28 @@
             </fieldset>
           </div>
           <div class="step" id="questions">
-            <h2 class="step-label sys"><span class="step-number">3</span>Destination and earlier withdrawals</h2>
+            <h2 class="step-label sys"><span class="step-number">3</span>Recipient and earlier unshields</h2>
             <fieldset class="group" id="q1-group" aria-describedby="q1-error">
-              <legend>Will you withdraw to the address that made the deposit?</legend>
+              <legend>Will you unshield to the address that shielded?</legend>
               <div class="choices">{{Q1}}</div>
               <p class="error" id="q1-error" hidden>Select an answer.</p>
             </fieldset>
             <fieldset class="group" id="q2-group" aria-describedby="q2-error">
               <legend>
-                Did the destination address ever send funds to the deposit
-                address, or get funds from it?
+                Did the recipient address ever send funds to the address that
+                shielded, or get funds from it?
               </legend>
               <div class="choices">{{Q2}}</div>
               <p class="error" id="q2-error" hidden>Select an answer.</p>
             </fieldset>
             <fieldset class="group" id="q3-group" aria-describedby="q3-example q3-error">
               <legend>
-                Will you withdraw the rest of a deposit that you already partly
-                withdrew?
+                Will you unshield the rest of a shield that you partly unshielded
+                before?
               </legend>
               <p class="hint example" id="q3-example">
-                For example, you deposited 9.12 ETH, withdrew 3 ETH, and now
-                withdraw the remaining 6.12 ETH.
+                Example: you shielded 9.12 ETH, unshielded 3 ETH, and now unshield
+                6.12 ETH.
               </p>
               <div class="choices">{{Q3}}</div>
               <p class="error" id="q3-error" hidden>Select an answer.</p>
@@ -273,12 +257,13 @@
             </div>
           </div>
           <canvas id="crowd" aria-hidden="true"></canvas>
-          <p id="scan-label" class="scan-label" hidden>Checking the deposits…</p>
+          <p id="scan-label" class="scan-label" hidden>Checking the shields…</p>
           <div class="result-copy" id="result-copy"></div>
         </section>
         <section class="explainer" aria-labelledby="explainer-heading">
-          <h2 id="explainer-heading">What railcheck checks</h2>
-          <p>railcheck compares your amount with RAILGUN ETH deposits on Ethereum from the last 180 days. Everything runs in this tab, and it never asks for an address. <a href="/about/#method">How the check works</a></p>
+          <h2 id="explainer-heading">What railcheck does</h2>
+          <p>An unusual amount can show which shield is yours. railcheck compares your shield or unshield amount with the RAILGUN WETH shields on Ethereum from the last 180 days, and gives a risk score before you send. The check runs on your device and never asks for an address. It does not cover timing or IP addresses.</p>
+          <p><a href="/how-it-works/">How it works</a> · <a href="/docs/">For wallets</a></p>
         </section>
         <div
           class="sr-only"
@@ -288,26 +273,13 @@
         ></div>
         <noscript
           ><p>
-            This check needs JavaScript to run on your device. The
-            <a href="/about/">About page</a>
-            works without it.
+            This check needs JavaScript. You can read
+            <a href="/how-it-works/">How it works</a> and
+            <a href="/docs/">For wallets</a> without it.
           </p></noscript
         >
       </main>
-      <footer>
-        <div class="footer-links">
-          <a href="/about/">About</a>
-        </div>
-        <p>
-          Independent community project. Not affiliated with
-          <a href="https://railgun.org/" rel="noopener noreferrer">RAILGUN</a>.
-        </p>
-        <p>
-          Not financial or legal advice.
-          <a href="/about/#disclaimer">Disclaimer</a>
-        </p>
-        <p id="data-date">{{DATA_DATE}}</p>
-      </footer>
+      {{FOOTER}}
     </div>
   </body>
 </html>
