@@ -229,11 +229,7 @@ for (const [file, destination, path] of [
     .replace("{{METER}}", "<i></i>".repeat(10))
     .replace(
       "{{PULSE_UPDATED}}",
-      `Snapshot · ${shortDate(pulse.end)}, ${clock(pulse.end)} UTC`,
-    )
-    .replace(
-      "{{PULSE_META}}",
-      `Updated ${date(pulse.end)} at ${clock(pulse.end)} UTC · Block ${number(manifest.lastBlock)}`,
+      `Snapshot · ${shortDate(pulse.end)}, ${clock(pulse.end)} UTC · Block ${number(manifest.lastBlock)}`,
     )
     .replace(
       "{{PULSE_DATA}}",
@@ -249,7 +245,7 @@ for (const [file, destination, path] of [
     .replace("{{PULSE_SELECTED}}", String(selected))
     .replace(
       "{{PULSE_SUMMARY}}",
-      `${number(pulse.depositCount)} deposits and ${number(pulse.withdrawalCount)} withdrawals from ${shortDate(pulse.start)} to ${date(pulse.end)}, grouped by UTC hour. ${eth(pulse.depositWei)} ETH shielded and ${eth(pulse.withdrawalWei)} ETH unshielded.`,
+      `${number(pulse.depositCount)} shields and ${number(pulse.withdrawalCount)} unshields from ${shortDate(pulse.start)} to ${date(pulse.end)}, grouped by UTC hour. ${eth(pulse.depositWei)} ETH shielded and ${eth(pulse.withdrawalWei)} ETH unshielded.`,
     )
     .replace("{{PULSE_DEPOSITS}}", number(pulse.depositCount))
     .replace("{{PULSE_WITHDRAWALS}}", number(pulse.withdrawalCount))

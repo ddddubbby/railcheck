@@ -87,13 +87,13 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     assert.ok(activity.bins.some((b) => b.withdrawals > 0));
     assert.match(
       html,
-      /Updated \d+ \w{3} \d{4} at \d{2}:\d{2} UTC · Block [\d,]+/,
+      /Snapshot · \d+ \w{3}, \d{2}:\d{2} UTC · Block [\d,]+/,
     );
     // Only amounts and counts: no addresses or transaction hashes.
     assert.doesNotMatch(html, /0x[0-9a-f]{8,}/i);
     assert.match(
       readFileSync(join(directory, "dist/index.md"), "utf8"),
-      /[\d,]+ deposits and [\d,]+ withdrawals/,
+      /[\d,]+ shields and [\d,]+ unshields/,
     );
     const page = readFileSync(
       join(directory, "dist/how-it-works/index.html"),

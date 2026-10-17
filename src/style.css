@@ -364,35 +364,9 @@ main {
   font-size: var(--fs-caption);
   color: var(--muted);
 }
-.activity-details {
-  padding: 0;
-  border: 0;
-}
-.activity-details summary {
-  min-height: 24px;
-  font-size: var(--fs-caption);
+.activity-about {
+  font-size: var(--fs-small);
   color: var(--muted);
-  gap: 6px;
-}
-.activity-details summary::before {
-  display: none;
-}
-.activity-details summary::after {
-  content: "+";
-  font-family: var(--mono);
-}
-.activity-details[open] {
-  flex-basis: 100%;
-}
-.activity-details[open] summary::after {
-  content: "−";
-}
-.activity-details p {
-  font-size: var(--fs-caption);
-  color: var(--muted);
-  line-height: 1.6;
-  margin: 8px 0 4px;
-  max-width: 65ch;
 }
 form {
   border-radius: 8px;

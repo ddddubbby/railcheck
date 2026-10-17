@@ -142,14 +142,14 @@ function heartbeat() {
     $("activity-day").textContent = shortDate(b.start);
     $("activity-time").textContent = `${clock(b.start)}–${clock(b.end)} UTC`;
     $("activity-deposits").textContent =
-      `${b.deposits} deposit${b.deposits === 1 ? "" : "s"}`;
+      `${b.deposits} shield${b.deposits === 1 ? "" : "s"}`;
     $("activity-withdrawals").textContent =
-      `${b.withdrawals} withdrawal${b.withdrawals === 1 ? "" : "s"}`;
+      `${b.withdrawals} unshield${b.withdrawals === 1 ? "" : "s"}`;
     $("activity-deposit-eth").textContent = `${eth(b.depositWei)} ETH`;
     $("activity-withdrawal-eth").textContent = `${eth(b.withdrawalWei)} ETH`;
     slider.setAttribute(
       "aria-valuetext",
-      `${shortDate(b.start)}, ${clock(b.start)} to ${clock(b.end)} UTC: ${b.deposits} deposits, ${eth(b.depositWei)} ETH; ${b.withdrawals} withdrawals, ${eth(b.withdrawalWei)} ETH`,
+      `${shortDate(b.start)}, ${clock(b.start)} to ${clock(b.end)} UTC: ${b.deposits} shields, ${eth(b.depositWei)} ETH; ${b.withdrawals} unshields, ${eth(b.withdrawalWei)} ETH`,
     );
     if (!quiet) touched = performance.now();
     start_();
