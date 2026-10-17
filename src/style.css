@@ -998,25 +998,23 @@ h3:hover .anchor,
   right: 8px;
   font-size: var(--fs-caption);
 }
-@media (max-width: 999px) {
-  /* A compact row on narrow screens, so the title stays near the top. */
-  .toc ol {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0 16px;
-  }
+@media (max-width: 767px) {
+  /* Main sections only on phones, so the title stays near the top. */
   .toc .toc-3 {
     display: none;
   }
+  .toc a {
+    padding: 4px 0;
+  }
 }
-@media (min-width: 1000px) {
+@media (min-width: 768px) {
   .doc-shell {
     max-width: 1040px;
   }
   .doc-layout {
     display: grid;
-    grid-template-columns: 200px minmax(0, 1fr);
-    gap: 48px;
+    grid-template-columns: 168px minmax(0, 1fr);
+    gap: 40px;
   }
   .toc {
     position: sticky;
