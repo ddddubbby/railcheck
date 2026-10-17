@@ -1,0 +1,93 @@
+<!doctype html>
+<!--
+  Source of public/og.png (1200 × 630). To make the image again, from the repository root:
+  "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --hide-scrollbars \
+    --window-size=1200,630 --screenshot=public/og.png scripts/og.html
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @font-face {
+        font-family: Geist;
+        src: url("../public/fonts/geist.woff2") format("woff2");
+        font-weight: 100 900;
+      }
+      @font-face {
+        font-family: GeistMono;
+        src: url("../public/fonts/geist-mono.woff2") format("woff2");
+        font-weight: 100 900;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+        background: #121218;
+        color: rgba(255, 255, 255, 0.92);
+        font-family: Geist, sans-serif;
+      }
+      main {
+        box-sizing: border-box;
+        height: 630px;
+        padding: 64px 68px 56px;
+        display: flex;
+        flex-direction: column;
+      }
+      .brand {
+        font-family: GeistMono, monospace;
+        font-size: 28px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: #aebce5;
+      }
+      h1 {
+        margin: 56px 0 0;
+        font-size: 66px;
+        line-height: 1.1;
+        font-weight: 500;
+        letter-spacing: -0.03em;
+      }
+      p {
+        margin: 28px 0 0;
+        font-size: 28px;
+        color: rgba(255, 255, 255, 0.62);
+      }
+      footer {
+        margin-top: auto;
+        padding-top: 24px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: GeistMono, monospace;
+        font-size: 19px;
+        color: rgba(255, 255, 255, 0.62);
+      }
+      .pix {
+        display: flex;
+        gap: 6px;
+      }
+      .pix i {
+        width: 15px;
+        height: 22px;
+        background: rgba(255, 255, 255, 0.1);
+      }
+      .pix i.on {
+        background: #aebce5;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <div class="brand">railcheck</div>
+      <h1>Check your RAILGUN privacy<br />before you shield or unshield.</h1>
+      <p>Privacy advice for users and wallets. It runs on your device.</p>
+      <footer>
+        <span>free · open source · no wallet connection</span>
+        <span class="pix"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      </footer>
+    </main>
+  </body>
+</html>
