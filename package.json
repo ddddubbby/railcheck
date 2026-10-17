@@ -19,5 +19,8 @@
   "workspaces": [
     "lib",
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "marked": "18.0.14"
+  }
 }
