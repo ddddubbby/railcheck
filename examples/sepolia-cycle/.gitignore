@@ -7,3 +7,5 @@ artifacts/
 wallet-info.json
 last-proved-unshield.json
 presend-v2-report.json
+pool-state.json
+flow-demo-report.json
