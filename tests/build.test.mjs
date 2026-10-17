@@ -159,8 +159,10 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     );
     for (const [source, destination] of [
       ["/about", "/how-it-works/"],
+      ["/about/", "/how-it-works/"],
       ["/about/:path*", "/how-it-works/"],
       ["/plan", "/"],
+      ["/plan/", "/"],
       ["/plan/:path*", "/"],
     ])
       assert.ok(

@@ -63,12 +63,22 @@
       "permanent": true
     },
     {
+      "source": "/about/",
+      "destination": "/how-it-works/",
+      "permanent": true
+    },
+    {
       "source": "/about/:path*",
       "destination": "/how-it-works/",
       "permanent": true
     },
     {
       "source": "/plan",
+      "destination": "/",
+      "permanent": true
+    },
+    {
+      "source": "/plan/",
       "destination": "/",
       "permanent": true
     },
