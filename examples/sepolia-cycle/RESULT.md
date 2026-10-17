@@ -62,4 +62,18 @@ New Sepolia-only test wallet (Brief v2 / lost prior key). Public address: `0x4BA
 
 Overall: **PASS** (both txs confirmed). `.env` not committed; durable backups on the VM only.
 
-**Unshield advice: not checked.** That harness ran on the builder from `main`, which did not return the pool asset. It called `prepare` with no asset, so the pool used mainnet WETH, and the Sepolia WETH did not match. The advice correctly gave `not-checked`, never `clear`. Fix: `buildPool` returns `asset`, and `src/flow-demo.mjs` passes it to `prepare`. A rerun of the unshield step with this script is pending.
+### Brief v4 rerun (fresh shield, then unshield)
+
+The v3 rerun from the change note was blocked by the Sepolia TXID subgraph (wrong verification hash at block 11816741).
+
+| Step | Result | Notes |
+|------|--------|-------|
+| Shield advice | **pass** | status `clear`, findings none |
+| Shield 0.01 ETH | **pass** | eth_call pass; on-chain status 1; hash `0x911fec3bd524c2bc4751321f8e20962f85212ffc40e60bc5165778e05e1abb41`; block **11934472**; [Etherscan](https://sepolia.etherscan.io/tx/0x911fec3bd524c2bc4751321f8e20962f85212ffc40e60bc5165778e05e1abb41) |
+| Unshield advice | **pass** | status `attention`, findings `address-link` (+ `unknown-context`) |
+| Unshield 0.005 | **pass** | eth_call pass; on-chain status 1; hash `0x0550be7505ead780a9c61f05b80fd0bb2a7c21529e318b746fff0815eaab66c0`; block **11934481**; [Etherscan](https://sepolia.etherscan.io/tx/0x0550be7505ead780a9c61f05b80fd0bb2a7c21529e318b746fff0815eaab66c0) |
+
+| Tx | Hash | Block | Etherscan |
+|----|------|-------|-----------|
+| Shield (v4) | `0x911fec3bd524c2bc4751321f8e20962f85212ffc40e60bc5165778e05e1abb41` | **11934472** | [link](https://sepolia.etherscan.io/tx/0x911fec3bd524c2bc4751321f8e20962f85212ffc40e60bc5165778e05e1abb41) |
+| Unshield (v4) | `0x0550be7505ead780a9c61f05b80fd0bb2a7c21529e318b746fff0815eaab66c0` | **11934481** | [link](https://sepolia.etherscan.io/tx/0x0550be7505ead780a9c61f05b80fd0bb2a7c21529e318b746fff0815eaab66c0) |
