@@ -120,9 +120,25 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     assert.equal(pageMd, readFileSync(join(directory, "dist/how-it-works/index.md"), "utf8"));
     assert.match(pageMd, /^## Data$/m);
     assert.doesNotMatch(pageMd, /\{#/);
+    const docs = readFileSync(join(directory, "dist/docs/index.html"), "utf8");
+    const docsGraph = JSON.parse(
+      docs.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1],
+    )["@graph"];
+    assert.ok(docsGraph.some((n) => n["@type"] === "SoftwareSourceCode" && n["@id"].endsWith("/#sdk")));
+    assert.ok(docsGraph.some((n) => n["@type"] === "TechArticle"));
+    assert.match(docs, /<button type="button" class="copy-page" data-src="\/docs.md" hidden>/);
+    assert.match(docs, /<script type="module" src="\/docs.mjs"><\/script>/);
+    assert.match(docs, /href="\/docs.md">View as Markdown<\/a>/);
+    assert.match(docs, /Preview 0\.1\.0 · Updated <time datetime="\d{4}-\d{2}-\d{2}">/);
+    const docsMd = readFileSync(join(directory, "dist/docs.md"), "utf8");
+    assert.match(docsMd, /^## Reference$/m);
+    // Unpublished sections stay out of every output.
+    for (const out of [docs, docsMd, readFileSync(join(directory, "dist/docs/index.md"), "utf8")])
+      assert.doesNotMatch(out, /For AI agents|@railcheck\/mcp|if:mcp/);
     const sitemap = readFileSync(join(directory, "dist/sitemap.xml"), "utf8");
     assert.match(sitemap, /https:\/\/railcheck\.example\/how-it-works\/<\/loc><lastmod>\d{4}-\d{2}-\d{2}</);
     assert.doesNotMatch(sitemap, /about/);
+    assert.match(sitemap, /https:\/\/railcheck\.example\/docs\/<\/loc>/);
     assert.match(
       readFileSync(join(directory, "dist/llms.txt"), "utf8"),
       /\[How it works\]\(https:\/\/railcheck\.example\/how-it-works\.md\)/,

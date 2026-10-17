@@ -135,7 +135,7 @@ const TEXT_PAGES = [
   {
     file: "src/how-it-works.md",
     path: "/how-it-works/",
-    jsonld: (meta) => ({
+    jsonld: (meta) => [{
       "@type": "TechArticle",
       "@id": `${SITE}/how-it-works/#method`,
       headline: meta.title,
@@ -144,7 +144,43 @@ const TEXT_PAGES = [
       about: [{ "@id": `${SITE}/#app` }, { "@id": `${SITE}/#sdk` }],
       isPartOf: { "@id": `${SITE}/#site` },
       publisher: { "@id": `${SITE}/#org` },
-    }),
+    }],
+  },
+  {
+    file: "src/docs.md",
+    path: "/docs/",
+    tools: {
+      version: "Preview 0.1.0",
+      issues: "https://github.com/ddddubbby/railcheck/issues",
+    },
+    jsonld: (meta) => [
+      {
+        "@type": "SoftwareSourceCode",
+        "@id": `${SITE}/#sdk`,
+        name: "railcheck wallet SDK",
+        description:
+          "Local privacy advice for RAILGUN shields and unshields. Wallets build the pool from their own RPC. No data goes to railcheck.",
+        codeRepository: "https://github.com/ddddubbby/railcheck",
+        programmingLanguage: "JavaScript",
+        runtimePlatform: "Node.js 22",
+        license: "https://opensource.org/license/mit/",
+        isAccessibleForFree: true,
+        publisher: { "@id": `${SITE}/#org` },
+        hasPart: ["@railcheck/core", "@railcheck/builder", "@railcheck/kohaku"].map(
+          (name) => ({ "@type": "SoftwareSourceCode", name }),
+        ),
+      },
+      {
+        "@type": "TechArticle",
+        "@id": `${SITE}/docs/#docs`,
+        headline: meta.title,
+        description: meta.description,
+        dateModified: meta.updated,
+        about: { "@id": `${SITE}/#sdk` },
+        isPartOf: { "@id": `${SITE}/#site` },
+        publisher: { "@id": `${SITE}/#org` },
+      },
+    ],
   },
 ];
 /** Canonical, Open Graph and Twitter tags, or noindex when there is no origin. */
@@ -274,7 +310,7 @@ for (const page of TEXT_PAGES) {
         sourceURL: source,
         jsonld: {
           "@context": "https://schema.org",
-          "@graph": [org, site, page.jsonld(parsed.meta)],
+          "@graph": [org, site, ...page.jsonld(parsed.meta)],
         },
         tools: page.tools,
       }),

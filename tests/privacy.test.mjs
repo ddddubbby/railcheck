@@ -74,7 +74,7 @@ test("worker loads 2 common data files and makes no network request when checkin
   assert.equal(calls.length, 0);
 });
 test("client source has no persistence, telemetry or input URL writes", () => {
-  const source = ["public/app.mjs", "public/worker.mjs", "public/flow.mjs"]
+  const source = ["public/app.mjs", "public/worker.mjs", "public/flow.mjs", "public/docs.mjs"]
     .map((p) => readFileSync(p, "utf8"))
     .join("\n");
   assert.doesNotMatch(
