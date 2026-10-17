@@ -90,6 +90,8 @@ async function main() {
   const ask = (label) => async (a) => {
     report[label] = toJSON(a);
     console.log(json(report[label]));
+    // The demo proves real advice: stop before any transaction if the pool did not check.
+    if (a.assessment.status === 'not-checked') throw Error(`${label}: not-checked. Nothing sent.`);
     return null; // keep the requested amount
   };
 
