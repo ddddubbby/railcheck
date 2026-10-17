@@ -17,7 +17,7 @@ railcheck tells a user if an amount can link a shield to an unshield. The user g
 
 This preview covers RAILGUN WETH on Ethereum mainnet and on Sepolia.
 
-## Integrate {#integrate}
+## Add the check to your wallet {#integrate}
 
 ### Install
 
@@ -152,9 +152,9 @@ await safe.prepareUnshield({ asset: { __type: "erc20", contract: WETH }, amount 
 
 The plugin prepares the transaction one time, with the amount from `onAdvice`. The adapter does not change the other plugin functions. An asset that the pool does not cover gives `not-checked`. It does not stop the call.
 
-## Reference {#reference}
+## What the result contains {#reference}
 
-### Result
+### Example result
 
 `plan` gives this result. This example is a shield of 1.0731 ETH with `constraint: "flexible"`. Some fields are not shown.
 
@@ -215,7 +215,7 @@ Amounts are `bigint` values in wei. `toJSON(advice)` changes them to strings.
 
 A `not-checked` assessment has no `score`, `band` or `amounts`.
 
-### Status
+### Status values
 
 | Status | Meaning | Show to the user |
 | --- | --- | --- |
@@ -224,7 +224,7 @@ A `not-checked` assessment has no `score`, `band` or `amounts`.
 | `attention` | A finding needs an action. | The finding, and the alternatives if there are alternatives. |
 | `not-checked` | railcheck cannot check this amount. | "Not checked". Never "clear". |
 
-### Findings
+### Finding codes
 
 | Code | Meaning |
 | --- | --- |
@@ -236,7 +236,7 @@ A `not-checked` assessment has no `score`, `band` or `amounts`.
 | `incomplete-window` | `not-checked`: the pool data does not cover 180 days. |
 | `unsupported-asset` | `not-checked`: the pool does not cover this asset (Kohaku adapter). |
 
-### Notes
+### Note codes
 
 | Code | Meaning |
 | --- | --- |
@@ -244,14 +244,14 @@ A `not-checked` assessment has no `score`, `band` or `amounts`.
 | `split-completes-total` | If the user unshields the rest later, the unshields add up to the shield. |
 | `senders-unknown` | The pool has no sender groups, so `senders` is `null`. |
 
-### Alternatives
+### How alternatives are chosen
 
 You get alternatives only with `constraint: "flexible"`, and only when the amount causes the finding. An address link gives no alternatives.
 
 - Shield: common pool amounts within ±10% of the request, nearest first.
 - Unshield: common amounts from 70% to 100% of the request, largest first. The engine scores a maximum of `budget` amounts.
 
-## Rules for wallets {#rules}
+## How to show the result {#rules}
 
 1. Do not show "clear" or a green color when the status is `not-checked`.
 2. Do not give an answer for the user. If the wallet does not know the answer, set it to `undefined`.
@@ -286,7 +286,7 @@ Rules for agents:
 3. Do not change the amount without the approval of the user.
 <!-- end:mcp -->
 
-## Limits {#limits}
+## What the check does not cover {#limits}
 
 - The score is the output of a model. It is not a measured probability of identification.
 - The check covers amounts and the three questions only. It does not cover time, IP addresses or data that is not on the chain.

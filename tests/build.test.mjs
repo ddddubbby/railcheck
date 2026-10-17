@@ -128,7 +128,7 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     assert.doesNotMatch(page, /eyebrow|\{\{|href="\/about\//);
     const pageMd = readFileSync(join(directory, "dist/how-it-works.md"), "utf8");
     assert.equal(pageMd, readFileSync(join(directory, "dist/how-it-works/index.md"), "utf8"));
-    assert.match(pageMd, /^## Data$/m);
+    assert.match(pageMd, /^## Which data the check uses$/m);
     assert.doesNotMatch(pageMd, /\{#/);
     const docs = readFileSync(join(directory, "dist/docs/index.html"), "utf8");
     const docsGraph = JSON.parse(
@@ -141,7 +141,7 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     assert.match(docs, /href="\/docs.md">View as Markdown<\/a>/);
     assert.match(docs, /Preview 0\.1\.0 · Updated <time datetime="\d{4}-\d{2}-\d{2}">/);
     const docsMd = readFileSync(join(directory, "dist/docs.md"), "utf8");
-    assert.match(docsMd, /^## Reference$/m);
+    assert.match(docsMd, /^## What the result contains$/m);
     // Unpublished sections stay out of every output.
     for (const out of [docs, docsMd, readFileSync(join(directory, "dist/docs/index.md"), "utf8")])
       assert.doesNotMatch(out, /For AI agents|@railcheck\/mcp|if:mcp/);

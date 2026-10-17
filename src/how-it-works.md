@@ -7,7 +7,7 @@ updated: 2026-10-17
 
 How railcheck scores a shield or unshield amount, what stays private, and what the check does not cover.
 
-## Privacy {#privacy}
+## What stays private {#privacy}
 
 Your amount and answers stay in this browser tab.
 
@@ -16,11 +16,11 @@ Your amount and answers stay in this browser tab.
 - Every visitor gets the same pool file. The check verifies the hash of the file before it uses the data.
 - The host can see your IP address when you load the page. A VPN or Tor can hide your IP address from the host. They do not remove all privacy risks.
 
-## Method {#method}
+## How the score is made {#method}
 
 railcheck compares your amount with the RAILGUN WETH shields on Ethereum from the last 180 days. You do not say which shield is yours.
 
-### Unshield
+### For an unshield {#unshield}
 
 Enter the amount before the 0.25% unshield fee.
 
@@ -35,7 +35,7 @@ Enter the amount before the 0.25% unshield fee.
 
 If the amount can be smaller, railcheck tries common amounts from 70% to 100% of your amount, largest first. It shows the first amount with a score of 5 or less. It scores a maximum of 6 amounts.
 
-### Shield
+### For a shield {#shield}
 
 Enter the amount that leaves your public wallet.
 
@@ -43,7 +43,7 @@ railcheck scores a later unshield of the full shield, with your shield added to 
 
 Wallets can run the same check. See [For wallets](/docs/).
 
-## Score {#score}
+## What the score means {#score}
 
 The score goes from 0 to 100. The strongest signal sets it.
 
@@ -56,7 +56,7 @@ The score goes from 0 to 100. The strongest signal sets it.
 
 A match applies only if the matched shield is yours.
 
-## Data {#data}
+## Which data the check uses {#data}
 
 The pool file contains the amount and the time of each shield. It contains no addresses.
 
@@ -67,7 +67,7 @@ The pool file contains the amount and the time of each shield. It contains no ad
 
 The pool activity chart on the check page shows the last 3 days. Each square is 1 transaction. Shields go up and unshields go down. Unshields include unshields to DeFi contracts.
 
-## Limits {#limits}
+## What the check does not cover {#limits}
 
 Data that is not on the chain can make the real risk higher, for example timing, IP addresses and exchange records.
 
@@ -77,7 +77,7 @@ Data that is not on the chain can make the real risk higher, for example timing,
 - railcheck asks about the remaining shielded amount. It does not check your other unshields.
 - A low amount score does not remove a link between addresses.
 
-## Words {#words}
+## What the words mean {#words}
 
 - **Shield:** move tokens from a public address into your RAILGUN private balance.
 - **Unshield:** move tokens from your private balance to a public address.
