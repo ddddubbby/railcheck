@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "file": "railgun-eth.bin",
+  "sha256": "b0043f7776a9a7fec996157e01b3a264ed65bd0a939e79834fd9f47ab86b393e",
+  "size": 11536,
+  "count": 960,
+  "firstDepositTime": 1775871411,
+  "lastDepositTime": 1791244800,
+  "dataTime": 1791331200,
+  "buildTime": 1791331200,
+  "demo": true,
+  "description": "Deterministic synthetic data. This is not Ethereum history."
+}

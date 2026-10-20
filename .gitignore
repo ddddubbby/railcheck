@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.vercel/
+.DS_Store
+*.tmp
+coverage/
+data/validation.json
+
+# Private notes and local tool state. Never commit these.
+/docs/
+.claude/
+*-brief.md

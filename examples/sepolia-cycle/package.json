@@ -1,0 +1,32 @@
+{
+  "name": "sepolia-cycle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Minimal RAILGUN Sepolia proof check: shield \u2192 scan \u2192 unshield",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "postinstall": "node scripts/patch-ipfs-gateway.mjs",
+    "create-wallet": "node src/create-wallet.mjs",
+    "cycle": "node src/cycle.mjs",
+    "show-address": "node src/show-address.mjs",
+    "flow-demo": "node src/flow-demo.mjs"
+  },
+  "dependencies": {
+    "@railgun-community/shared-models": "8.2.1",
+    "@railgun-community/wallet": "11.2.0",
+    "dotenv": "^16.4.7",
+    "ethers": "6.14.3",
+    "leveldown": "^6.1.1",
+    "snarkjs": "^0.7.5",
+    "@railgun-community/engine": "9.9.1",
+    "@railcheck/core": "file:../../lib",
+    "@railcheck/builder": "file:../../packages/builder",
+    "@railcheck/kohaku": "file:../../packages/kohaku"
+  },
+  "devDependencies": {
+    "@types/snarkjs": "^0.7.9"
+  }
+}
