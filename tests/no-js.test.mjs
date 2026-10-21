@@ -33,3 +33,12 @@ test("matching shields show open, right under the score pixels", () => {
   assert.ok(!/details\.append\(matchTable/.test(flow), "the match table stays out of Details");
   assert.ok(flow.includes("matches(lastSets)"));
 });
+
+test("explanations and coverage wait behind \"What does this mean?\"", () => {
+  const render = flow.slice(flow.indexOf("function render("), flow.indexOf("function matches("));
+  assert.ok(render.includes('el("summary", "What does this mean?")'));
+  for (const text of ["Not covered: timing", "Your amount is fixed", "Check again when you unshield", "An observer can link"]) {
+    const line = render.split("\n").find((l) => l.includes(text)) || "";
+    assert.ok(line && !line.includes("parts.push"), `${text} is not on the first level`);
+  }
+});

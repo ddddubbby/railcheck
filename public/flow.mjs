@@ -251,9 +251,12 @@ function headline(a) {
   if (a.status === "incomplete") return "No amount issue, but some answers are not sure.";
   return "No issue found by the available checks.";
 }
+// First level: the verdict and what to do. Everything that explains it waits
+// in "What does this mean?".
 function render({ result: r, sets, lit, count, manifest }) {
   const a = r.assessment,
-    parts = [];
+    parts = [],
+    notes = [];
   if (a.status === "not-checked") {
     panel.dataset.band = "Medium";
     $("readout").hidden = true;
@@ -284,7 +287,7 @@ function render({ result: r, sets, lit, count, manifest }) {
     ),
   );
   if (a.status === "attention" && !a.findings.some((f) => f.code === "address-link")) {
-    if (r.constraint !== "flexible") parts.push(el("p", "Your amount is fixed, so no alternative is shown."));
+    if (r.constraint !== "flexible") notes.push(el("p", "Your amount is fixed, so no alternative is shown."));
     else if (r.alternatives.length)
       for (const alt of r.alternatives) {
         const amount = a.action === "shield" ? alt.amounts.shieldInput : alt.amounts.unshieldAmount,
@@ -305,8 +308,18 @@ function render({ result: r, sets, lit, count, manifest }) {
   }
   if (a.action === "unshield" && r.remainingBalance !== null)
     parts.push(el("p", `Balance left: ${eth(r.remainingBalance)} ETH.`, "hint"));
-  if (a.action === "shield") parts.push(el("p", "Check again when you unshield.", "hint"));
-  // What was checked, in one line. Unknown answers stay visible.
+  // The table comes first, so its explanation leads the fold.
+  if (lastSets.length)
+    notes.unshift(
+      el(
+        "p",
+        lastSets.some((set) => set.deposits.length > 1)
+          ? "An observer can link your unshield to one of the shields above, or to a set of them that adds up to it."
+          : "An observer can link your unshield to one of the shields above.",
+      ),
+    );
+  if (a.action === "shield") notes.push(el("p", "Check again when you unshield."));
+  // What was checked, in one line, unknown answers included.
   const answers =
     a.action === "unshield"
       ? Object.entries(QUESTION).map(([q, label]) => {
@@ -314,9 +327,8 @@ function render({ result: r, sets, lit, count, manifest }) {
           return `${label} ${v === undefined ? "unknown" : v ? "yes" : "no"}`;
         })
       : [];
-  parts.push(el("p", `Checked: amount${answers.length ? ", " + answers.join(", ") : ""}. Not covered: timing, IP addresses.`, "hint"));
   const details = el("details");
-  details.append(el("summary", "Details"));
+  details.append(el("summary", "What does this mean?"), ...notes);
   if (a.action === "shield")
     details.append(
       el(
@@ -328,30 +340,21 @@ function render({ result: r, sets, lit, count, manifest }) {
     );
   if (a.action === "unshield" && a.modelScore !== a.score) details.append(el("p", `Amount score ${a.modelScore}.`));
   if (a.notes.includes("split-completes-total")) details.append(el("p", "If you unshield the rest later, your unshields add up to your shield."));
+  details.append(el("p", `Checked: amount${answers.length ? ", " + answers.join(", ") : ""}. Not covered: timing, IP addresses.`, "hint"));
   details.append(el("p", `${count.toLocaleString("en")} shields, last 180 days, data of ${date(manifest.dataTime)}.`, "hint"));
   parts.push(details);
   show(band, parts);
 }
 // The shields an unshield of this amount could be linked to, open right under
 // the score and its pixel crowd: they are the reason for the score, so they
-// never hide in Details.
+// never hide in the fold.
 function matches(sets) {
   const box = $("matches");
   box.hidden = !sets.length;
   if (!sets.length) return box.replaceChildren();
   const heading = el("h3", "Shields that match this amount");
   heading.id = "matches-heading";
-  box.replaceChildren(
-    heading,
-    el(
-      "p",
-      sets.some((set) => set.deposits.length > 1)
-        ? "An observer can link your unshield to one of these shields, or sets of shields that add up to it."
-        : "An observer can link your unshield to one of these shields.",
-      "match-context",
-    ),
-    matchTable(sets),
-  );
+  box.replaceChildren(heading, matchTable(sets));
 }
 function matchTable(sets) {
   const table = el("table"),
