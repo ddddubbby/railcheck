@@ -670,10 +670,12 @@ legend {
   margin: 0 0 8px;
   letter-spacing: -0.015em;
 }
-.matches .match-context {
-  color: var(--muted);
-  font-size: var(--fs-small);
-  line-height: 1.6;
+.result .matches table {
+  margin: 12px 0 0;
+}
+.matches tr:last-child td {
+  border-bottom: 0;
+  padding-bottom: 0;
 }
 .matches .hint {
   font-size: var(--fs-caption);

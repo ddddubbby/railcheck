@@ -171,6 +171,7 @@ function submit(event) {
   $("readout").hidden = true;
   $("band").textContent = "";
   $("result-copy").replaceChildren();
+  matches([]);
   $("scan-label").hidden = false;
   if (!reduced.matches) animate();
   else draw([]);
@@ -250,13 +251,17 @@ function headline(a) {
   if (a.status === "incomplete") return "No amount issue, but some answers are not sure.";
   return "No issue found by the available checks.";
 }
+// First level: the verdict and what to do. Everything that explains it waits
+// in "What does this mean?".
 function render({ result: r, sets, lit, count, manifest }) {
   const a = r.assessment,
-    parts = [];
+    parts = [],
+    notes = [];
   if (a.status === "not-checked") {
     panel.dataset.band = "Medium";
     $("readout").hidden = true;
     $("scan-label").hidden = true;
+    matches([]);
     draw([]);
     return show("Not checked", [
       el("p", a.findings[0].code === "stale-data" ? "The pool data is too old. Reload later." : "The pool data does not cover 180 days.", "verdict"),
@@ -267,6 +272,7 @@ function render({ result: r, sets, lit, count, manifest }) {
   lastSets = sets || [];
   lastLit = lit || [];
   readout(a.score, band);
+  matches(lastSets);
   draw(lastLit);
   parts.push(el("p", headline(a), "verdict"));
   if (a.findings.some((f) => f.code === "address-link")) parts.push(el("p", "Use a new address."));
@@ -281,7 +287,7 @@ function render({ result: r, sets, lit, count, manifest }) {
     ),
   );
   if (a.status === "attention" && !a.findings.some((f) => f.code === "address-link")) {
-    if (r.constraint !== "flexible") parts.push(el("p", "Your amount is fixed, so no alternative is shown."));
+    if (r.constraint !== "flexible") notes.push(el("p", "Your amount is fixed, so no alternative is shown."));
     else if (r.alternatives.length)
       for (const alt of r.alternatives) {
         const amount = a.action === "shield" ? alt.amounts.shieldInput : alt.amounts.unshieldAmount,
@@ -302,8 +308,18 @@ function render({ result: r, sets, lit, count, manifest }) {
   }
   if (a.action === "unshield" && r.remainingBalance !== null)
     parts.push(el("p", `Balance left: ${eth(r.remainingBalance)} ETH.`, "hint"));
-  if (a.action === "shield") parts.push(el("p", "Check again when you unshield.", "hint"));
-  // What was checked, in one line. Unknown answers stay visible.
+  // The table comes first, so its explanation leads the fold.
+  if (lastSets.length)
+    notes.unshift(
+      el(
+        "p",
+        lastSets.some((set) => set.deposits.length > 1)
+          ? "An observer can link your unshield to one of the shields above, or to a set of them that adds up to it."
+          : "An observer can link your unshield to one of the shields above.",
+      ),
+    );
+  if (a.action === "shield") notes.push(el("p", "Check again when you unshield."));
+  // What was checked, in one line, unknown answers included.
   const answers =
     a.action === "unshield"
       ? Object.entries(QUESTION).map(([q, label]) => {
@@ -311,9 +327,8 @@ function render({ result: r, sets, lit, count, manifest }) {
           return `${label} ${v === undefined ? "unknown" : v ? "yes" : "no"}`;
         })
       : [];
-  parts.push(el("p", `Checked: amount${answers.length ? ", " + answers.join(", ") : ""}. Not covered: timing, IP addresses.`, "hint"));
   const details = el("details");
-  details.append(el("summary", "Details"));
+  details.append(el("summary", "What does this mean?"), ...notes);
   if (a.action === "shield")
     details.append(
       el(
@@ -324,11 +339,22 @@ function render({ result: r, sets, lit, count, manifest }) {
       ),
     );
   if (a.action === "unshield" && a.modelScore !== a.score) details.append(el("p", `Amount score ${a.modelScore}.`));
-  if (lastSets.length) details.append(matchTable(lastSets));
   if (a.notes.includes("split-completes-total")) details.append(el("p", "If you unshield the rest later, your unshields add up to your shield."));
+  details.append(el("p", `Checked: amount${answers.length ? ", " + answers.join(", ") : ""}. Not covered: timing, IP addresses.`, "hint"));
   details.append(el("p", `${count.toLocaleString("en")} shields, last 180 days, data of ${date(manifest.dataTime)}.`, "hint"));
   parts.push(details);
   show(band, parts);
+}
+// The shields an unshield of this amount could be linked to, open right under
+// the score and its pixel crowd: they are the reason for the score, so they
+// never hide in the fold.
+function matches(sets) {
+  const box = $("matches");
+  box.hidden = !sets.length;
+  if (!sets.length) return box.replaceChildren();
+  const heading = el("h3", "Shields that match this amount");
+  heading.id = "matches-heading";
+  box.replaceChildren(heading, matchTable(sets));
 }
 function matchTable(sets) {
   const table = el("table"),
@@ -343,10 +369,18 @@ function matchTable(sets) {
     th.scope = "col";
     head.append(th);
   }
+  // One line per shield in a set, so amounts and dates line up.
   for (const set of sets) {
-    const row = body.insertRow();
-    row.insertCell().textContent = set.deposits.map((d) => `${sent(d.amount)} ETH`).join(" + ");
-    row.insertCell().textContent = set.deposits.map((d) => date(d.time)).join(" · ");
+    const row = body.insertRow(),
+      amounts = row.insertCell(),
+      dates = row.insertCell();
+    set.deposits.forEach((d, i) => {
+      const leg = el("span", undefined, "match-leg");
+      if (i) leg.append(el("span", "+ ", "match-plus"));
+      leg.append(`${sent(d.amount)} ETH`);
+      amounts.append(leg);
+      dates.append(el("span", date(d.time), "match-leg"));
+    });
   }
   return table;
 }
