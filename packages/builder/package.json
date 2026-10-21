@@ -1,6 +1,6 @@
 {
   "name": "@railcheck/builder",
-  "version": "0.1.0-preview.0",
+  "version": "0.1.0-preview.1",
   "description": "Builds the railcheck RAILGUN pool from your own Ethereum RPC.",
   "keywords": [
     "railgun",
@@ -27,7 +27,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@railcheck/core": "0.1.0-preview.0"
+    "@railcheck/core": "0.1.0-preview.1"
   },
   "engines": {
     "node": ">=22"

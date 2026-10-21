@@ -1,6 +1,6 @@
 {
   "name": "@railcheck/kohaku",
-  "version": "0.1.0-preview.0",
+  "version": "0.1.0-preview.1",
   "description": "railcheck privacy advice for wallets built on the Kohaku plugin interface.",
   "keywords": [
     "railgun",
@@ -26,7 +26,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@railcheck/core": "0.1.0-preview.0"
+    "@railcheck/core": "0.1.0-preview.1"
   },
   "engines": {
     "node": ">=22"
