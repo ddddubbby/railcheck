@@ -23,11 +23,12 @@ test("decorative step numbers stay out of accessible names", () => {
     assert.ok(html.includes(`<span class="step-number" aria-hidden="true">${n}</span>`));
 });
 
-test("matching shields show open, right under the score meter", () => {
+test("matching shields show open, right under the score pixels", () => {
   const readout = html.indexOf('id="readout"'),
+    crowd = html.indexOf('id="crowd"'),
     matches = html.indexOf('id="matches"'),
-    crowd = html.indexOf('id="crowd"');
-  assert.ok(readout >= 0 && readout < matches && matches < crowd, "the matches follow the meter");
+    copy = html.indexOf('id="result-copy"');
+  assert.ok(readout >= 0 && readout < crowd && crowd < matches && matches < copy, "the matches follow the meter and the pixel crowd");
   assert.ok(!/<details[^>]*>[^]*id="matches"/.test(html), "the matches are not collapsed");
   assert.ok(!/details\.append\(matchTable/.test(flow), "the match table stays out of Details");
   assert.ok(flow.includes("matches(lastSets)"));

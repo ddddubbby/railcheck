@@ -333,7 +333,8 @@ function render({ result: r, sets, lit, count, manifest }) {
   show(band, parts);
 }
 // The shields an unshield of this amount could be linked to, open right under
-// the score: they are the reason for it, so they never hide in Details.
+// the score and its pixel crowd: they are the reason for the score, so they
+// never hide in Details.
 function matches(sets) {
   const box = $("matches");
   box.hidden = !sets.length;
