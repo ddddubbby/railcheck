@@ -171,6 +171,7 @@ function submit(event) {
   $("readout").hidden = true;
   $("band").textContent = "";
   $("result-copy").replaceChildren();
+  matches([]);
   $("scan-label").hidden = false;
   if (!reduced.matches) animate();
   else draw([]);
@@ -257,6 +258,7 @@ function render({ result: r, sets, lit, count, manifest }) {
     panel.dataset.band = "Medium";
     $("readout").hidden = true;
     $("scan-label").hidden = true;
+    matches([]);
     draw([]);
     return show("Not checked", [
       el("p", a.findings[0].code === "stale-data" ? "The pool data is too old. Reload later." : "The pool data does not cover 180 days.", "verdict"),
@@ -267,6 +269,7 @@ function render({ result: r, sets, lit, count, manifest }) {
   lastSets = sets || [];
   lastLit = lit || [];
   readout(a.score, band);
+  matches(lastSets);
   draw(lastLit);
   parts.push(el("p", headline(a), "verdict"));
   if (a.findings.some((f) => f.code === "address-link")) parts.push(el("p", "Use a new address."));
@@ -324,11 +327,30 @@ function render({ result: r, sets, lit, count, manifest }) {
       ),
     );
   if (a.action === "unshield" && a.modelScore !== a.score) details.append(el("p", `Amount score ${a.modelScore}.`));
-  if (lastSets.length) details.append(matchTable(lastSets));
   if (a.notes.includes("split-completes-total")) details.append(el("p", "If you unshield the rest later, your unshields add up to your shield."));
   details.append(el("p", `${count.toLocaleString("en")} shields, last 180 days, data of ${date(manifest.dataTime)}.`, "hint"));
   parts.push(details);
   show(band, parts);
+}
+// The shields an unshield of this amount could be linked to, open right under
+// the score: they are the reason for it, so they never hide in Details.
+function matches(sets) {
+  const box = $("matches");
+  box.hidden = !sets.length;
+  if (!sets.length) return box.replaceChildren();
+  const heading = el("h3", "Shields that match this amount");
+  heading.id = "matches-heading";
+  box.replaceChildren(
+    heading,
+    el(
+      "p",
+      sets.some((set) => set.deposits.length > 1)
+        ? "An observer can link your unshield to one of these shields, or sets of shields that add up to it."
+        : "An observer can link your unshield to one of these shields.",
+      "match-context",
+    ),
+    matchTable(sets),
+  );
 }
 function matchTable(sets) {
   const table = el("table"),
@@ -343,10 +365,18 @@ function matchTable(sets) {
     th.scope = "col";
     head.append(th);
   }
+  // One line per shield in a set, so amounts and dates line up.
   for (const set of sets) {
-    const row = body.insertRow();
-    row.insertCell().textContent = set.deposits.map((d) => `${sent(d.amount)} ETH`).join(" + ");
-    row.insertCell().textContent = set.deposits.map((d) => date(d.time)).join(" · ");
+    const row = body.insertRow(),
+      amounts = row.insertCell(),
+      dates = row.insertCell();
+    set.deposits.forEach((d, i) => {
+      const leg = el("span", undefined, "match-leg");
+      if (i) leg.append(el("span", "+ ", "match-plus"));
+      leg.append(`${sent(d.amount)} ETH`);
+      amounts.append(leg);
+      dates.append(el("span", date(d.time), "match-leg"));
+    });
   }
   return table;
 }

@@ -22,3 +22,13 @@ test("decorative step numbers stay out of accessible names", () => {
   for (const n of ["1", "2", "3"])
     assert.ok(html.includes(`<span class="step-number" aria-hidden="true">${n}</span>`));
 });
+
+test("matching shields show open, right under the score meter", () => {
+  const readout = html.indexOf('id="readout"'),
+    matches = html.indexOf('id="matches"'),
+    crowd = html.indexOf('id="crowd"');
+  assert.ok(readout >= 0 && readout < matches && matches < crowd, "the matches follow the meter");
+  assert.ok(!/<details[^>]*>[^]*id="matches"/.test(html), "the matches are not collapsed");
+  assert.ok(!/details\.append\(matchTable/.test(flow), "the match table stays out of Details");
+  assert.ok(flow.includes("matches(lastSets)"));
+});
