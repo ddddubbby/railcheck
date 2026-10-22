@@ -121,12 +121,20 @@ export async function buildPool({
       time: d.time,
       amountWei: String(d.amountWei),
       hash: d.hash,
+      kind: d.kind === "reshield" ? "reshield" : "public",
     }));
-    const addresses = await senders(fresh.map((r) => r.hash));
-    fresh.forEach((row, i) => {
-      if (!ADDRESS.test(addresses[i] || "")) throw Error("Missing transaction sender.");
-      row.sender = addresses[i].toLowerCase();
-    });
+    // SDK-4 / ENG-3: no broadcaster lookup or group for reshields.
+    const publicRows = fresh.filter((r) => r.kind === "public");
+    const addresses = publicRows.length
+      ? await senders(publicRows.map((r) => r.hash))
+      : [];
+    let senderAt = 0;
+    for (const row of fresh) {
+      if (row.kind === "reshield") continue;
+      const fromAddr = addresses[senderAt++];
+      if (!ADDRESS.test(fromAddr || "")) throw Error("Missing transaction sender.");
+      row.sender = fromAddr.toLowerCase();
+    }
     rows = rows.concat(fresh.map(({ hash, ...row }) => row));
     onProgress(`Read ${fresh.length} new deposits.`);
   }
@@ -139,14 +147,22 @@ export async function buildPool({
     rows,
   });
 
+  // DATA-4: group 0xFFFFFFFF = no group; reshields always have no group.
+  const NO_GROUP = 0xffffffff;
   const groups = new Map();
   const deposits = rows.map((r, id) => {
-    if (!groups.has(r.sender)) groups.set(r.sender, groups.size);
+    const kind = r.kind === "reshield" ? "reshield" : "public";
+    let group = NO_GROUP;
+    if (kind === "public") {
+      if (!groups.has(r.sender)) groups.set(r.sender, groups.size);
+      group = groups.get(r.sender);
+    }
     return {
       id,
       amount: Number(toStored(BigInt(r.amountWei))),
       time: r.time,
-      group: groups.get(r.sender),
+      group,
+      kind,
     };
   });
   return {

@@ -10,6 +10,8 @@ import {
   formatWei,
   check,
   amountScore,
+  prepare,
+  score,
   NANO,
   afterUnshieldFee,
 } from "../lib/engine/index.mjs";
@@ -200,4 +202,21 @@ test("fixture check timing", () => {
     times[28].toFixed(1),
     "ms (this computer, not a phone)",
   );
+});
+test("reshields in the deposits do not change the pool or the score", () => {
+  const publicRows = [1.2, 0.5, 3.75, 0.8, 2.1].map((eth, id) => ({
+    id,
+    amount: Math.round(eth * 1e9),
+    time: 1000 + id,
+    group: id,
+    kind: "public",
+  }));
+  // A swap output that an unshield of 0.73421 ETH matches exactly.
+  const reshield = { id: 9, amount: 734_210_000, time: 1010, group: 0xffffffff, kind: "reshield" };
+  const wei = 734_210_000n * NANO;
+  const without = prepare(publicRows, { now: 2000 });
+  const withReshield = prepare([...publicRows, reshield], { now: 2000 });
+  assert.equal(withReshield.amounts.length, publicRows.length);
+  assert.deepEqual(score(withReshield, wei), score(without, wei));
+  assert.deepEqual(amountScore([...publicRows, reshield], wei), amountScore(publicRows, wei));
 });

@@ -104,6 +104,63 @@ test("builder accepts the integrator's own sender lookup", async () => {
   });
   assert.equal(asked.length, 2);
   assert.deepEqual(built.deposits.map((d) => d.group), [0, 1]);
+  assert.ok(built.deposits.every((d) => d.kind === "public"));
+});
+
+test("builder skips sender lookups for reshields and assigns no group", async () => {
+  const { NULLIFIED_TOPIC } = await import("@railcheck/builder/reader");
+  const c = chain();
+  const publicLog = logs[0];
+  const reshieldTx = "0xdd".padEnd(66, "0");
+  // Must be within the confirmed window (head − confirmations).
+  const reshieldBlock = 26131600;
+  c.rpc = async (method, [arg]) => {
+    if (method === "eth_chainId") return "0x1";
+    if (method === "eth_blockNumber") return hex(c.head);
+    if (method === "eth_getBlockByNumber") {
+      const n = Number(arg);
+      return { timestamp: hex(12 * n), hash: `0x${c.fork}${n}` };
+    }
+    if (method === "eth_getLogs") {
+      const from = Number(arg.fromBlock),
+        to = Number(arg.toBlock);
+      const events = [
+        {
+          ...publicLog,
+          topics: [NULLIFIED_TOPIC],
+          transactionHash: reshieldTx,
+          blockNumber: hex(reshieldBlock),
+          logIndex: "0x0",
+        },
+        {
+          ...publicLog,
+          transactionHash: reshieldTx,
+          blockNumber: hex(reshieldBlock),
+          logIndex: "0x1",
+        },
+        publicLog,
+      ];
+      return events.filter(
+        (l) => Number(l.blockNumber) >= from && Number(l.blockNumber) <= to,
+      );
+    }
+    throw Error(method);
+  };
+  const asked = [];
+  const built = await buildPool({
+    rpc: c.rpc,
+    senders: async (hashes) => {
+      asked.push(...hashes);
+      return hashes.map(() => "0x" + "3".repeat(40));
+    },
+  });
+  assert.deepEqual(asked, [publicLog.transactionHash]);
+  const reshield = built.deposits.find((d) => d.kind === "reshield");
+  const pub = built.deposits.find((d) => d.kind === "public");
+  assert.ok(reshield);
+  assert.ok(pub);
+  assert.equal(reshield.group, 0xffffffff);
+  assert.equal(pub.group, 0);
 });
 
 test("block search finds the first block at a time, with uneven block times", async () => {

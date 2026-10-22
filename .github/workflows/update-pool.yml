@@ -32,7 +32,7 @@ jobs:
         id: snapshot
         shell: bash
         run: |
-          git add data/deposits.csv public/data/railgun-eth.bin public/data/manifest.json
+          git add data/deposits.csv data/reshields.csv public/data/railgun-eth.bin public/data/manifest.json
           if git diff --cached --quiet; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
