@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { prepare, plan } from "@railcheck/core";
-import { buildPool, memoryStore } from "@railcheck/builder";
+import { buildPool, memoryStore, NO_GROUP } from "@railcheck/builder";
+import { NULLIFIED_TOPIC } from "@railcheck/builder/reader";
 
 const fixture = JSON.parse(readFileSync("tests/fixtures/ethereum-logs.json", "utf8"));
 const hex = (n) => `0x${n.toString(16)}`;
@@ -108,7 +109,6 @@ test("builder accepts the integrator's own sender lookup", async () => {
 });
 
 test("builder skips sender lookups for reshields and assigns no group", async () => {
-  const { NULLIFIED_TOPIC } = await import("@railcheck/builder/reader");
   const c = chain();
   const publicLog = logs[0];
   const reshieldTx = "0xdd".padEnd(66, "0");
@@ -159,7 +159,7 @@ test("builder skips sender lookups for reshields and assigns no group", async ()
   const pub = built.deposits.find((d) => d.kind === "public");
   assert.ok(reshield);
   assert.ok(pub);
-  assert.equal(reshield.group, 0xffffffff);
+  assert.equal(reshield.group, NO_GROUP);
   assert.equal(pub.group, 0);
 });
 

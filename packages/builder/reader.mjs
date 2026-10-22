@@ -77,6 +77,7 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
       index,
       notes: [],
       internal: false,
+      shielded: false,
       hash: key,
     };
     if (row.block !== block) throw Error("Inconsistent transaction block.");
@@ -84,18 +85,24 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
     const topic = log.topics?.[0]?.toLowerCase();
     if (topic === NULLIFIED_TOPIC) row.internal = true;
     else if (topic === SHIELD_TOPIC) {
+      row.shielded = true;
       for (const c of decodeShield(log.data))
         if (c.tokenType === 0 && c.tokenAddress === token) row.notes.push(c.value);
     } else throw Error("Unexpected event topic.");
     transactions.set(key, row);
   }
   // Public shields: one row per transaction (sum). Reshields (Nullified): one row per note.
-  // kind: "public" | "reshield" — settled here for pool v3 (R0.3) and buildPool (SDK-4).
+  // kind: "public" | "reshield" — fold/builder strings; EXCK v3 maps to kind byte 0/1.
+  // removedInternal = Nullified+Shield txs with no WETH notes (other-token internals).
   const kept = [];
+  let removedInternal = 0;
   for (const row of [...transactions.values()].sort(
     (a, b) => a.block - b.block || a.index - b.index,
   )) {
-    if (!row.notes.length) continue;
+    if (!row.notes.length) {
+      if (row.internal && row.shielded) removedInternal++;
+      continue;
+    }
     if (row.internal) {
       for (const amountWei of row.notes)
         kept.push({
@@ -114,8 +121,7 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
     }
   }
   return {
-    // Count of reshield note rows found (formerly "internal shields excluded").
-    removedInternal: kept.filter((r) => r.kind === "reshield").length,
+    removedInternal,
     kept,
   };
 }

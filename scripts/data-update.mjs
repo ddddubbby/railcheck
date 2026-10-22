@@ -12,7 +12,14 @@ import {
   readDeposits,
   CONFIRMATIONS,
 } from "./lib/reader.mjs";
-import { parseCsv, writeCsv, encodePool, WINDOW_SECONDS } from "./lib/data.mjs";
+import {
+  parseCsv,
+  writeCsv,
+  encodePool,
+  WINDOW_SECONDS,
+  KIND_SHIELD,
+  KIND_RESHIELD,
+} from "./lib/data.mjs";
 import { withdrawalSnapshot } from "./lib/activity.mjs";
 import { createHash } from "node:crypto";
 const rpc = makeRpc();
@@ -34,12 +41,16 @@ if (
 const cutoff = dataTime - WINDOW_SECONDS;
 if (Math.abs(Date.now() / 1000 - dataTime) > 26 * 3600)
   throw Error("RPC returned an old or future head block.");
+// Public deposits (legacy CSV has no kind → parseCsv defaults to public).
 let rows = existsSync("data/deposits.csv")
   ? parseCsv(readFileSync("data/deposits.csv", "utf8"))
   : [];
-// Reshields stay out of the live pool until EXCK v3 (R0.3). Same CSV columns as deposits.
-let reshields = existsSync("data/reshields.csv")
-  ? parseCsv(readFileSync("data/reshields.csv", "utf8"))
+// R0.2 staging: path implies reshield. Promote into the v3 CSV/bin, then empty.
+let stagedReshields = existsSync("data/reshields.csv")
+  ? parseCsv(readFileSync("data/reshields.csv", "utf8")).map((r) => ({
+      ...r,
+      kind: KIND_RESHIELD,
+    }))
   : [];
 let previous = existsSync("public/data/manifest.json")
   ? JSON.parse(readFileSync("public/data/manifest.json"))
@@ -64,38 +75,50 @@ const ranges = [];
 if (!previous) {
   // On bootstrap, verify the entire active window from Ethereum instead of trusting imported CSV rows.
   rows = rows.filter((d) => d.block < firstBlock);
-  reshields = reshields.filter((d) => d.block < firstBlock);
+  stagedReshields = stagedReshields.filter((d) => d.block < firstBlock);
   ranges.push([firstBlock, head]);
 } else {
   if (firstBlock < previous.firstBlock)
     ranges.push([firstBlock, previous.firstBlock - 1]);
   if (previous.lastBlock < head) ranges.push([previous.lastBlock + 1, head]);
 }
-const csvRow = ({ block, time, amountWei }) => ({ block, time, amountWei });
+const csvRow = (d) => ({
+  block: d.block,
+  time: d.time,
+  amountWei: d.amountWei,
+  kind: d.kind === "reshield" ? KIND_RESHIELD : KIND_SHIELD,
+});
 let added = 0,
-  foundReshields = 0;
+  reshieldsAdded = 0,
+  internalsExcluded = 0;
 for (const [start, end] of ranges)
   if (start <= end) {
     const result = await readDeposits(rpc, start, end, console.log);
-    const publicRows = result.deposits.filter((d) => d.kind !== "reshield");
-    const reshieldRows = result.deposits.filter((d) => d.kind === "reshield");
-    rows.push(...publicRows.map(csvRow));
-    reshields.push(...reshieldRows.map(csvRow));
-    added += publicRows.length;
-    foundReshields += result.removedInternal;
+    const fresh = result.deposits.map(csvRow);
+    rows.push(...fresh);
+    added += fresh.length;
+    reshieldsAdded += fresh.filter((d) => d.kind === KIND_RESHIELD).length;
+    internalsExcluded += result.removedInternal;
   }
+// Promote any remaining R0.2 staging rows that are not already in the unified CSV.
+if (stagedReshields.length) {
+  const key = (d) => `${d.block}:${d.time}:${d.amountWei}`;
+  const have = new Set(
+    rows.filter((r) => r.kind === KIND_RESHIELD).map(key),
+  );
+  for (const r of stagedReshields) if (!have.has(key(r))) rows.push(r);
+}
 rows.sort((a, b) => a.block - b.block || a.time - b.time);
-reshields.sort((a, b) => a.block - b.block || a.time - b.time);
 if (rows.some((d) => d.block > head || d.time > dataTime))
   throw Error("Deposit data is ahead of the confirmed head.");
-if (reshields.some((d) => d.block > head || d.time > dataTime))
-  throw Error("Reshield data is ahead of the confirmed head.");
-// Live pool: public shields only. Reshields stay in data/reshields.csv until pool v3.
+// EXCK v3: kind byte on every row; reshields enter the live bin only as kind=1.
 const { bytes, manifest } = encodePool(rows, {
   dataTime,
   lastBlock: head,
   firstBlock: Math.min(firstBlock, previous?.firstBlock ?? firstBlock),
   lastBlockHash: block.hash,
+  reshieldsAdded,
+  internalsExcluded,
 });
 mkdirSync("public/data", { recursive: true });
 mkdirSync("data", { recursive: true });
@@ -103,10 +126,13 @@ manifest.activity = await withdrawalSnapshot(rpc, manifest, console.log);
 manifest.activitySha256 = createHash("sha256")
   .update(JSON.stringify(manifest.activity))
   .digest("hex");
-// Write the manifest last. A deployment never uses a partially written pool snapshot.
+manifest.unshieldsLast3Days = {
+  [manifest.token]: manifest.activity.withdrawals.length,
+};
+// Staging file retired once the published pool carries kind (empty header only).
 const updates = [
   ["data/deposits.csv", writeCsv(rows)],
-  ["data/reshields.csv", writeCsv(reshields)],
+  ["data/reshields.csv", writeCsv([])],
   ["public/data/railgun-eth.bin", bytes],
   ["public/data/manifest.json", JSON.stringify(manifest, null, 2) + "\n"],
 ];
@@ -117,5 +143,5 @@ try {
   for (const [path] of updates) rmSync(path + ".tmp", { force: true });
 }
 console.log(
-  `Updated ${manifest.count} deposits through block ${head}. Added ${added}; found ${foundReshields} reshields.`,
+  `Updated ${manifest.count} deposits through block ${head}. Added ${added} (${reshieldsAdded} reshields); excluded ${internalsExcluded} internal shields.`,
 );

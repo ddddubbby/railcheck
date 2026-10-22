@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { encodePool } from "../scripts/lib/data.mjs";
+import { encodePool, NO_GROUP, KIND_SHIELD, KIND_RESHIELD } from "../scripts/lib/data.mjs";
 import { sendersOf, assignGroups, matchHashes } from "../scripts/lib/groups.mjs";
 import { decode, prepare, assess, crowded, parseAmount } from "../lib/index.mjs";
 const now = 1_800_000_000;
@@ -17,10 +17,80 @@ test("pool file v2 stores one group number per deposit and decodes it", () => {
   assert.equal(bytes.length, 16 + 3 * 16);
   const deposits = decode(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), manifest);
   assert.deepEqual(deposits.map((d) => d.group), [0, 1, 0]);
+  assert.deepEqual(deposits.map((d) => d.kind), [0, 0, 0]);
   // The only address in the manifest is the public WETH token contract. No depositor addresses.
   const { lastBlockHash, token, ...rest } = manifest;
   assert.equal(token, "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2");
   assert.ok(lastBlockHash && !JSON.stringify(rest).match(/0x[0-9a-f]{40}/i), "no address in the manifest");
+});
+test("pool file v3 stores kind and always includes group; decoder reads v1–v3", () => {
+  const rows = [
+    { block: 1, time: 100, amountWei: 10n ** 18n, group: 0, kind: KIND_SHIELD },
+    {
+      block: 2,
+      time: 101,
+      amountWei: 2n * 10n ** 18n,
+      kind: KIND_RESHIELD,
+    },
+    { block: 3, time: 102, amountWei: 10n ** 18n, group: 0, kind: KIND_SHIELD },
+  ];
+  const { bytes, manifest } = encodePool(rows, {
+    dataTime: 103,
+    lastBlock: 3,
+    firstBlock: 1,
+    lastBlockHash: "0x" + "0".repeat(64),
+    reshieldsAdded: 1,
+    internalsExcluded: 0,
+    unshieldsLast3Days: {
+      "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": 4,
+    },
+  });
+  assert.equal(manifest.version, 3);
+  assert.equal(manifest.grouping, "tx-sender");
+  assert.equal(manifest.reshieldsAdded, 1);
+  assert.equal(manifest.internalsExcluded, 0);
+  assert.equal(
+    manifest.unshieldsLast3Days[
+      "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2"
+    ],
+    4,
+  );
+  assert.equal(bytes.length, 16 + 3 * 17);
+  const deposits = decode(
+    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    manifest,
+  );
+  assert.deepEqual(
+    deposits.map((d) => d.kind),
+    [KIND_SHIELD, KIND_RESHIELD, KIND_SHIELD],
+  );
+  assert.deepEqual(deposits.map((d) => d.group), [0, NO_GROUP, 0]);
+  // v1 still decodes (no group column, kind defaults to public shield).
+  const legacy = encodePool(
+    [
+      { block: 1, time: 100, amountWei: 10n ** 18n },
+      { block: 2, time: 101, amountWei: 2n * 10n ** 18n },
+    ],
+    {
+      dataTime: 102,
+      lastBlock: 2,
+      firstBlock: 1,
+      lastBlockHash: "0x" + "0".repeat(64),
+    },
+  );
+  assert.equal(legacy.manifest.version, 1);
+  const v1 = decode(
+    legacy.bytes.buffer.slice(
+      legacy.bytes.byteOffset,
+      legacy.bytes.byteOffset + legacy.bytes.byteLength,
+    ),
+    legacy.manifest,
+  );
+  assert.deepEqual(
+    v1.map((d) => d.kind),
+    [KIND_SHIELD, KIND_SHIELD],
+  );
+  assert.equal(v1[0].group, undefined);
 });
 test("stored rows get their transaction; groups follow each sender's first appearance", () => {
   const fresh = [

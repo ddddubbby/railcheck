@@ -219,4 +219,9 @@ test("reshields in the deposits do not change the pool or the score", () => {
   assert.equal(withReshield.amounts.length, publicRows.length);
   assert.deepEqual(score(withReshield, wei), score(without, wei));
   assert.deepEqual(amountScore([...publicRows, reshield], wei), amountScore(publicRows, wei));
+  // EXCK v3 decode uses kind byte 1 (same ignore until R1.1).
+  const typed = { ...reshield, id: 10, kind: 1 };
+  const withTyped = prepare([...publicRows, typed], { now: 2000 });
+  assert.equal(withTyped.amounts.length, publicRows.length);
+  assert.deepEqual(score(withTyped, wei), score(without, wei));
 });

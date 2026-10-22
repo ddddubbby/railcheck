@@ -18,7 +18,8 @@ const fixture = JSON.parse(
 );
 test("recorded Ethereum logs keep an internal reshield transaction", () => {
   const result = foldShieldLogs(fixture.logs);
-  assert.equal(result.removedInternal, 1);
+  // WETH reshield notes are kept; removedInternal counts other-token internals only.
+  assert.equal(result.removedInternal, 0);
   assert.equal(result.kept.length, 2);
   const publicRow = result.kept.find((r) => r.hash === fixture.externalTransaction);
   const reshieldRow = result.kept.find((r) => r.hash === fixture.internalTransaction);
@@ -63,6 +64,31 @@ function event(commitments) {
     ].join("")
   );
 }
+test("Nullified shields of another token count as excluded internals", () => {
+  const other = event([
+    { type: 0, address: "0x01", value: 10n ** 18n },
+  ]);
+  const result = foldShieldLogs([
+    {
+      address: RAILGUN_PROXY,
+      transactionHash: "0x" + "cd".repeat(32),
+      blockNumber: "0x1",
+      logIndex: "0x0",
+      topics: [SHIELD_TOPIC],
+      data: other,
+    },
+    {
+      address: RAILGUN_PROXY,
+      transactionHash: "0x" + "cd".repeat(32),
+      blockNumber: "0x1",
+      logIndex: "0x1",
+      topics: [NULLIFIED_TOPIC],
+      data: "0x",
+    },
+  ]);
+  assert.equal(result.kept.length, 0);
+  assert.equal(result.removedInternal, 1);
+});
 test("reader sums WETH notes for public shields and keeps reshield notes separate", () => {
   const data = event([
     { type: 0, address: WETH, value: 1n * 10n ** 18n },
@@ -86,7 +112,8 @@ test("reader sums WETH notes for public shields and keeps reshield notes separat
     { ...log, topics: [NULLIFIED_TOPIC], logIndex: "0x1" },
     log,
   ]);
-  assert.equal(reshield.removedInternal, 2);
+  // Reshield notes are kept (kind reshield); not counted as excluded internals.
+  assert.equal(reshield.removedInternal, 0);
   assert.deepEqual(
     reshield.kept.map((r) => r.amountWei),
     [1n * 10n ** 18n, 2n * 10n ** 18n],
@@ -137,18 +164,21 @@ test("pool encoding retains dust, preserves exact CSV wei and rejects bad rows",
     "block,time,amount_wei\n1,100,1\n2,101,1000000000000000000\n",
   );
   assert.equal(rows[0].amountWei, 1n);
+  assert.equal(rows[0].kind, 0);
   const { bytes, manifest } = encodePool(rows, {
     dataTime: 102,
     lastBlock: 2,
     firstBlock: 1,
     lastBlockHash: "0x" + "00".repeat(32),
   });
+  assert.equal(manifest.version, 3);
   const pool = decode(
     bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
     manifest,
   );
   assert.equal(pool[0].amount, 0);
   assert.equal(pool[1].amount, 1e9);
+  assert.equal(pool[0].kind, 0);
   assert.throws(() => parseCsv("block,time,amount_wei\n2,100,1\n1,101,2\n"));
 });
 

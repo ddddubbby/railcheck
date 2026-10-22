@@ -6,6 +6,9 @@ import { makeRpc, blockAtTime, readDeposits, CONFIRMATIONS } from "./reader.mjs"
 
 export { makeRpc } from "./reader.mjs";
 
+/** No depositor group (reshields, or unknown sender). Matches EXCK v3. */
+export const NO_GROUP = 0xffffffff;
+
 export const CHAINS = {
   mainnet: {
     pool: "ethereum-weth",
@@ -121,6 +124,7 @@ export async function buildPool({
       time: d.time,
       amountWei: String(d.amountWei),
       hash: d.hash,
+      // Fold/builder kinds stay "public" | "reshield" (not ENG-4 "shield").
       kind: d.kind === "reshield" ? "reshield" : "public",
     }));
     // SDK-4 / ENG-3: no broadcaster lookup or group for reshields.
@@ -128,12 +132,16 @@ export async function buildPool({
     const addresses = publicRows.length
       ? await senders(publicRows.map((r) => r.hash))
       : [];
-    let senderAt = 0;
+    let publicIndex = 0;
     for (const row of fresh) {
-      if (row.kind === "reshield") continue;
-      const fromAddr = addresses[senderAt++];
-      if (!ADDRESS.test(fromAddr || "")) throw Error("Missing transaction sender.");
-      row.sender = fromAddr.toLowerCase();
+      if (row.kind === "reshield") {
+        row.sender = null;
+        continue;
+      }
+      if (!ADDRESS.test(addresses[publicIndex] || ""))
+        throw Error("Missing transaction sender.");
+      row.sender = addresses[publicIndex].toLowerCase();
+      publicIndex++;
     }
     rows = rows.concat(fresh.map(({ hash, ...row }) => row));
     onProgress(`Read ${fresh.length} new deposits.`);
@@ -148,23 +156,27 @@ export async function buildPool({
   });
 
   // DATA-4: group 0xFFFFFFFF = no group; reshields always have no group.
-  const NO_GROUP = 0xffffffff;
   const groups = new Map();
   const deposits = rows.map((r, id) => {
     const kind = r.kind === "reshield" ? "reshield" : "public";
-    let group = NO_GROUP;
-    if (kind === "public") {
-      if (!groups.has(r.sender)) groups.set(r.sender, groups.size);
-      group = groups.get(r.sender);
-    }
+    if (kind === "reshield")
+      return {
+        id,
+        amount: Number(toStored(BigInt(r.amountWei))),
+        time: r.time,
+        group: NO_GROUP,
+        kind,
+      };
+    if (!groups.has(r.sender)) groups.set(r.sender, groups.size);
     return {
       id,
       amount: Number(toStored(BigInt(r.amountWei))),
       time: r.time,
-      group,
+      group: groups.get(r.sender),
       kind,
     };
   });
+  const grouped = deposits.some((d) => d.kind === "public");
   return {
     deposits,
     asset: { chainId: c.chainId, address: c.token, symbol: "WETH", decimals: 18 },
@@ -175,7 +187,7 @@ export async function buildPool({
       block: head,
       time: dataTime,
       windowStart: cutoff,
-      grouping: "tx-sender",
+      grouping: grouped ? "tx-sender" : "none",
     },
   };
 }
