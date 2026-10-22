@@ -66,14 +66,12 @@ if (!previous) {
     ranges.push([firstBlock, previous.firstBlock - 1]);
   if (previous.lastBlock < head) ranges.push([previous.lastBlock + 1, head]);
 }
-let added = 0,
-  removed = 0;
+let added = 0;
 for (const [start, end] of ranges)
   if (start <= end) {
     const result = await readDeposits(rpc, start, end, console.log);
     rows.push(...result.deposits);
     added += result.deposits.length;
-    removed += result.removedInternal;
   }
 rows.sort((a, b) => a.block - b.block || a.time - b.time);
 if (rows.some((d) => d.block > head || d.time > dataTime))
@@ -103,5 +101,5 @@ try {
   for (const [path] of updates) rmSync(path + ".tmp", { force: true });
 }
 console.log(
-  `Updated ${manifest.count} deposits through block ${head}. Added ${added}; excluded ${removed} internal shields.`,
+  `Updated ${manifest.count} deposits through block ${head}. Added ${added}.`,
 );

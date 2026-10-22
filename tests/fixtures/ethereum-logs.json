@@ -5,6 +5,7 @@
   "externalTransaction": "0x99f42fc18cb1a8deaa4342375c76ccba4b07c61373db3edda6113d056429bf61",
   "internalTransaction": "0x1837028f633dbee64ae312da5e191b6dd4c496da4829a136b08e80baf17a7e04",
   "expectedExternalWei": "7539472797152523",
+  "expectedInternalWei": "88830903471522065",
   "logs": [
     {
       "address": "0xfa7093cdd9ee6932b4eb2c9e1cde7ce00b1fa4b9",

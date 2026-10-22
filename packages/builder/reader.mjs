@@ -75,7 +75,7 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
     const row = transactions.get(key) || {
       block,
       index,
-      amountWei: 0n,
+      notes: [],
       internal: false,
       hash: key,
     };
@@ -85,18 +85,30 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
     if (topic === NULLIFIED_TOPIC) row.internal = true;
     else if (topic === SHIELD_TOPIC) {
       for (const c of decodeShield(log.data))
-        if (c.tokenType === 0 && c.tokenAddress === token)
-          row.amountWei += c.value;
+        if (c.tokenType === 0 && c.tokenAddress === token) row.notes.push(c.value);
     } else throw Error("Unexpected event topic.");
     transactions.set(key, row);
   }
-  const rows = [...transactions.values()].filter((r) => r.amountWei > 0n);
+  // Public shields: one row per transaction (sum). Reshields (Nullified): one row per note.
+  const kept = [];
+  for (const row of [...transactions.values()].sort(
+    (a, b) => a.block - b.block || a.index - b.index,
+  )) {
+    if (!row.notes.length) continue;
+    if (row.internal) {
+      for (const amountWei of row.notes)
+        kept.push({ block: row.block, amountWei, hash: row.hash });
+    } else {
+      kept.push({
+        block: row.block,
+        amountWei: row.notes.reduce((sum, n) => sum + n, 0n),
+        hash: row.hash,
+      });
+    }
+  }
   return {
-    removedInternal: rows.filter((r) => r.internal).length,
-    kept: rows
-      .filter((r) => !r.internal)
-      .sort((a, b) => a.block - b.block || a.index - b.index)
-      .map(({ block, amountWei, hash }) => ({ block, amountWei, hash })),
+    removedInternal: 0,
+    kept,
   };
 }
 

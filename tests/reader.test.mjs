@@ -16,11 +16,18 @@ import { decode } from "../lib/pool/index.mjs";
 const fixture = JSON.parse(
   readFileSync("tests/fixtures/ethereum-logs.json", "utf8"),
 );
-test("recorded Ethereum logs exclude an internal shield transaction", () => {
+test("recorded Ethereum logs keep an internal reshield transaction", () => {
   const result = foldShieldLogs(fixture.logs);
-  assert.equal(result.removedInternal, 1);
-  assert.equal(result.kept.length, 1);
-  assert.equal(result.kept[0].amountWei, BigInt(fixture.expectedExternalWei));
+  assert.equal(result.removedInternal, 0);
+  assert.equal(result.kept.length, 2);
+  assert.equal(
+    result.kept.find((r) => r.hash === fixture.externalTransaction).amountWei,
+    BigInt(fixture.expectedExternalWei),
+  );
+  assert.equal(
+    result.kept.find((r) => r.hash === fixture.internalTransaction).amountWei,
+    BigInt(fixture.expectedInternalWei),
+  );
 });
 test("duplicate RPC logs cannot double the deposit value", () => {
   const single = foldShieldLogs(fixture.logs),
@@ -58,7 +65,7 @@ function event(commitments) {
     ].join("")
   );
 }
-test("reader sums WETH notes and filters other token addresses/types", () => {
+test("reader sums WETH notes for public shields and keeps reshield notes separate", () => {
   const data = event([
     { type: 0, address: WETH, value: 1n * 10n ** 18n },
     { type: 0, address: WETH, value: 2n * 10n ** 18n },
@@ -74,12 +81,14 @@ test("reader sums WETH notes and filters other token addresses/types", () => {
     data,
   };
   assert.equal(foldShieldLogs([log]).kept[0].amountWei, 3n * 10n ** 18n);
-  assert.equal(
-    foldShieldLogs([
-      { ...log, topics: [NULLIFIED_TOPIC], logIndex: "0x1" },
-      log,
-    ]).kept.length,
-    0,
+  const reshield = foldShieldLogs([
+    { ...log, topics: [NULLIFIED_TOPIC], logIndex: "0x1" },
+    log,
+  ]);
+  assert.equal(reshield.removedInternal, 0);
+  assert.deepEqual(
+    reshield.kept.map((r) => r.amountWei),
+    [1n * 10n ** 18n, 2n * 10n ** 18n],
   );
 });
 test("reader splits provider-limited ranges and falls back to block timestamps", async () => {
