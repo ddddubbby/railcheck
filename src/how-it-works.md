@@ -61,7 +61,7 @@ A match applies only if the matched shield is yours.
 The pool file contains the amount and the time of each shield. It contains no addresses.
 
 - The data comes from Ethereum blocks with 64 confirmations or more.
-- It includes WETH only, including swap outputs (reshields from transactions that also nullify).
+- It includes WETH only.
 - Amounts are after the protocol fees.
 - The data is updated each day. It is a snapshot, not a live feed. The page shows the date of the data.
 
@@ -76,7 +76,7 @@ Data that is not on the chain can make the real risk higher, for example timing,
 - The model assumes that a broadcaster sends the unshield.
 - railcheck asks about the remaining shielded amount. It does not check your other unshields.
 - A low amount score does not remove a link between addresses.
-- An observer can match an unshield to a swap output by amount; railcheck historically left those transactions out of the pool.
+- railcheck does not yet check swap outputs.
 
 ## What the words mean {#words}
 

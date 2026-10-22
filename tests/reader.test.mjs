@@ -18,16 +18,14 @@ const fixture = JSON.parse(
 );
 test("recorded Ethereum logs keep an internal reshield transaction", () => {
   const result = foldShieldLogs(fixture.logs);
-  assert.equal(result.removedInternal, 0);
+  assert.equal(result.removedInternal, 1);
   assert.equal(result.kept.length, 2);
-  assert.equal(
-    result.kept.find((r) => r.hash === fixture.externalTransaction).amountWei,
-    BigInt(fixture.expectedExternalWei),
-  );
-  assert.equal(
-    result.kept.find((r) => r.hash === fixture.internalTransaction).amountWei,
-    BigInt(fixture.expectedInternalWei),
-  );
+  const publicRow = result.kept.find((r) => r.hash === fixture.externalTransaction);
+  const reshieldRow = result.kept.find((r) => r.hash === fixture.internalTransaction);
+  assert.equal(publicRow.amountWei, BigInt(fixture.expectedExternalWei));
+  assert.equal(publicRow.kind, "public");
+  assert.equal(reshieldRow.amountWei, BigInt(fixture.expectedInternalWei));
+  assert.equal(reshieldRow.kind, "reshield");
 });
 test("duplicate RPC logs cannot double the deposit value", () => {
   const single = foldShieldLogs(fixture.logs),
@@ -80,16 +78,20 @@ test("reader sums WETH notes for public shields and keeps reshield notes separat
     topics: [SHIELD_TOPIC],
     data,
   };
-  assert.equal(foldShieldLogs([log]).kept[0].amountWei, 3n * 10n ** 18n);
+  const publicOnly = foldShieldLogs([log]);
+  assert.equal(publicOnly.kept[0].amountWei, 3n * 10n ** 18n);
+  assert.equal(publicOnly.kept[0].kind, "public");
+  assert.equal(publicOnly.removedInternal, 0);
   const reshield = foldShieldLogs([
     { ...log, topics: [NULLIFIED_TOPIC], logIndex: "0x1" },
     log,
   ]);
-  assert.equal(reshield.removedInternal, 0);
+  assert.equal(reshield.removedInternal, 2);
   assert.deepEqual(
     reshield.kept.map((r) => r.amountWei),
     [1n * 10n ** 18n, 2n * 10n ** 18n],
   );
+  assert.ok(reshield.kept.every((r) => r.kind === "reshield"));
 });
 test("reader splits provider-limited ranges and falls back to block timestamps", async () => {
   const calls = [];

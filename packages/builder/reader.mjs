@@ -90,6 +90,7 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
     transactions.set(key, row);
   }
   // Public shields: one row per transaction (sum). Reshields (Nullified): one row per note.
+  // kind: "public" | "reshield" — settled here for pool v3 (R0.3) and buildPool (SDK-4).
   const kept = [];
   for (const row of [...transactions.values()].sort(
     (a, b) => a.block - b.block || a.index - b.index,
@@ -97,17 +98,24 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
     if (!row.notes.length) continue;
     if (row.internal) {
       for (const amountWei of row.notes)
-        kept.push({ block: row.block, amountWei, hash: row.hash });
+        kept.push({
+          block: row.block,
+          amountWei,
+          hash: row.hash,
+          kind: "reshield",
+        });
     } else {
       kept.push({
         block: row.block,
         amountWei: row.notes.reduce((sum, n) => sum + n, 0n),
         hash: row.hash,
+        kind: "public",
       });
     }
   }
   return {
-    removedInternal: 0,
+    // Count of reshield note rows found (formerly "internal shields excluded").
+    removedInternal: kept.filter((r) => r.kind === "reshield").length,
     kept,
   };
 }

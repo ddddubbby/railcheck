@@ -37,6 +37,10 @@ if (Math.abs(Date.now() / 1000 - dataTime) > 26 * 3600)
 let rows = existsSync("data/deposits.csv")
   ? parseCsv(readFileSync("data/deposits.csv", "utf8"))
   : [];
+// Reshields stay out of the live pool until EXCK v3 (R0.3). Same CSV columns as deposits.
+let reshields = existsSync("data/reshields.csv")
+  ? parseCsv(readFileSync("data/reshields.csv", "utf8"))
+  : [];
 let previous = existsSync("public/data/manifest.json")
   ? JSON.parse(readFileSync("public/data/manifest.json"))
   : null;
@@ -60,22 +64,33 @@ const ranges = [];
 if (!previous) {
   // On bootstrap, verify the entire active window from Ethereum instead of trusting imported CSV rows.
   rows = rows.filter((d) => d.block < firstBlock);
+  reshields = reshields.filter((d) => d.block < firstBlock);
   ranges.push([firstBlock, head]);
 } else {
   if (firstBlock < previous.firstBlock)
     ranges.push([firstBlock, previous.firstBlock - 1]);
   if (previous.lastBlock < head) ranges.push([previous.lastBlock + 1, head]);
 }
-let added = 0;
+const csvRow = ({ block, time, amountWei }) => ({ block, time, amountWei });
+let added = 0,
+  foundReshields = 0;
 for (const [start, end] of ranges)
   if (start <= end) {
     const result = await readDeposits(rpc, start, end, console.log);
-    rows.push(...result.deposits);
-    added += result.deposits.length;
+    const publicRows = result.deposits.filter((d) => d.kind !== "reshield");
+    const reshieldRows = result.deposits.filter((d) => d.kind === "reshield");
+    rows.push(...publicRows.map(csvRow));
+    reshields.push(...reshieldRows.map(csvRow));
+    added += publicRows.length;
+    foundReshields += result.removedInternal;
   }
 rows.sort((a, b) => a.block - b.block || a.time - b.time);
+reshields.sort((a, b) => a.block - b.block || a.time - b.time);
 if (rows.some((d) => d.block > head || d.time > dataTime))
   throw Error("Deposit data is ahead of the confirmed head.");
+if (reshields.some((d) => d.block > head || d.time > dataTime))
+  throw Error("Reshield data is ahead of the confirmed head.");
+// Live pool: public shields only. Reshields stay in data/reshields.csv until pool v3.
 const { bytes, manifest } = encodePool(rows, {
   dataTime,
   lastBlock: head,
@@ -91,6 +106,7 @@ manifest.activitySha256 = createHash("sha256")
 // Write the manifest last. A deployment never uses a partially written pool snapshot.
 const updates = [
   ["data/deposits.csv", writeCsv(rows)],
+  ["data/reshields.csv", writeCsv(reshields)],
   ["public/data/railgun-eth.bin", bytes],
   ["public/data/manifest.json", JSON.stringify(manifest, null, 2) + "\n"],
 ];
@@ -101,5 +117,5 @@ try {
   for (const [path] of updates) rmSync(path + ".tmp", { force: true });
 }
 console.log(
-  `Updated ${manifest.count} deposits through block ${head}. Added ${added}.`,
+  `Updated ${manifest.count} deposits through block ${head}. Added ${added}; found ${foundReshields} reshields.`,
 );

@@ -79,7 +79,7 @@ export function encodePool(
     confirmations: 64,
     buildTime: builtAt,
     source:
-      "Ethereum mainnet RAILGUN Shield events, WETH only; includes public shields and swap-output reshields (Nullified transactions).",
+      "Ethereum mainnet RAILGUN Shield events, WETH only; excludes transactions with Nullified events.",
   };
   // The data contract: the window and the grouping rule travel with the pool.
   manifest.windowStart = dataTime - WINDOW_SECONDS;
