@@ -61,7 +61,7 @@ A match applies only if the matched shield is yours.
 The pool file contains the amount and the time of each shield. It contains no addresses.
 
 - The data comes from Ethereum blocks with 64 confirmations or more.
-- It includes WETH only.
+- It includes WETH only. Swap outputs are in the file, but the score does not use them yet.
 - Amounts are after the protocol fees.
 - The data is updated each day. It is a snapshot, not a live feed. The page shows the date of the data.
 

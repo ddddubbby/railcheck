@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { poolSize, NO_GROUP } from "../../lib/pool/index.mjs";
+const isReshield = (d) => d.kind === "reshield";
 export const WINDOW_SECONDS = 180 * 86400;
 export function parseCsv(text) {
   const lines = text.trim().split(/\r?\n/);
@@ -42,34 +44,48 @@ export function encodePool(
     builtAt = new Date().toISOString(),
   },
 ) {
+  // Public shields before reshields at the same time, so a reader that merges
+  // the two CSV files in that order reproduces the pool.
   const recent = rows
     .filter((d) => d.time >= dataTime - WINDOW_SECONDS && d.time <= dataTime)
-    .sort((a, b) => a.time - b.time);
+    .sort((a, b) => a.time - b.time || isReshield(a) - isReshield(b));
   if (!recent.length)
     throw Error("No eligible deposits in the 180-day window.");
+  const reshieldCount = recent.filter(isReshield).length;
   // Version 2 adds one depositor group number per deposit (never an address).
-  const grouped = recent.every((d) => Number.isSafeInteger(d.group));
-  const bytes = Buffer.alloc(16 + recent.length * (grouped ? 16 : 12));
+  // Version 3 adds the kind (public shield or reshield) and allows no group.
+  const grouped = recent.every((d) => isReshield(d) || Number.isSafeInteger(d.group));
+  const version = reshieldCount ? 3 : grouped ? 2 : 1;
+  const n = recent.length;
+  const bytes = Buffer.alloc(poolSize(version, n));
   bytes.write("EXCK");
-  bytes.writeUInt32LE(grouped ? 2 : 1, 4);
-  bytes.writeUInt32LE(recent.length, 8);
+  bytes.writeUInt32LE(version, 4);
+  bytes.writeUInt32LE(n, 8);
   recent.forEach((d, i) => {
     const nano = (d.amountWei + 500000000n) / 1000000000n;
     if (nano > BigInt(Number.MAX_SAFE_INTEGER) || nano < 0n)
       throw Error("Deposit exceeds the EXCK v1 amount range.");
     bytes.writeDoubleLE(Number(nano), 16 + i * 8);
-    bytes.writeUInt32LE(d.time, 16 + recent.length * 8 + i * 4);
-    if (grouped) bytes.writeUInt32LE(d.group, 16 + recent.length * 12 + i * 4);
+    bytes.writeUInt32LE(d.time, 16 + n * 8 + i * 4);
+    if (version >= 2) {
+      const group = grouped && !isReshield(d) ? d.group : NO_GROUP;
+      if (group !== NO_GROUP && !(group >= 0 && group < NO_GROUP))
+        throw Error("Deposit group is out of range.");
+      bytes.writeUInt32LE(group, 16 + n * 12 + i * 4);
+    }
+    if (version === 3) bytes.writeUInt8(isReshield(d) ? 1 : 0, 16 + n * 16 + i);
   });
   const manifest = {
-    version: grouped ? 2 : 1,
+    version,
     pool: "railgun-ethereum",
     token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
     chainId: 1,
     file: "railgun-eth.bin",
     sha256: createHash("sha256").update(bytes).digest("hex"),
     size: bytes.length,
-    count: recent.length,
+    count: n,
+    publicCount: n - reshieldCount,
+    reshieldCount,
     firstDepositTime: recent[0].time,
     lastDepositTime: recent.at(-1).time,
     dataTime,
@@ -78,8 +94,9 @@ export function encodePool(
     lastBlockHash,
     confirmations: 64,
     buildTime: builtAt,
-    source:
-      "Ethereum mainnet RAILGUN Shield events, WETH only; excludes transactions with Nullified events.",
+    source: reshieldCount
+      ? "Ethereum mainnet RAILGUN Shield events, WETH only; reshields (transactions with Nullified events) are marked and not scored yet."
+      : "Ethereum mainnet RAILGUN Shield events, WETH only; excludes transactions with Nullified events.",
   };
   // The data contract: the window and the grouping rule travel with the pool.
   manifest.windowStart = dataTime - WINDOW_SECONDS;
