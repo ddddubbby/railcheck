@@ -19,7 +19,7 @@ test("no-JavaScript users get a message instead of a dead form", () => {
 });
 
 test("decorative step numbers stay out of accessible names", () => {
-  for (const n of ["1", "2", "3"])
+  for (const n of ["1", "2", "3", "4"])
     assert.ok(html.includes(`<span class="step-number" aria-hidden="true">${n}</span>`));
 });
 

@@ -37,6 +37,11 @@ const el = (tag, content, cls) => {
 };
 const action = () => form.querySelector("input[name=action]:checked")?.value || "unshield";
 const value = (name) => form.querySelector(`input[name=${name}]:checked`)?.value;
+const COVERED = { weth: true, usdc: false, other: false };
+const UNIT = { weth: "ETH", usdc: "USDC", other: "—" };
+const token = () => form.querySelector("input[name=token]:checked")?.value || "weth";
+const covered = () => COVERED[token()] === true;
+const constraint = () => ($("constraint").checked ? "flexible" : "fixed");
 
 function notice(message) {
   $("notice").hidden = !message;
@@ -76,32 +81,44 @@ function load() {
   worker.postMessage({ type: "load" });
 }
 
-// The form follows the action: shield has no address questions.
+// The form follows the action and token: unsupported tokens stop before amount.
 function sync() {
-  const shield = action() === "shield";
-  $("amount-label").textContent = shield ? "Amount to shield" : "Amount to unshield";
-  $("constraint-legend").textContent = shield
-    ? "Can the amount change a little?"
-    : "Can the amount be smaller?";
-  $("flexible-label").textContent = shield ? "Yes, within 10%" : "Yes, down to 70%";
-  $("questions").hidden = shield;
-  $("check-button").textContent = shield ? "Check shield amount" : "Check unshield amount";
+  const shield = action() === "shield",
+    ok = covered(),
+    unit = UNIT[token()] || "—";
+  $("amount-label").textContent = "Amount";
+  $("amount-unit").textContent = unit;
+  $("balance-unit").textContent = unit;
+  $("token-status").hidden = ok;
+  $("amount").disabled = !ok;
+  $("constraint").disabled = !ok;
+  $("balance").disabled = !ok;
+  $("check-button").disabled = !ok;
+  $("amount-step").classList.toggle("not-covered", !ok);
+  $("questions").hidden = !ok || shield;
+  $("check-button").textContent = "Check";
   // The old message names the old action, so clear it when the action changes.
   for (const id of ["amount", "balance"]) {
     $(id + "-error").hidden = true;
     $(id).removeAttribute("aria-invalid");
   }
-  fee();
+  if (ok) fee();
+  else $("fee-hint").hidden = true;
 }
 function fee() {
   const hint = $("fee-hint");
+  if (!covered() || document.activeElement !== $("amount")) {
+    hint.hidden = true;
+    return;
+  }
   try {
     const wei = parseAmount($("amount").value),
-      after = wei - (wei * 25n) / 10000n;
+      after = wei - (wei * 25n) / 10000n,
+      unit = UNIT[token()] || "ETH";
     hint.textContent =
       action() === "shield"
-        ? `The pool records ${formatWei(after)} ETH after the 0.25% shield fee.`
-        : `The recipient gets ${formatWei(after)} ETH after the 0.25% unshield fee.`;
+        ? `Pool records ${formatWei(after)} ${unit} after the 0.25% fee.`
+        : `Recipient gets ${formatWei(after)} ${unit} after the 0.25% fee.`;
     hint.hidden = false;
   } catch {
     hint.hidden = true;
@@ -130,10 +147,11 @@ function field(id, optional = false, emptyMessage = "Enter an amount.") {
 }
 function submit(event) {
   event?.preventDefault();
+  if (!covered()) return;
   const verb = action() === "shield" ? "shield" : "unshield",
     amount = field("amount", false, `Enter the amount that you will ${verb}.`);
   if (amount === null) return;
-  const message = { type: "plan", action: action(), amount, constraint: value("constraint") };
+  const message = { type: "plan", action: action(), amount, constraint: constraint() };
   if (message.action === "unshield") {
     const answers = {};
     for (const q of ["q1", "q2", "q3"]) {
@@ -233,23 +251,20 @@ function readout(score, band) {
 }
 
 const QUESTION = { addressReuse: "same address", pastTransfer: "past transfers", restOfDeposit: "rest of shield" };
-// The most important finding first, in a few words.
+// First-level verdict: 10 words or fewer (UI-3). Numbers are not counted in the budget.
 function headline(a) {
   const codes = a.findings.map((f) => f.code),
     link = a.findings.find((f) => f.code === "address-link");
   if (a.action === "shield")
-    return a.status === "clear"
-      ? "This shield blends in."
-      : "This shield stands out. A later unshield of all of it is easy to match.";
+    return a.status === "clear" ? "This shield blends in." : "This shield stands out.";
   if (link)
     return link.reason === "address-reuse"
-      ? "Same address as the shield. That links them, whatever the amount."
-      : "The addresses have a transfer history. That links them, whatever the amount.";
-  if (codes.includes("rest-of-deposit"))
-    return "This is the rest of a shield. Your unshields add up to it.";
+      ? "Same address as the shield."
+      : "Addresses have a transfer history.";
+  if (codes.includes("rest-of-deposit")) return "This is the rest of a shield.";
   if (codes.includes("amount-stands-out")) return "This amount points to shields.";
-  if (a.status === "incomplete") return "No amount issue, but some answers are not sure.";
-  return "No issue found by the available checks.";
+  if (a.status === "incomplete") return "Some answers are not sure.";
+  return "No issue found.";
 }
 // First level: the verdict and what to do. Everything that explains it waits
 // in "What does this mean?".
@@ -276,16 +291,6 @@ function render({ result: r, sets, lit, count, manifest }) {
   draw(lastLit);
   parts.push(el("p", headline(a), "verdict"));
   if (a.findings.some((f) => f.code === "address-link")) parts.push(el("p", "Use a new address."));
-  else if (a.status === "attention" && a.unknown?.length) parts.push(el("p", "Some answers are not sure."));
-  parts.push(
-    el(
-      "p",
-      a.action === "shield"
-        ? `The pool records ${eth(a.amounts.poolCredit)} ETH.`
-        : `The recipient gets ${eth(a.amounts.recipientAmount)} ETH.`,
-      "hint",
-    ),
-  );
   if (a.status === "attention" && !a.findings.some((f) => f.code === "address-link")) {
     if (r.constraint !== "flexible") notes.push(el("p", "Your amount is fixed, so no alternative is shown."));
     else if (r.alternatives.length)
@@ -296,18 +301,21 @@ function render({ result: r, sets, lit, count, manifest }) {
         use.onclick = () => choose(amount);
         parts.push(use);
       }
-    else
-      parts.push(
-        el(
-          "p",
-          a.action === "shield"
-            ? "No Low amount within 10%. Keep yours."
-            : `No Low amount between ${eth(r.searched.from)} and ${eth(r.searched.to)} ETH.`,
-        ),
-      );
+    else parts.push(el("p", "No Low amount in range."));
   }
+  // Fee, balance, and explanations wait in the fold (UI-R5).
+  notes.push(
+    el(
+      "p",
+      a.action === "shield"
+        ? `The pool records ${eth(a.amounts.poolCredit)} ETH.`
+        : `The recipient gets ${eth(a.amounts.recipientAmount)} ETH.`,
+      "hint",
+    ),
+  );
   if (a.action === "unshield" && r.remainingBalance !== null)
-    parts.push(el("p", `Balance left: ${eth(r.remainingBalance)} ETH.`, "hint"));
+    notes.push(el("p", `Balance left: ${eth(r.remainingBalance)} ETH.`, "hint"));
+  if (a.status === "attention" && a.unknown?.length) notes.push(el("p", "Some answers are not sure."));
   // The table comes first, so its explanation leads the fold.
   if (lastSets.length)
     notes.unshift(
@@ -415,8 +423,12 @@ form.addEventListener("input", (e) => {
   }
   $("result").hidden = true;
 });
+$("amount").addEventListener("focus", fee);
+$("amount").addEventListener("blur", () => {
+  $("fee-hint").hidden = true;
+});
 form.addEventListener("change", (e) => {
-  if (e.target.name === "action") sync();
+  if (e.target.name === "action" || e.target.name === "token") sync();
   if (/^q[123]$/.test(e.target.name)) $(e.target.name + "-error").hidden = true;
   $("result").hidden = true;
 });

@@ -169,16 +169,41 @@
         <form id="flow-form" novalidate autocomplete="off">
           <div class="step">
             <fieldset class="group" aria-describedby="action-hint">
-              <legend class="step-label sys"><span class="step-number" aria-hidden="true">1</span>What do you want to do?</legend>
+              <legend class="step-label sys"><span class="step-number" aria-hidden="true">1</span>Action</legend>
               <div class="choices pair">
                 <label class="choice"><input type="radio" name="action" value="shield" /><span>Shield</span></label
                 ><label class="choice"><input type="radio" name="action" value="unshield" checked /><span>Unshield</span></label>
               </div>
-              <p class="hint" id="action-hint"><a href="/how-it-works/#words">What shield and unshield mean</a></p>
+              <p class="hint" id="action-hint"><a href="/how-it-works/#words">Meanings</a></p>
             </fieldset>
           </div>
           <div class="step">
-            <label class="step-label sys" for="amount"><span class="step-number" aria-hidden="true">2</span><span id="amount-label">Amount to unshield</span></label>
+            <fieldset class="group" aria-describedby="chain-tag token-status">
+              <legend class="step-label sys"><span class="step-number" aria-hidden="true">2</span>Token</legend>
+              <p class="chain-tag sys" id="chain-tag">Ethereum</p>
+              <div class="choices token-chips">
+                <label class="choice token-chip"
+                  ><input type="radio" name="token" value="weth" checked /><span>WETH</span></label
+                ><label class="choice token-chip"
+                  ><input type="radio" name="token" value="usdc" /><span
+                    ><span class="dash-icon" aria-hidden="true"></span>USDC<span
+                      class="soon-tag"
+                      >Soon</span
+                    ></span
+                  ></label
+                ><label class="choice token-chip"
+                  ><input type="radio" name="token" value="other" /><span
+                    ><span class="dash-icon" aria-hidden="true"></span>Other</span
+                  ></label
+                >
+              </div>
+              <p class="token-status" id="token-status" hidden>
+                <span class="dash-icon" aria-hidden="true"></span>Not covered
+              </p>
+            </fieldset>
+          </div>
+          <div class="step" id="amount-step">
+            <label class="step-label sys" for="amount"><span class="step-number" aria-hidden="true">3</span><span id="amount-label">Amount</span></label>
             <div class="amount-wrap">
               <input
                 id="amount"
@@ -188,46 +213,35 @@
                 spellcheck="false"
                 aria-describedby="fee-hint amount-error"
                 placeholder="0.00"
-              /><span>ETH</span>
+              /><span id="amount-unit">ETH</span>
             </div>
             <p class="hint" id="fee-hint" hidden></p>
             <p class="error" id="amount-error" hidden></p>
-            <fieldset class="group constraint">
-              <legend id="constraint-legend">Can the amount be smaller?</legend>
-              <div class="choices pair">
-                <label class="choice"><input type="radio" name="constraint" value="fixed" /><span>No, it is fixed</span></label
-                ><label class="choice"><input type="radio" name="constraint" value="flexible" checked /><span id="flexible-label">Yes, down to 70%</span></label>
-              </div>
-            </fieldset>
+            <label class="allow-smaller" for="constraint">
+              <input type="checkbox" id="constraint" checked />
+              <span id="constraint-label">Allow a smaller amount</span>
+            </label>
           </div>
           <div class="step" id="questions">
-            <h2 class="step-label sys"><span class="step-number" aria-hidden="true">3</span>Recipient and earlier unshields</h2>
+            <h2 class="step-label sys">
+              <span class="step-number" aria-hidden="true">4</span>Links
+            </h2>
             <fieldset class="group" id="q1-group" aria-describedby="q1-error">
-              <legend>Will you unshield to the address that shielded?</legend>
+              <legend>Same address as the shield?</legend>
               <div class="choices">{{Q1}}</div>
               <p class="error" id="q1-error" hidden>Select an answer.</p>
             </fieldset>
             <fieldset class="group" id="q2-group" aria-describedby="q2-error">
-              <legend>
-                Did the recipient address ever send funds to the address that
-                shielded, or get funds from it?
-              </legend>
+              <legend>Any transfer between the two addresses?</legend>
               <div class="choices">{{Q2}}</div>
               <p class="error" id="q2-error" hidden>Select an answer.</p>
             </fieldset>
-            <fieldset class="group" id="q3-group" aria-describedby="q3-example q3-error">
-              <legend>
-                Will you unshield the rest of a shield that you partly unshielded
-                before?
-              </legend>
-              <p class="hint example" id="q3-example">
-                Example: you shielded 9.12 ETH, unshielded 3 ETH, and now unshield
-                6.12 ETH.
-              </p>
+            <fieldset class="group" id="q3-group" aria-describedby="q3-error">
+              <legend>Rest of an earlier shield?</legend>
               <div class="choices">{{Q3}}</div>
               <p class="error" id="q3-error" hidden>Select an answer.</p>
             </fieldset>
-            <label class="balance-label" for="balance">Private balance (optional)</label>
+            <label class="balance-label" for="balance">Private balance</label>
             <div class="amount-wrap">
               <input
                 id="balance"
@@ -235,14 +249,13 @@
                 inputmode="decimal"
                 autocomplete="off"
                 spellcheck="false"
-                aria-describedby="balance-hint balance-error"
+                aria-describedby="balance-error"
                 placeholder="0.00"
-              /><span>ETH</span>
+              /><span id="balance-unit">ETH</span>
             </div>
-            <p class="hint" id="balance-hint">Shows what stays in your private balance.</p>
             <p class="error" id="balance-error" hidden></p>
           </div>
-          <button class="primary" id="check-button" type="submit">Check amount</button>
+          <button class="primary" id="check-button" type="submit">Check</button>
         </form>
         <section class="result" id="result" hidden aria-busy="false">
           <div class="result-top">
