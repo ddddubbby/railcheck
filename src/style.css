@@ -179,6 +179,7 @@ main {
   padding-inline: calc(var(--card-pad) + 1px);
 }
 .hero h1 {
+  text-wrap: balance;
   font-size: clamp(2rem, 4.4vw, 3rem);
   line-height: 1.12;
   letter-spacing: -0.045em;
@@ -533,7 +534,10 @@ legend {
   border-radius: 2px;
   font-size: var(--fs-small);
   cursor: pointer;
-  transition: border-color 120ms;
+  transition:
+    border-color 160ms,
+    background-color 160ms,
+    color 160ms;
 }
 .choice input:checked + span {
   color: var(--text);
@@ -557,6 +561,7 @@ legend {
 }
 .choice:hover input:not(:checked) + span {
   border-color: var(--muted);
+  background: rgba(255, 255, 255, 0.03);
 }
 .primary,
 .secondary {
@@ -571,6 +576,7 @@ legend {
   text-transform: uppercase;
 }
 .primary {
+  transition: background-color 160ms;
   min-height: 52px;
   background: var(--signal);
   color: var(--inset);
@@ -649,6 +655,8 @@ legend {
 }
 .explainer {
   margin-top: 48px;
+  /* Same text edge as the hero and the card contents. */
+  padding-inline: calc(var(--card-pad) + 1px);
 }
 .crowd-caption {
   font-size: var(--fs-small);
@@ -1099,6 +1107,10 @@ details p {
   }
   .hero h1 {
     font-size: clamp(1.75rem, 7.5vw, 2.6rem);
+  }
+  /* The forced break only suits wide screens; phones wrap by balance. */
+  .wide-break {
+    display: none;
   }
   .hero .lede {
     font-size: var(--fs-body);
