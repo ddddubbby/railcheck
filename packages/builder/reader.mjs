@@ -259,19 +259,25 @@ export function foldUnshieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } =
       id = `${key}:${index}`;
     if (seen.has(id)) continue;
     seen.add(id);
-    if (type !== 0n || address !== BigInt(token) || amount === 0n) continue;
+    // token null: every ERC-20, one row per transaction and token.
+    if (type !== 0n || (token !== null && address !== BigInt(token)) || amount === 0n)
+      continue;
     if (subId !== 0n) throw Error("Invalid ERC20 token sub-ID.");
-    const row = transactions.get(key) || { block, index, amountWei: 0n };
+    const tokenAddress = `0x${address.toString(16).padStart(40, "0")}`,
+      rowKey = `${key}:${tokenAddress}`;
+    const row = transactions.get(rowKey) || { block, index, amountWei: 0n, token: tokenAddress };
     if (row.block !== block) throw Error("Inconsistent transaction block.");
     row.amountWei += amount;
     row.index = Math.min(row.index, index);
-    transactions.set(key, row);
+    transactions.set(rowKey, row);
   }
   return {
     removedInternal: 0,
     kept: [...transactions.values()]
       .sort((a, b) => a.block - b.block || a.index - b.index)
-      .map(({ block, amountWei }) => ({ block, amountWei })),
+      .map(({ block, amountWei, token: t }) =>
+        token === null ? { block, amountWei, token: t } : { block, amountWei },
+      ),
   };
 }
 

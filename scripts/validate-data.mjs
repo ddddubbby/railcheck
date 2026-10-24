@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { performance } from "node:perf_hooks";
 import { decode } from "../lib/pool/index.mjs";
@@ -23,22 +23,31 @@ const pool = decode(
   manifest,
 );
 const ageHours = (Date.now() / 1000 - manifest.dataTime) / 3600;
-const rows = parseCsv(readFileSync("data/deposits.csv", "utf8"));
+// The pool is the two CSV files merged by time, public shields first at a tie.
+const kinded = (path, kind) =>
+  existsSync(path) ? parseCsv(readFileSync(path, "utf8")).map((d) => ({ ...d, kind })) : [];
+const rows = [
+  ...kinded("data/deposits.csv", "public"),
+  ...(manifest.version === 3 ? kinded("data/reshields.csv", "reshield") : []),
+];
 const recent = rows
   .filter(
     (d) =>
       d.time >= manifest.dataTime - 180 * 86400 && d.time <= manifest.dataTime,
   )
-  .sort((a, b) => a.time - b.time);
+  .sort((a, b) => a.time - b.time || (a.kind === "reshield") - (b.kind === "reshield"));
 if (
   recent.length !== pool.length ||
   recent.some(
     (r, i) =>
       Number((r.amountWei + 500000000n) / NANO) !== pool[i].amount ||
-      r.time !== pool[i].time,
+      r.time !== pool[i].time ||
+      (manifest.version === 3 && r.kind !== pool[i].kind),
   )
 )
   throw Error("CSV does not reproduce the pool.");
+// Full-withdrawal checks sample public shields: reshields are not scored yet.
+const publicPool = pool.filter((d) => d.kind !== "reshield");
 let seed = 0x4558434b;
 const random = () =>
   (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32;
@@ -53,7 +62,7 @@ for (let i = 0; i < 400; i++) {
   const result = amountScore(pool, a);
   timing.push(performance.now() - start);
   if (result.score <= 5) low++;
-  const deposit = pool[Math.floor(random() * pool.length)];
+  const deposit = publicPool[Math.floor(random() * publicPool.length)];
   if (deposit.amount === 0) continue;
   const r = check(
     pool,

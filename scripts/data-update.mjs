@@ -37,7 +37,8 @@ if (Math.abs(Date.now() / 1000 - dataTime) > 26 * 3600)
 let rows = existsSync("data/deposits.csv")
   ? parseCsv(readFileSync("data/deposits.csv", "utf8"))
   : [];
-// Reshields stay out of the live pool until EXCK v3 (R0.3). Same CSV columns as deposits.
+// Reshields are kept in their own CSV (same columns) and written to the pool
+// with kind "reshield" (EXCK v3). The engine does not score them yet (R1.1).
 let reshields = existsSync("data/reshields.csv")
   ? parseCsv(readFileSync("data/reshields.csv", "utf8"))
   : [];
@@ -90,8 +91,11 @@ if (rows.some((d) => d.block > head || d.time > dataTime))
   throw Error("Deposit data is ahead of the confirmed head.");
 if (reshields.some((d) => d.block > head || d.time > dataTime))
   throw Error("Reshield data is ahead of the confirmed head.");
-// Live pool: public shields only. Reshields stay in data/reshields.csv until pool v3.
-const { bytes, manifest } = encodePool(rows, {
+// Reshield history starts at the first run that read them, not at the window start.
+const reshieldsFromBlock =
+  previous?.metrics?.reshieldsFromBlock ??
+  Math.min(reshields[0]?.block ?? Infinity, previous ? previous.lastBlock + 1 : firstBlock);
+const { bytes, manifest } = encodePool([...rows, ...reshields.map((r) => ({ ...r, kind: "reshield" }))], {
   dataTime,
   lastBlock: head,
   firstBlock: Math.min(firstBlock, previous?.firstBlock ?? firstBlock),
@@ -99,7 +103,16 @@ const { bytes, manifest } = encodePool(rows, {
 });
 mkdirSync("public/data", { recursive: true });
 mkdirSync("data", { recursive: true });
-manifest.activity = await withdrawalSnapshot(rpc, manifest, console.log);
+const { snapshot, unshieldsByToken } = await withdrawalSnapshot(rpc, manifest, console.log);
+manifest.activity = snapshot;
+// Coverage metrics (counts only, no addresses): see DATA-6 in the spec.
+manifest.metrics = {
+  publicShieldsAdded: added,
+  reshieldsAdded: foundReshields,
+  reshieldsFromBlock,
+  reshieldHistoryComplete: reshieldsFromBlock <= firstBlock,
+  unshieldsByToken3d: unshieldsByToken,
+};
 manifest.activitySha256 = createHash("sha256")
   .update(JSON.stringify(manifest.activity))
   .digest("hex");
@@ -117,5 +130,5 @@ try {
   for (const [path] of updates) rmSync(path + ".tmp", { force: true });
 }
 console.log(
-  `Updated ${manifest.count} deposits through block ${head}. Added ${added}; found ${foundReshields} reshields.`,
+  `Updated ${manifest.publicCount} public shields and ${manifest.reshieldCount} reshields through block ${head}. Added ${added} public shields and ${foundReshields} reshields.`,
 );

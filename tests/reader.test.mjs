@@ -174,6 +174,12 @@ test("Unshield decoder counts WETH transactions once, sums outputs and keeps rec
     ]).kept.length,
     0,
   );
+  // token null: every ERC-20, one row per transaction and token, with the token.
+  const other = { ...log, logIndex: "0x3", data: "0x" + [1, 0, 7, 0, 5, 0].map(word).join("") };
+  assert.deepEqual(foldUnshieldLogs([log, other], { token: null }).kept, [
+    { block: 2, amountWei: 9975n, token: WETH },
+    { block: 2, amountWei: 5n, token: "0x" + "7".padStart(40, "0") },
+  ]);
   for (const change of [
     { removed: true },
     { address: WETH },

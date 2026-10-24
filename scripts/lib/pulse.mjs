@@ -34,7 +34,8 @@ export function pulseStats(deposits, snapshot, manifest) {
     depositWei = 0n,
     withdrawalWei = 0n;
   for (const d of deposits) {
-    if (d.time < start || d.time > end) continue;
+    // The chart shows public shields; swap outputs are not shields a user sent.
+    if (d.kind === "reshield" || d.time < start || d.time > end) continue;
     const bin = bins[Math.floor((d.time - firstHour) / 3600)];
     bin.deposits++;
     // The existing pool stores nano-ETH. Do not reconstruct a gross fee amount.

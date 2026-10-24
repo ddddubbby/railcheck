@@ -50,6 +50,7 @@ function load() {
       ready = true;
       $("progress").hidden = true;
       $("data-date").textContent = "Data updated " + date(data.manifest.dataTime);
+      // File rows, swap outputs included: lit ids are positions in the file.
       pool = data.manifest.count;
       notice();
     }

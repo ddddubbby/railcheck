@@ -62,3 +62,41 @@ test("senders come from one batched request per chunk", async () => {
   assert.equal(requests, 2);
   assert.equal(from.get("h3"), sender);
 });
+test("pool file v3 marks reshields, gives them no group, and puts public shields first at a tie", () => {
+  const hash = "0x" + "0".repeat(64);
+  const rows = [
+    { block: 1, time: 100, amountWei: 10n ** 18n, group: 0 },
+    { block: 1, time: 100, amountWei: 7n * 10n ** 17n, kind: "reshield" },
+    { block: 2, time: 101, amountWei: 2n * 10n ** 18n, group: 1 },
+  ].reverse();
+  const { bytes, manifest } = encodePool(rows, { dataTime: 103, lastBlock: 2, firstBlock: 1, lastBlockHash: hash });
+  assert.equal(manifest.version, 3);
+  assert.equal(manifest.grouping, "tx-sender");
+  assert.deepEqual([manifest.count, manifest.publicCount, manifest.reshieldCount], [3, 2, 1]);
+  assert.equal(bytes.length, 16 + 3 * 16 + 3 + 1);
+  const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  const deposits = decode(buffer, manifest);
+  assert.deepEqual(deposits.map((d) => d.kind), ["public", "reshield", "public"]);
+  assert.deepEqual(deposits.map((d) => d.group), [0, undefined, 1]);
+  // The engine scores public shields only, and still counts their senders.
+  const pool = prepare(deposits, { now: 200 });
+  assert.equal(pool.amounts.length, 2);
+  assert.equal(pool.grouped, true);
+  // An unknown kind byte or a size that does not fit the version is refused.
+  const broken = new Uint8Array(buffer.slice(0));
+  broken[16 + 3 * 16 + 1] = 2;
+  assert.throws(() => decode(broken.buffer, manifest), /kind/);
+  assert.throws(() => decode(buffer, { ...manifest, version: 2 }), /format/);
+});
+test("pool file v3 without sender groups (the published pool) decodes with no groups", () => {
+  const rows = [
+    { block: 1, time: 100, amountWei: 10n ** 18n },
+    { block: 2, time: 101, amountWei: 7n * 10n ** 17n, kind: "reshield" },
+  ];
+  const { bytes, manifest } = encodePool(rows, { dataTime: 103, lastBlock: 2, firstBlock: 1, lastBlockHash: "0x" + "0".repeat(64) });
+  assert.equal(manifest.version, 3);
+  assert.equal(manifest.grouping, "none");
+  const deposits = decode(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), manifest);
+  assert.ok(deposits.every((d) => d.group === undefined));
+  assert.equal(prepare(deposits, { now: 200 }).grouped, false);
+});

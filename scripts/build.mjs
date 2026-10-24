@@ -371,7 +371,7 @@ writeFileSync(
 );
 await import("./archive.mjs");
 console.log(
-  `Built static railcheck with ${manifest.count} deposits (${date(manifest.dataTime)}).`,
+  `Built static railcheck with ${manifest.publicCount ?? manifest.count} public shields (${date(manifest.dataTime)}).`,
 );
 if (!origin)
   console.log(

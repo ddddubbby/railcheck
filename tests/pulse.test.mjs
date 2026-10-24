@@ -88,3 +88,14 @@ test("a snapshot covering a longer window is trimmed to the activity window", ()
     pulseStats([], { ...older, fromTime: start + 1 }, manifest),
   );
 });
+test("swap outputs (reshields) do not count as shields in the activity chart", () => {
+  const p = pulseStats(
+    [
+      { time: end - 10, amount: 1 },
+      { time: end - 5, amount: 2, kind: "reshield" },
+    ],
+    snapshot(),
+    manifest,
+  );
+  assert.equal(p.depositCount, 1);
+});
