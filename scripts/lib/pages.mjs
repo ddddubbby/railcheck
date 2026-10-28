@@ -88,9 +88,9 @@ const NAV = [
   ["/docs/", "For wallets"],
 ];
 
-/** Shared header. `path` marks the current page. */
+/** Shared header. `path` marks the current page. Links live in a hamburger panel. */
 export const header = (path) =>
-  `<header><a class="brand" href="/">railcheck</a><nav class="site-nav" aria-label="Site">${NAV.map(
+  `<header><a class="brand" href="/">railcheck</a><button type="button" class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="site-menu"><span class="sr-only">Menu</span><span class="nav-toggle-bars" aria-hidden="true"></span></button><nav class="site-nav" id="site-menu" hidden>${NAV.map(
     ([href, label]) =>
       `<a class="nav-link" href="${href}"${href === path ? ' aria-current="page"' : ""}>${label}</a>`,
   ).join("")}</nav></header>`;
@@ -135,7 +135,8 @@ export function renderPage({ path, meta, html, toc, sourceURL, jsonld, tools }) 
     <link rel="stylesheet" href="/style.css" />
     <link rel="alternate" type="text/markdown" href="${mdPath}" />
     <link rel="describedby" href="/llms.txt" />
-    <script type="application/ld+json">${JSON.stringify(jsonld).replace(/</g, "\\u003c")}</script>${tools ? '\n    <script type="module" src="/docs.mjs"></script>' : ""}
+    <script type="application/ld+json">${JSON.stringify(jsonld).replace(/</g, "\\u003c")}</script>
+    <script type="module" src="/nav.mjs"></script>${tools ? '\n    <script type="module" src="/docs.mjs"></script>' : ""}
   </head>
   <body>
     <div class="shell doc-shell">
