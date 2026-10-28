@@ -379,6 +379,8 @@ function matchTable(sets) {
       const leg = el("span", undefined, "match-leg");
       if (i) leg.append(el("span", "+ ", "match-plus"));
       leg.append(`${sent(d.amount)} ETH`);
+      // A swap output is not a shield someone sent from an address: tag it.
+      if (d.kind === "reshield") leg.append(" ", el("span", "Swap output", "match-tag"));
       amounts.append(leg);
       dates.append(el("span", date(d.time), "match-leg"));
     });
