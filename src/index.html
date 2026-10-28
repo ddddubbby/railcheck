@@ -28,6 +28,7 @@
     <link rel="alternate" type="text/markdown" href="/index.md" />
     <link rel="describedby" href="/llms.txt" />
     {{JSONLD}}
+    <script type="module" src="/nav.mjs"></script>
     <script type="module" src="/app.mjs"></script>
     <script type="module" src="/flow.mjs"></script>
   </head>
@@ -42,13 +43,10 @@
       ></div>
       <main>
         <section class="hero" aria-labelledby="hero-heading">
-          <p class="kicker sys">
-            <span class="kicker-mark" aria-hidden="true"></span>Amount privacy
-            check · RAILGUN WETH
-          </p>
+          <p class="hero-brand">railcheck</p>
           <h1 id="hero-heading">
             Check your RAILGUN privacy<br class="wide-break" />
-            <span class="h1-soft">before you shield or unshield</span>
+            before you shield or unshield
           </h1>
           <ul class="assure" aria-label="About this check">
             <li>
@@ -81,35 +79,29 @@
             </li>
           </ul>
         </section>
+        <nav class="jump" aria-label="Quick links">
+          <a class="jump-link" href="#flow-form" data-jump="check">Check an amount</a>
+          <a class="jump-link" href="/docs/">Wallet SDK</a>
+        </nav>
         <section class="pulse" aria-labelledby="pulse-heading">
           <div class="pulse-top">
-            <h2 class="sys" id="pulse-heading">RAILGUN ETH pool activity</h2>
-            <p class="pulse-period">Ethereum · WETH · Last 3 days</p>
+            <h2 id="pulse-heading">Pool activity</h2>
+            <p class="pulse-period sr-only">WETH · last 3 days</p>
           </div>
           <dl class="pulse-stats">
             <div class="deposit-stat">
-              <dt>
-                <span class="activity-key deposit-key" aria-hidden="true"
-                  >↑</span
-                >Shields
-              </dt>
+              <dt>Shields</dt>
               <dd>{{PULSE_DEPOSITS}}<span>{{PULSE_DEPOSIT_ETH}} ETH</span></dd>
             </div>
             <div class="withdrawal-stat">
-              <dt>
-                <span class="activity-key withdrawal-key" aria-hidden="true"
-                  >↓</span
-                >Unshields
-              </dt>
+              <dt>Unshields</dt>
               <dd>
                 {{PULSE_WITHDRAWALS}}<span>{{PULSE_WITHDRAWAL_ETH}} ETH</span>
               </dd>
             </div>
           </dl>
-          <p class="pulse-chart-label">
-            <span id="activity-resolution">Transactions per hour</span
-            ><span id="activity-unit">Each square is 1 transaction</span>
-          </p>
+          <p class="sr-only" id="activity-resolution">Transactions per hour</p>
+          <p class="sr-only" id="activity-unit">Each square is 1 transaction</p>
           <div
             class="pulse-chart"
             id="activity-chart"
@@ -124,7 +116,7 @@
               max="{{PULSE_MAX}}"
               value="{{PULSE_SELECTED}}"
               aria-label="Explore pool activity"
-              aria-describedby="activity-help"
+              aria-describedby="activity-help activity-resolution activity-unit"
             />
           </div>
           <p class="sr-only">{{PULSE_SUMMARY}}</p>
@@ -149,13 +141,9 @@
             </p>
           </div>
           <div class="pulse-bottom">
-            <p id="activity-help">
-              {{PULSE_UPDATED}}<span class="sr-only">
-                Hover or tap to explore activity.</span
-              ><span class="sr-only"
-                >Use arrow keys to select an hour, Home for the first or End for
-                the last.</span
-              >
+            <p id="activity-help" class="sr-only">
+              {{PULSE_UPDATED}} Hover or tap to explore activity. Use arrow keys
+              to select an hour, Home for the first or End for the last.
             </p>
             <a class="activity-about" href="/how-it-works/#data">About this data</a>
           </div>
@@ -171,9 +159,9 @@
           </div>
         </noscript>
         <form id="flow-form" novalidate autocomplete="off">
-          <div class="step">
+          <div class="step" data-step="1">
             <fieldset class="group" aria-describedby="action-hint">
-              <legend class="step-label sys"><span class="step-number" aria-hidden="true">1</span>What do you want to do?</legend>
+              <legend class="step-label"><span class="step-number" aria-hidden="true">1</span>What do you want to do?</legend>
               <div class="choices pair">
                 <label class="choice"><input type="radio" name="action" value="shield" /><span>Shield</span></label
                 ><label class="choice"><input type="radio" name="action" value="unshield" checked /><span>Unshield</span></label>
@@ -181,8 +169,8 @@
               <p class="hint" id="action-hint"><a href="/how-it-works/#words">What shield and unshield mean</a></p>
             </fieldset>
           </div>
-          <div class="step">
-            <label class="step-label sys" for="amount"><span class="step-number" aria-hidden="true">2</span><span id="amount-label">Amount to unshield</span></label>
+          <div class="step" data-step="2">
+            <label class="step-label" for="amount"><span class="step-number" aria-hidden="true">2</span><span id="amount-label">Amount to unshield</span></label>
             <div class="amount-wrap">
               <input
                 id="amount"
@@ -204,8 +192,8 @@
               </div>
             </fieldset>
           </div>
-          <div class="step" id="questions">
-            <h2 class="step-label sys"><span class="step-number" aria-hidden="true">3</span>Recipient and earlier unshields</h2>
+          <div class="step" data-step="3" id="questions">
+            <h2 class="step-label"><span class="step-number" aria-hidden="true">3</span>Recipient and earlier unshields</h2>
             <fieldset class="group" id="q1-group" aria-describedby="q1-error">
               <legend>Will you unshield to the address that shielded?</legend>
               <div class="choices">{{Q1}}</div>
@@ -250,8 +238,8 @@
         </form>
         <section class="result" id="result" hidden aria-busy="false">
           <div class="result-top">
-            <h2 class="sys" id="result-heading" tabindex="-1">Risk score</h2>
-            <span class="sys band" id="band"></span>
+            <h2 id="result-heading" tabindex="-1">Risk score</h2>
+            <span class="band" id="band"></span>
           </div>
           <div id="readout" hidden>
             <div class="score" aria-hidden="true">
