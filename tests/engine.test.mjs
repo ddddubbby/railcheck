@@ -12,10 +12,15 @@ import {
   amountScore,
   prepare,
   score,
+  inspect,
+  toStored,
   NANO,
   afterUnshieldFee,
 } from "../lib/engine/index.mjs";
 import { decode } from "../lib/pool/index.mjs";
+import { crowded } from "../lib/engine/advice.mjs";
+import { foldShieldLogs } from "../packages/builder/reader.mjs";
+const fixture = JSON.parse(readFileSync("tests/fixtures/ethereum-logs.json", "utf8"));
 let seed = 61956;
 const rand = () =>
   (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32;
@@ -203,20 +208,39 @@ test("fixture check timing", () => {
     "ms (this computer, not a phone)",
   );
 });
-test("reshields in the deposits do not change the pool or the score", () => {
-  const publicRows = [1.2, 0.5, 3.75, 0.8, 2.1].map((eth, id) => ({
-    id,
-    amount: Math.round(eth * 1e9),
-    time: 1000 + id,
-    group: id,
-    kind: "public",
+test("an unshield that matches a recorded swap output scores Critical and is tagged (VAL-2)", () => {
+  // The recorded mainnet swap transaction: a Nullified event and a WETH reshield.
+  const swap = foldShieldLogs(fixture.logs).kept.find((r) => r.kind === "reshield");
+  const now = manifest.dataTime + 1;
+  const reshield = { id: pool.length, amount: Number(toStored(swap.amountWei)), time: now - 86400, kind: "reshield" };
+  const before = prepare(pool, { now }), after = prepare([...pool, reshield], { now });
+  assert.equal(score(before, swap.amountWei).band, "Low");
+  assert.equal(score(after, swap.amountWei).band, "Critical");
+  assert.deepEqual(inspect(after, swap.amountWei).sets[0].deposits.map((d) => d.kind), ["reshield"]);
+  // The public pool is unchanged: same size and the same crowded amounts (ENG-3).
+  assert.equal(after.amounts.length, before.amounts.length);
+  assert.deepEqual(crowded(after), crowded(before));
+  const result = check([...pool, reshield], swap.amountWei, "no", "no", "no", now);
+  assert.equal(result.status, "attention");
+  assert.equal(amountScore([...pool, reshield], swap.amountWei).score, result.amountScore);
+});
+test("reshields never lower a score (VAL-1)", () => {
+  const now = manifest.dataTime + 1;
+  let s = 7;
+  const next = () => (s = (Math.imul(s, 1664525) + 1013904223) >>> 0) / 2 ** 32;
+  const reshields = Array.from({ length: 40 }, (_, i) => ({
+    id: pool.length + i,
+    amount: Math.round((0.01 + next() * 5) * 1e9),
+    time: now - 1 - Math.floor(next() * 170 * 86400),
+    kind: "reshield",
   }));
-  // A swap output that an unshield of 0.73421 ETH matches exactly.
-  const reshield = { id: 9, amount: 734_210_000, time: 1010, group: 0xffffffff, kind: "reshield" };
-  const wei = 734_210_000n * NANO;
-  const without = prepare(publicRows, { now: 2000 });
-  const withReshield = prepare([...publicRows, reshield], { now: 2000 });
-  assert.equal(withReshield.amounts.length, publicRows.length);
-  assert.deepEqual(score(withReshield, wei), score(without, wei));
-  assert.deepEqual(amountScore([...publicRows, reshield], wei), amountScore(publicRows, wei));
+  const before = prepare(pool, { now }), after = prepare([...pool, ...reshields], { now });
+  // A sample keeps the suite fast; the full replay on live data is a release check.
+  const amounts = [
+    ...pool.filter((_, i) => i % 8 === 0).map((d) => BigInt(d.amount) * NANO),
+    ...reshields.map((d) => BigInt(d.amount) * NANO),
+    ...Array.from({ length: 200 }, () => parseAmount((0.01 + next() * 5).toFixed(6))),
+  ];
+  for (const wei of amounts)
+    assert.ok(score(after, wei).score >= score(before, wei).score, `lower score for ${wei}`);
 });

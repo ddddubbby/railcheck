@@ -1,7 +1,7 @@
 ---
 title: How the railcheck privacy check works
 description: How railcheck scores a RAILGUN shield or unshield amount, what stays private, and what the check does not cover.
-updated: 2026-10-22
+updated: 2026-10-28
 ---
 # How the check works
 
@@ -61,7 +61,7 @@ A match applies only if the matched shield is yours.
 The pool file contains the amount and the time of each shield. It contains no addresses.
 
 - The data comes from Ethereum blocks with 64 confirmations or more.
-- It includes WETH only. Swap outputs are in the file, but the score does not use them yet.
+- It includes WETH only, swap outputs included.
 - Amounts are after the protocol fees.
 - The data is updated each day. It is a snapshot, not a live feed. The page shows the date of the data.
 
@@ -76,7 +76,7 @@ Data that is not on the chain can make the real risk higher, for example timing,
 - The model assumes that a broadcaster sends the unshield.
 - railcheck asks about the remaining shielded amount. It does not check your other unshields.
 - A low amount score does not remove a link between addresses.
-- railcheck does not yet check swap outputs.
+- Swap outputs before 22 Oct 2026 are not in the data yet.
 
 ## What the words mean {#words}
 
@@ -85,6 +85,7 @@ Data that is not on the chain can make the real risk higher, for example timing,
 - **Pool amount:** the amount that the pool records for a shield, after the 0.25% shield fee.
 - **Broadcaster:** a third party that sends an unshield transaction, so that your public address does not pay the gas.
 - **Private balance:** the tokens that you hold in RAILGUN.
+- **Swap output:** the shield at the end of a private swap. Its amount is public, so an unshield can match it.
 
 ## Disclaimer {#disclaimer}
 

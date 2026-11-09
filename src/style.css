@@ -936,6 +936,14 @@ legend {
 .match-plus {
   color: var(--muted);
 }
+.match-tag {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--band) 45%, transparent);
+  border-radius: 2px;
+  color: var(--band);
+  font-size: var(--fs-caption);
+}
 .band {
   color: var(--band);
 }
