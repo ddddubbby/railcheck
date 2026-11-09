@@ -196,7 +196,7 @@ test("swap gas payer: a broadcaster adds nothing", () => {
     assert.deepEqual(base.addressLinks, { state: "none-reported", reasons: [], unknown: [] }, amount);
   }
 });
-test("swap gas payer: unknown is flagged only when the strongest match holds a swap output", () => {
+test("swap gas payer: unknown is flagged only when swap outputs set the amount score", () => {
   // The 1.5 ETH unshield matches the swap output.
   const swap = assess(swapPool, { action: "unshield", amount: eth("1.5"), context: no });
   assert.ok(swap.modelScore > 5);
@@ -214,10 +214,51 @@ test("swap gas payer: unknown is flagged only when the strongest match holds a s
   // A pool without swap outputs is never flagged; shields do not apply.
   assert.equal(assess(pool, { action: "unshield", amount: eth("1.23456789"), context: no }).addressLinks.state, "none-reported");
   assert.equal(assess(swapPool, { action: "shield", amount: eth("1.5") }).addressLinks.state, "not-applicable");
+  // null (a JSON context) is unknown too, not invalid.
+  const fromJSON = assess(swapPool, { action: "unshield", amount: eth("1.5"), context: { ...no, swapGasPayer: null } });
+  assert.deepEqual(fromJSON.addressLinks, swap.addressLinks);
+  assert.equal(fromJSON.score, swap.score);
+  assert.equal(assess(swapPool, { action: "unshield", amount: eth("0.9975"), context: { ...no, swapGasPayer: null } }).status, "clear");
   // A known answer clears the unknown, and does not change the score.
   const known = assess(swapPool, { action: "unshield", amount: eth("1.5"), context: { ...no, swapGasPayer: "broadcaster" } });
   assert.equal(known.addressLinks.state, "none-reported");
   assert.equal(known.score, swap.score);
+});
+test("swap gas payer: a swap output that raises the score is flagged even when its match set is not the first", async () => {
+  const { inspect, score } = await import("../lib/index.mjs");
+  // A large public shield pairs with four small rows, one a swap output; two
+  // public pairs compete. The swap output adds a pair, so the score rises.
+  const rows = [
+    [999_800_000], [199_000], [200_000], [201_000], [202_000, "reshield"],
+    [400_000_000], [600_000_000], [300_000_000], [700_000_000],
+  ].map(([amount, kind], i) => ({ id: i, amount, time: now - 100 - i, ...(kind ? { kind } : {}) }));
+  const mixed = prepare(rows.slice().sort((a, b) => a.time - b.time), { now });
+  const publicOnly = prepare(rows.filter((d) => !d.kind).sort((a, b) => a.time - b.time), { now });
+  const wei = eth("1");
+  assert.ok(score(mixed, wei).score > score(publicOnly, wei).score);
+  const sets = inspect(mixed, wei).sets;
+  assert.ok(!sets[0].deposits.some((d) => d.kind === "reshield"), "the swap-output pair is not first");
+  assert.ok(sets.some((s) => s.deposits.some((d) => d.kind === "reshield")));
+  const r = assess(mixed, { action: "unshield", amount: wei, context: no });
+  assert.deepEqual(r.addressLinks, { state: "unknown", reasons: [], unknown: ["swapGasPayer"] });
+  // The public pool alone gives the same check with no flag.
+  assert.equal(assess(publicOnly, { action: "unshield", amount: wei, context: no }).addressLinks.state, "none-reported");
+});
+test("swap gas payer: a Low score is never flagged, even when swap outputs set it", async () => {
+  const { score } = await import("../lib/index.mjs");
+  // One small row pairs a large public shield with a swap output; 31 public pairs compete.
+  const rows = [{ amount: 999_800_000 }, { amount: 199_000 }, { amount: 202_000, kind: "reshield" }];
+  for (let i = 0; i < 31; i++) rows.push({ amount: 100_000_000 + i * 10_000_000 }, { amount: 900_000_000 - i * 10_000_000 });
+  const deposits = rows.map((r, i) => ({ id: i, time: now - 100 - i, ...r }));
+  const mixed = prepare(deposits, { now }),
+    publicOnly = prepare(deposits.filter((d) => !d.kind), { now }),
+    wei = eth("1");
+  const s = score(mixed, wei);
+  assert.equal(s.fromSwapOutputs, true);
+  assert.ok(s.score > score(publicOnly, wei).score && s.score <= 5);
+  const r = assess(mixed, { action: "unshield", amount: wei, context: no });
+  assert.deepEqual(r.addressLinks, { state: "none-reported", reasons: [], unknown: [] });
+  assert.equal(r.status, "clear");
 });
 test("swap gas payer: the rest of a swap output has the rest-of-deposit minimum of 90", async () => {
   const { inspect } = await import("../lib/index.mjs");
@@ -229,7 +270,7 @@ test("swap gas payer: the rest of a swap output has the rest-of-deposit minimum 
   assert.ok(r.findings.some((f) => f.code === "rest-of-deposit"));
 });
 test("swap gas payer: an invalid value is rejected", () => {
-  for (const swapGasPayer of ["unsure", "public", "", null, true, 1])
+  for (const swapGasPayer of ["unsure", "public", "", false, true, 1, {}])
     for (const action of ["unshield", "shield"])
       assert.throws(
         () => plan(pool, { action, amount: eth("1"), context: { ...no, swapGasPayer } }),
