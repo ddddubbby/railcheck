@@ -27,7 +27,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@railcheck/core": "0.1.0-preview.1"
+    "@railcheck/core": "0.2.0-preview.1"
   },
   "engines": {
     "node": ">=22"

@@ -163,6 +163,18 @@ test("result v2: a check that cannot run says why in coverage and scores nothing
   assert.equal(a.status, "not-checked");
   assert.equal(a.amountExposure, null);
   assert.deepEqual(a.coverage, { state: "limited", missing: ["stale-data"] });
+  assert.deepEqual(a.addressLinks, { state: "unknown", reasons: [], unknown: [] });
+  // A shield has no address-link questions, checked or not.
+  const s = assess(stale, { action: "shield", amount: eth("1") });
+  assert.equal(s.status, "not-checked");
+  assert.deepEqual(s.addressLinks, { state: "not-applicable", reasons: [], unknown: [] });
+  assert.deepEqual(s.coverage, { state: "limited", missing: ["stale-data"] });
+});
+test("notCheckedParts: shield is not-applicable; unshield and the one-argument call stay unknown", async () => {
+  const { notCheckedParts } = await import("../lib/index.mjs");
+  assert.equal(notCheckedParts("x", "shield").addressLinks.state, "not-applicable");
+  assert.equal(notCheckedParts("x", "unshield").addressLinks.state, "unknown");
+  assert.deepEqual(notCheckedParts("x"), notCheckedParts("x", "unshield"));
 });
 // ENG-6: two swap outputs (reshields) of 1.5 ETH, next to the public shields above.
 const swapOuts = [0, 1].map((i) => ({ id: 2000 + i, amount: 1_500_000_000, time: now - 60 - i, kind: "reshield" }));
