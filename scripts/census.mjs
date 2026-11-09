@@ -13,7 +13,11 @@ const rpc = makeRpc();
 if (Number(await rpc("eth_chainId")) !== 1)
   throw Error("RPC_URL must be on Ethereum mainnet.");
 let census = existsSync(PATH) ? JSON.parse(readFileSync(PATH, "utf8")) : null;
-if (census && (census.chainId !== 1 || census.complete)) census = null;
+const validRange = (c) =>
+  [c.fromBlock, c.toBlock, c.readFromBlock].every(Number.isSafeInteger) &&
+  c.fromBlock <= c.readFromBlock && c.readFromBlock <= c.toBlock + 1 &&
+  c.tokens && typeof c.tokens === "object";
+if (census && (census.chainId !== 1 || census.complete || !validRange(census))) census = null;
 if (census) {
   console.log(`Resuming the census of blocks ${census.fromBlock}–${census.toBlock} below block ${census.readFromBlock}.`);
 } else {
