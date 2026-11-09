@@ -10,6 +10,7 @@
     "test": "node --test tests/*.test.mjs",
     "start": "node scripts/serve.mjs",
     "data:update": "node scripts/data-update.mjs",
+    "data:backfill": "node scripts/backfill-reshields.mjs",
     "data:validate": "node scripts/validate-data.mjs",
     "release:check": "node scripts/release-check.mjs"
   },
