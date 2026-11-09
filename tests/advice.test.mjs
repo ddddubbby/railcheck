@@ -119,3 +119,48 @@ test("plan gives only the documented statuses", async () => {
         seen.add(plan(pool, { action, amount: eth(amount), constraint: "flexible", context }).assessment.status);
   for (const status of seen) assert.ok(STATUS.includes(status), status);
 });
+test("result v2: the three parts follow the answers, and the status keeps v1's rule", () => {
+  const known = plan(pool, { action: "unshield", amount: eth("0.9975"), context: no }).assessment;
+  assert.equal(known.format, "railcheck.advice/2");
+  assert.deepEqual(known.amountExposure, { score: known.modelScore, band: "Low" });
+  assert.deepEqual(known.addressLinks, { state: "none-reported", reasons: [], unknown: [] });
+  assert.deepEqual(known.coverage, { state: "complete", missing: [] });
+  assert.equal(known.status, "clear");
+  // A link sets addressLinks to found and the status to attention; the amount part stays Low.
+  const reuse = plan(pool, { action: "unshield", amount: eth("0.9975"), context: { ...no, addressReuse: true } }).assessment;
+  assert.equal(reuse.addressLinks.state, "found");
+  assert.deepEqual(reuse.addressLinks.reasons, ["address-reuse"]);
+  assert.equal(reuse.amountExposure.band, "Low");
+  assert.equal(reuse.status, "attention");
+  // An unknown address answer: links unknown. An unknown rest-of answer: coverage limited.
+  const unsureLink = plan(pool, { action: "unshield", amount: eth("0.9975"), context: { ...no, pastTransfer: undefined } }).assessment;
+  assert.equal(unsureLink.addressLinks.state, "unknown");
+  assert.deepEqual(unsureLink.addressLinks.unknown, ["pastTransfer"]);
+  assert.equal(unsureLink.status, "incomplete");
+  const unsureRest = plan(pool, { action: "unshield", amount: eth("0.9975"), context: { ...no, restOfDeposit: undefined } }).assessment;
+  assert.deepEqual(unsureRest.coverage, { state: "limited", missing: ["rest-of-deposit"] });
+  assert.equal(unsureRest.status, "incomplete");
+  // A shield has no recipient, so address links do not apply.
+  const shield = plan(pool, { action: "shield", amount: eth("1") }).assessment;
+  assert.equal(shield.addressLinks.state, "not-applicable");
+  assert.equal(shield.coverage.state, "complete");
+});
+test("result v2: partial swap-output history limits coverage, so a Low result is incomplete, never clear", () => {
+  const snapshot = { chainId: 1, time: now - 60, windowStart: now - 180 * 86400, reshieldHistoryComplete: false };
+  const partial = prepare(deposits, { now, snapshot });
+  const unshield = plan(partial, { action: "unshield", amount: eth("0.9975"), context: no }).assessment;
+  assert.deepEqual(unshield.coverage, { state: "limited", missing: ["swap-output-history"] });
+  assert.equal(unshield.status, "incomplete");
+  const shield = plan(partial, { action: "shield", amount: eth("1") }).assessment;
+  assert.equal(shield.status, "incomplete");
+  // With complete history the same check is clear again.
+  const full = prepare(deposits, { now, snapshot: { ...snapshot, reshieldHistoryComplete: true } });
+  assert.equal(plan(full, { action: "unshield", amount: eth("0.9975"), context: no }).assessment.status, "clear");
+});
+test("result v2: a check that cannot run says why in coverage and scores nothing", () => {
+  const stale = prepare(deposits, { now, snapshot: { chainId: 1, time: now - 72 * 3600, windowStart: now - 180 * 86400 } });
+  const a = assess(stale, { action: "unshield", amount: eth("1"), context: no });
+  assert.equal(a.status, "not-checked");
+  assert.equal(a.amountExposure, null);
+  assert.deepEqual(a.coverage, { state: "limited", missing: ["stale-data"] });
+});
