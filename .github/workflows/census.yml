@@ -1,0 +1,43 @@
+name: Census of all tokens
+# On demand: counts the public shields, reshields and unshields of every token
+# over the last 180 days, with their values, into data/census.json. Start it
+# from the Actions tab. A run that times out keeps its saved chunks; start it
+# again and it resumes. It commits only the census file.
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: update-pool
+  cancel-in-progress: false
+jobs:
+  census:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - name: Count every token over 180 days
+        run: npm run data:census
+        env:
+          RPC_URL: ${{ secrets.RPC_URL }}
+      - name: Commit the census
+        if: always()
+        shell: bash
+        run: |
+          [ -f data/census.json ] || exit 0
+          git add data/census.json
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Update the 180-day census of RAILGUN tokens'
+          git push

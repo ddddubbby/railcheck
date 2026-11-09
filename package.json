@@ -11,6 +11,7 @@
     "start": "node scripts/serve.mjs",
     "data:update": "node scripts/data-update.mjs",
     "data:backfill": "node scripts/backfill-reshields.mjs",
+    "data:census": "node scripts/census.mjs",
     "data:validate": "node scripts/validate-data.mjs",
     "release:check": "node scripts/release-check.mjs"
   },
