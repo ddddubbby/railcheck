@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { prepare, plan } from "@railcheck/core";
+import { prepare, plan, toStored } from "@railcheck/core";
 import { buildPool, memoryStore } from "@railcheck/builder";
 
 const fixture = JSON.parse(readFileSync("tests/fixtures/ethereum-logs.json", "utf8"));
@@ -161,6 +161,38 @@ test("builder skips sender lookups for reshields and assigns no group", async ()
   assert.ok(pub);
   assert.equal(reshield.group, 0xffffffff);
   assert.equal(pub.group, 0);
+});
+
+test("SDK-4: recorded logs give a reshield with kind, and senders is asked only for the public shield", async () => {
+  // The recorded mainnet logs, unchanged: one internal transaction (Nullified + Shield)
+  // and one external shield.
+  const rpc = async (method, [arg]) => {
+    if (method === "eth_chainId") return "0x1";
+    if (method === "eth_blockNumber") return hex(26131700);
+    if (method === "eth_getBlockByNumber") return { timestamp: hex(12 * Number(arg)), hash: `0xa${Number(arg)}` };
+    if (method === "eth_getLogs") {
+      const from = Number(arg.fromBlock), to = Number(arg.toBlock);
+      return fixture.logs.filter((l) => Number(l.blockNumber) >= from && Number(l.blockNumber) <= to);
+    }
+    throw Error(`unexpected ${method}`);
+  };
+  const asked = [];
+  const senders = async (hashes) => (asked.push(...hashes), hashes.map(() => "0x" + "4".repeat(40)));
+  const store = memoryStore();
+  const built = await buildPool({ rpc, store, senders });
+
+  assert.deepEqual(asked, [fixture.externalTransaction]);
+  assert.deepEqual(built.deposits.map((d) => d.kind).sort(), ["public", "reshield"]);
+  const reshield = built.deposits.find((d) => d.kind === "reshield");
+  const pub = built.deposits.find((d) => d.kind === "public");
+  assert.equal(reshield.amount, Number(toStored(BigInt(fixture.expectedInternalWei))));
+  assert.equal(pub.amount, Number(toStored(BigInt(fixture.expectedExternalWei))));
+  assert.equal(reshield.group, 0xffffffff);
+  assert.equal(pub.group, 0);
+  // The stored rows keep the kind, and a reshield has no sender.
+  const rows = (await store.get()).rows;
+  assert.equal(rows.find((r) => r.kind === "reshield").sender, undefined);
+  assert.equal(rows.find((r) => r.kind === "public").sender, "0x" + "4".repeat(40));
 });
 
 test("block search finds the first block at a time, with uneven block times", async () => {

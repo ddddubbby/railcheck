@@ -20,7 +20,7 @@ const notChecked = (pool, action) => ({
     status: "not-checked",
     findings: [{ code: "unsupported-asset" }],
     notes: [],
-    ...notCheckedParts("unsupported-asset"),
+    ...notCheckedParts("unsupported-asset", action),
   },
   alternatives: [],
   searched: null,
@@ -47,10 +47,24 @@ export function adviseUnshield(pool, assetAmount, options = {}) {
     : notChecked(pool, "unshield");
 }
 
+/** The context fields that `getContext` can return (SDK-1). */
+export const CONTEXT_FIELDS = ["addressReuse", "pastTransfer", "restOfDeposit", "swapGasPayer"];
+
+/**
+ * Keeps only the known context fields. A field that is not returned stays undefined
+ * (unknown); other keys are dropped. Undefined or null gives {}.
+ */
+export function pickContext(raw) {
+  const context = {};
+  for (const key of CONTEXT_FIELDS) if (raw?.[key] !== undefined) context[key] = raw[key];
+  return context;
+}
+
 /**
  * Wraps a Kohaku PluginInstance. prepareShield and prepareUnshield get advice first;
  * `onAdvice(advice)` returns the amount to use, or null to keep the request. The plugin
  * then prepares one time. Every other member passes through unchanged.
+ * `getContext(assetAmount, to)` may return the CONTEXT_FIELDS; only those reach the advice.
  */
 export function guard(plugin, { pool, onAdvice, getContext, balance, budget, constraint }) {
   const decide = async (assetAmount, advice) => {
@@ -63,7 +77,7 @@ export function guard(plugin, { pool, onAdvice, getContext, balance, budget, con
       return plugin.prepareShield(chosen, to);
     },
     async prepareUnshield(assetAmount, to, options) {
-      const context = getContext ? await getContext(assetAmount, to) : undefined;
+      const context = pickContext(getContext ? await getContext(assetAmount, to) : undefined);
       const advice = adviseUnshield(pool, assetAmount, { context, balance, budget, constraint });
       return plugin.prepareUnshield(await decide(assetAmount, advice), to, options);
     },
