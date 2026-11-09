@@ -1,6 +1,6 @@
 // Advice for wallets on the Kohaku plugin interface (@kohaku-eth/plugins).
 // It uses only the shape of Kohaku's AssetAmount, so it has no runtime import from Kohaku.
-import { plan, FORMAT } from "@railcheck/core";
+import { plan, notCheckedParts, FORMAT } from "@railcheck/core";
 
 /** True when a Kohaku AssetId is the pool's asset: native ETH or the pool's ERC-20. */
 export function supports(pool, asset) {
@@ -14,7 +14,14 @@ const notChecked = (pool, action) => ({
   format: FORMAT,
   action,
   constraint: "fixed",
-  assessment: { format: FORMAT, action, status: "not-checked", findings: [{ code: "unsupported-asset" }], notes: [] },
+  assessment: {
+    format: FORMAT,
+    action,
+    status: "not-checked",
+    findings: [{ code: "unsupported-asset" }],
+    notes: [],
+    ...notCheckedParts("unsupported-asset"),
+  },
   alternatives: [],
   searched: null,
 });

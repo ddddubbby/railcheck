@@ -40,6 +40,7 @@ test("guard gets advice first, then prepares one time with the accepted amount",
 test("an unsupported asset is not checked and does not block", async () => {
   const other = { asset: { __type: "erc20", contract: "0x0000000000000000000000000000000000000001" }, amount: 5n };
   assert.equal(adviseUnshield(pool, other).assessment.status, "not-checked");
+  assert.deepEqual(adviseUnshield(pool, other).assessment.coverage, { state: "limited", missing: ["unsupported-asset"] });
   const plugin = stub();
   await guard(plugin, { pool, onAdvice: async () => null }).prepareUnshield(other, "0xabc");
   assert.deepEqual(plugin.calls, [["unshield", 5n, "0xabc"]]);
