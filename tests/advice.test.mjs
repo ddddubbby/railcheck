@@ -164,3 +164,76 @@ test("result v2: a check that cannot run says why in coverage and scores nothing
   assert.equal(a.amountExposure, null);
   assert.deepEqual(a.coverage, { state: "limited", missing: ["stale-data"] });
 });
+// ENG-6: two swap outputs (reshields) of 1.5 ETH, next to the public shields above.
+const swapOuts = [0, 1].map((i) => ({ id: 2000 + i, amount: 1_500_000_000, time: now - 60 - i, kind: "reshield" }));
+const swapPool = prepare([...deposits, ...swapOuts].sort((a, b) => a.time - b.time), { now });
+test("swap gas payer: a public wallet is an address link with a minimum score of 90", async () => {
+  const { SWAP_GAS_PAYER_FLOOR } = await import("../lib/index.mjs");
+  assert.equal(SWAP_GAS_PAYER_FLOOR, 90);
+  const r = plan(pool, {
+    action: "unshield", amount: eth("0.9975"), constraint: "flexible", context: { ...no, swapGasPayer: "public-wallet" },
+  });
+  const a = r.assessment;
+  assert.ok(a.modelScore <= 5);
+  assert.equal(a.score, 90);
+  assert.equal(a.band, "Critical");
+  assert.deepEqual(a.findings[0], { code: "address-link", reason: "swap-gas-payer" });
+  assert.deepEqual(a.addressLinks, { state: "found", reasons: ["swap-gas-payer"], unknown: [] });
+  assert.equal(a.amountExposure.band, "Low");
+  assert.equal(a.status, "attention");
+  assert.deepEqual(r.alternatives, [], "an address link comes first: no amount is offered");
+  // A higher floor stays: address reuse is still 100.
+  const both = assess(pool, { action: "unshield", amount: eth("0.9975"), context: { ...no, addressReuse: true, swapGasPayer: "public-wallet" } });
+  assert.equal(both.score, 100);
+  assert.deepEqual(both.addressLinks.reasons, ["address-reuse", "swap-gas-payer"]);
+});
+test("swap gas payer: a broadcaster adds nothing", () => {
+  for (const [p, amount] of [[pool, "0.9975"], [pool, "1.23456789"], [swapPool, "1.5"]]) {
+    const base = assess(p, { action: "unshield", amount: eth(amount), context: { ...no, swapGasPayer: "broadcaster" } });
+    const known = assess(p, { action: "unshield", amount: eth(amount), context: no });
+    assert.equal(base.score, known.score, amount);
+    assert.deepEqual(base.findings, known.findings, amount);
+    assert.deepEqual(base.addressLinks, { state: "none-reported", reasons: [], unknown: [] }, amount);
+  }
+});
+test("swap gas payer: unknown is flagged only when the strongest match holds a swap output", () => {
+  // The 1.5 ETH unshield matches the swap output.
+  const swap = assess(swapPool, { action: "unshield", amount: eth("1.5"), context: no });
+  assert.ok(swap.modelScore > 5);
+  assert.deepEqual(swap.addressLinks, { state: "unknown", reasons: [], unknown: ["swapGasPayer"] });
+  assert.equal(swap.status, "attention", "the amount still stands out");
+  // v1 fields keep the three questions only.
+  assert.deepEqual(swap.unknown, []);
+  assert.ok(!swap.findings.some((f) => f.code === "unknown-context"));
+  // A public shield match in the same pool, and a Low amount: not flagged.
+  for (const amount of ["1.23456789", "0.9975"]) {
+    const r = assess(swapPool, { action: "unshield", amount: eth(amount), context: no });
+    assert.deepEqual(r.addressLinks, { state: "none-reported", reasons: [], unknown: [] }, amount);
+  }
+  assert.equal(assess(swapPool, { action: "unshield", amount: eth("0.9975"), context: no }).status, "clear");
+  // A pool without swap outputs is never flagged; shields do not apply.
+  assert.equal(assess(pool, { action: "unshield", amount: eth("1.23456789"), context: no }).addressLinks.state, "none-reported");
+  assert.equal(assess(swapPool, { action: "shield", amount: eth("1.5") }).addressLinks.state, "not-applicable");
+  // A known answer clears the unknown, and does not change the score.
+  const known = assess(swapPool, { action: "unshield", amount: eth("1.5"), context: { ...no, swapGasPayer: "broadcaster" } });
+  assert.equal(known.addressLinks.state, "none-reported");
+  assert.equal(known.score, swap.score);
+});
+test("swap gas payer: the rest of a swap output has the rest-of-deposit minimum of 90", async () => {
+  const { inspect } = await import("../lib/index.mjs");
+  // The unshield matches the swap output only.
+  assert.deepEqual(inspect(swapPool, eth("1.5")).sets[0].deposits.map((d) => d.kind), ["reshield"]);
+  const r = assess(swapPool, { action: "unshield", amount: eth("1.5"), context: { ...no, restOfDeposit: true, swapGasPayer: "broadcaster" } });
+  assert.ok(r.modelScore < 90);
+  assert.equal(r.score, 90);
+  assert.ok(r.findings.some((f) => f.code === "rest-of-deposit"));
+});
+test("swap gas payer: an invalid value is rejected", () => {
+  for (const swapGasPayer of ["unsure", "public", "", null, true, 1])
+    for (const action of ["unshield", "shield"])
+      assert.throws(
+        () => plan(pool, { action, amount: eth("1"), context: { ...no, swapGasPayer } }),
+        /Invalid swapGasPayer/,
+        String(swapGasPayer),
+      );
+});
