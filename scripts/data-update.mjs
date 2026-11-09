@@ -91,10 +91,13 @@ if (rows.some((d) => d.block > head || d.time > dataTime))
   throw Error("Deposit data is ahead of the confirmed head.");
 if (reshields.some((d) => d.block > head || d.time > dataTime))
   throw Error("Reshield data is ahead of the confirmed head.");
-// Reshield history starts at the first run that read them, not at the window start.
-const reshieldsFromBlock =
-  previous?.metrics?.reshieldsFromBlock ??
-  Math.min(reshields[0]?.block ?? Infinity, previous ? previous.lastBlock + 1 : firstBlock);
+// Reshield history starts at the first run that read them, not at the window
+// start, unless a backfill moved it: the earliest of the recorded start and the
+// oldest reshield row.
+const reshieldsFromBlock = Math.min(
+  previous?.metrics?.reshieldsFromBlock ?? (previous ? previous.lastBlock + 1 : firstBlock),
+  reshields[0]?.block ?? Infinity,
+);
 const { bytes, manifest } = encodePool([...rows, ...reshields.map((r) => ({ ...r, kind: "reshield" }))], {
   dataTime,
   lastBlock: head,
