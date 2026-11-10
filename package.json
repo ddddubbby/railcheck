@@ -23,6 +23,7 @@
     "packages/*"
   ],
   "devDependencies": {
+    "linkedom": "0.18.12",
     "marked": "18.0.14"
   }
 }

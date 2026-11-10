@@ -1,239 +1,358 @@
 // Word-count test (UI-7, UI-R4, UI-R5, UI-R10).
 //
-// Form: the test builds the page into a temporary folder (scripts/build.mjs,
-// as CI does) and reads the <form id="flow-form"> of dist/index.html, so the
-// answer labels the build inserts are counted too. It counts the text a user
-// sees in the default state (unshield, before any result): element text,
-// visible labels, button labels, option text, placeholders and the value of
-// input buttons. It skips anything hidden: the `hidden` attribute,
-// aria-hidden="true", .sr-only/.visually-hidden, <template>, <script>, <style>,
-// and the body of a "What does this mean?" <details> (its <summary> counts).
-// Note: at runtime, flow.mjs sets the button label from "Check amount" to
-// "Check unshield amount"; the static label is what is counted.
+// It counts rendered text, not source strings. The test builds the page into a
+// temporary folder (scripts/build.mjs, as CI does), loads dist/index.html into
+// linkedom (a small DOM, no browser), and runs the real dist/flow.mjs and
+// dist/worker.mjs against it. The worker runs in the same process on the real
+// pool in public/data, with the clock set to the data time.
 //
-// Result first level: the result is drawn at runtime by public/flow.mjs, and its
-// strings are not in one module. The test reads them from the source of
-// flow.mjs, one slot per line of the first level, and takes the longest
-// alternative of each slot: heading, status chip, verdict, follow-up line,
-// amount line, balance line and the "What does this mean?" summary. Their sum is
-// an upper bound on the first level (some slots never show together, such as
-// a shield verdict and the unshield balance line). The score digits and "/ 100" are numbers.
-// It leaves out the matches panel, the fold body and the alternatives list
-// (the "Use … ETH" buttons and the "No Low amount" line).
+// Form: the visible text of <form id="flow-form"> after the runtime sync(), with
+// an amount typed so the fee hint shows. Unshield (the default) and shield each
+// have a cap.
+//
+// Result: the test submits a matrix of real scenarios (shield and unshield;
+// clear, attention, incomplete and not-checked; with and without balance;
+// fixed and flexible amounts; answers no, yes and not sure) and counts the
+// visible text of the result section after each render. RESULT_CAP caps the
+// largest state. RESULT_COPY_CAP caps the sum of the distinct first-level lines
+// seen over the matrix (numbers taken out), so a line that grows is caught even
+// when it is not in the largest state.
+//
+// What counts: text a user sees, button labels, labels, option text and
+// placeholders. Skipped: `hidden`, aria-hidden="true", .sr-only and
+// .visually-hidden, <template>, <script>, <style>, and the body of a closed
+// <details> fold (its <summary> counts). In the matches table, the per-row
+// amounts and dates are data, not copy; its heading, column headers and tags
+// such as "Swap output" count. The alternatives lines count.
 //
 // A word is a whitespace-separated token with at least one letter, so numbers
-// and amounts such as "0.00", "70%" or "${eth(x)}" do not count.
-import { test } from "node:test";
+// and amounts such as "0.00", "70%" or "1.5" do not count.
+import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, cpSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
+import { parseHTML } from "linkedom";
 
 // UI-R4 ratchet. The caps are the counts measured on main. They may only go
-// down: no pull request can raise them. Targets: 60 words for the form and 25
-// for the result first level.
-const FORM_CAP = 106;
-const RESULT_CAP = 35;
+// down: no pull request can raise them. The form caps never go above 122 (the
+// 28 Oct 2026 design). Targets: 60 words for the form and 25 for the result
+// first level.
+const FORM_CAP = 115; // unshield, the default
+const SHIELD_FORM_CAP = 40;
+const RESULT_CAP = 40;
+const RESULT_COPY_CAP = 153;
 const FORM_TARGET = 60;
 const RESULT_TARGET = 25;
 
 const words = (text) => text.split(/\s+/).filter((t) => /\p{L}/u.test(t));
 
-const VOID = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
-const SKIP_TAGS = new Set(["template", "script", "style"]);
+// --- Visible text ------------------------------------------------------------
+const SKIP_TAGS = new Set(["TEMPLATE", "SCRIPT", "STYLE"]);
 const HIDDEN_CLASS = /(^|\s)(sr-only|visually-hidden)(\s|$)/;
-const decode = (s) =>
-  s
-    .replace(/&nbsp;/g, " ")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(+n))
-    .replace(/&amp;/g, "&");
+const DATA = [/\d[\d.,]*\s*ETH\b/g, /\b\d{1,2} (Jan|Feb|Mar|Apr|May|June?|July?|Aug|Sept?|Oct|Nov|Dec) \d{4}\b/g];
+const isHidden = (el) =>
+  SKIP_TAGS.has(el.tagName) ||
+  el.hasAttribute("hidden") ||
+  el.getAttribute("aria-hidden") === "true" ||
+  HIDDEN_CLASS.test(el.getAttribute("class") || "");
 
-/** A minimal HTML tokenizer: start tags with attributes, end tags and text. */
-function tokens(html) {
-  const out = [],
-    re = /<!--[^]*?-->|<\/([a-zA-Z0-9-]+)\s*>|<([a-zA-Z0-9-]+)((?:\s+[^\s=/>]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)*)\s*(\/?)>|([^<]+)/g;
-  for (const m of html.matchAll(re)) {
-    if (m[1]) out.push({ type: "end", tag: m[1].toLowerCase() });
-    else if (m[2]) {
-      const attrs = {};
-      for (const a of m[3].matchAll(/([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g))
-        attrs[a[1].toLowerCase()] = decode(a[2] ?? a[3] ?? a[4] ?? "");
-      out.push({ type: "start", tag: m[2].toLowerCase(), attrs, selfClosing: !!m[4] });
-    } else if (m[5]) out.push({ type: "text", text: decode(m[5]) });
-  }
-  return out;
-}
-
-/** Visible text pieces of an HTML fragment, in document order. */
-function visibleText(html) {
-  const pieces = [],
-    stack = []; // one entry per open element: is it hidden?
-  const hidden = () => stack.some((e) => e.hidden);
-  for (const t of tokens(html)) {
-    if (t.type === "start") {
-      const a = t.attrs,
-        own =
-          SKIP_TAGS.has(t.tag) ||
-          "hidden" in a ||
-          a["aria-hidden"] === "true" ||
-          HIDDEN_CLASS.test(a.class || "");
-      if (!own && !hidden() && t.tag === "input") {
-        if (a.placeholder) pieces.push(a.placeholder);
-        if (/^(button|submit|reset)$/.test(a.type || "") && a.value) pieces.push(a.value);
-      }
-      if (VOID.has(t.tag) || t.selfClosing) continue;
-      // The body of a <details> fold is hidden; its <summary> stays visible.
-      const parent = stack[stack.length - 1];
-      const inFold = parent?.tag === "details" && !("open" in parent.attrs) && t.tag !== "summary";
-      stack.push({ tag: t.tag, attrs: a, hidden: own || inFold });
-    } else if (t.type === "end") {
-      const i = stack.findLastIndex((e) => e.tag === t.tag);
-      if (i >= 0) stack.length = i;
-    } else if (!hidden()) {
-      // Text directly inside a closed <details> but outside <summary> is fold body.
-      const top = stack[stack.length - 1];
-      if (!(top?.tag === "details" && !("open" in top.attrs))) pieces.push(t.text);
+/** Visible text pieces of a DOM subtree. A piece is one line of copy. */
+function visibleLines(root) {
+  const lines = [];
+  const walk = (node, data) => {
+    if (node.nodeType === 3) {
+      let text = node.textContent;
+      if (data) for (const re of DATA) text = text.replace(re, " ");
+      if (text.trim()) lines.push(text.trim());
+      return;
     }
+    if (node.nodeType !== 1 || isHidden(node)) return;
+    if (node.tagName === "INPUT") {
+      const p = node.getAttribute("placeholder"),
+        type = node.getAttribute("type") || "";
+      if (p) lines.push(p);
+      if (/^(button|submit|reset)$/.test(type) && node.getAttribute("value")) lines.push(node.getAttribute("value"));
+      return;
+    }
+    // The body of a closed fold is hidden; its <summary> stays visible.
+    const fold = node.tagName === "DETAILS" && !node.hasAttribute("open");
+    // Matches rows hold data: amounts and dates.
+    const rows = data || (node.tagName === "TBODY" && !!node.closest("#matches"));
+    for (const child of node.childNodes)
+      if (!fold || (child.nodeType === 1 && child.tagName === "SUMMARY")) walk(child, rows);
+  };
+  walk(root, false);
+  return lines;
+}
+const count = (root) => words(visibleLines(root).join(" "));
+
+// --- The built page ----------------------------------------------------------
+const dir = mkdtempSync(join(tmpdir(), "railcheck-words-"));
+after(() => rmSync(dir, { recursive: true, force: true }));
+for (const path of ["data", "src", "public", "lib", "packages", "scripts", "package.json"])
+  cpSync(path, join(dir, path), { recursive: true });
+symlinkSync(resolve("node_modules"), join(dir, "node_modules"), "dir");
+const build = spawnSync(process.execPath, ["scripts/build.mjs"], {
+  cwd: dir,
+  env: { ...process.env, SITE_URL: "", SOURCE_URL: "" },
+  encoding: "utf8",
+});
+assert.equal(build.status, 0, build.stderr);
+const dist = join(dir, "dist");
+const html = readFileSync(join(dist, "index.html"), "utf8");
+const manifest = JSON.parse(readFileSync(join(dist, "data/manifest.json"), "utf8"));
+
+// --- Browser stand-ins for flow.mjs and worker.mjs -----------------------------
+{
+  // linkedom has no table API, focus scrolling or canvas: add the parts flow.mjs uses.
+  const { document } = parseHTML("<html><body></body></html>");
+  const Element = Object.getPrototypeOf(document.createElement("table"));
+  const add = (parent, tag) => parent.appendChild(parent.ownerDocument.createElement(tag));
+  Object.assign(Element, {
+    createTHead() { return add(this, "thead"); },
+    createTBody() { return add(this, "tbody"); },
+    insertRow() { return add(this, "tr"); },
+    insertCell() { return add(this, "td"); },
+    scrollIntoView() {},
+  });
+  Object.getPrototypeOf(document.createElement("canvas")).getContext = () => ({
+    setTransform() {}, clearRect() {}, fillRect() {}, fillStyle: "",
+  });
+}
+let pages = 0;
+const realNow = Date.now;
+const wait = async (ok, what) => {
+  for (let i = 0; i < 2000; i++) {
+    if (ok()) return;
+    await new Promise((r) => setTimeout(r, 5));
   }
-  return pieces.join(" ");
-}
-
-/** The outer HTML of the element that opens with `open`, by tag depth. */
-function element(html, open) {
-  const start = html.indexOf(open);
-  assert.ok(start >= 0, `${open} is on the page`);
-  const tag = open.match(/^<([a-z0-9-]+)/i)[1];
-  const re = new RegExp(`<(/?)${tag}\\b[^>]*>`, "gi");
-  re.lastIndex = start;
-  let depth = 0;
-  for (const m of html.matchAll(re)) {
-    if (m.index < start) continue;
-    depth += m[1] ? -1 : 1;
-    if (!depth) return html.slice(start, m.index + m[0].length);
-  }
-  throw Error(`${open} is not closed`);
-}
-
-function builtIndex() {
-  const directory = mkdtempSync(join(tmpdir(), "railcheck-words-"));
-  try {
-    for (const path of ["data", "src", "public", "lib", "packages", "scripts", "package.json"])
-      cpSync(path, join(directory, path), { recursive: true });
-    symlinkSync(resolve("node_modules"), join(directory, "node_modules"), "dir");
-    const run = spawnSync(process.execPath, ["scripts/build.mjs"], {
-      cwd: directory,
-      env: { ...process.env, SITE_URL: "", SOURCE_URL: "" },
-      encoding: "utf8",
-    });
-    assert.equal(run.status, 0, run.stderr);
-    return readFileSync(join(directory, "dist/index.html"), "utf8");
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-}
-
-const page = builtIndex();
-const form = element(page, '<form id="flow-form"');
-
-function formWords() {
-  return words(visibleText(form));
-}
-
-// --- Result first level, from the source of flow.mjs -------------------------
-const flow = readFileSync("public/flow.mjs", "utf8");
-const engine = readFileSync("lib/engine/index.mjs", "utf8");
-const between = (src, from, to) => {
-  const a = src.indexOf(from),
-    b = src.indexOf(to, a + from.length);
-  assert.ok(a >= 0 && b > a, `${from} … ${to} is in the source`);
-  return src.slice(a, b);
-};
-// String and template literals. A ${…} part is an amount or a number.
-const literals = (src) =>
-  [...src.matchAll(/"((?:[^"\\]|\\.)*)"|`((?:[^`\\]|\\.)*)`/g)].map((m) =>
-    m[1] !== undefined ? m[1] : m[2].replace(/\$\{[^}]*\}/g, "0"),
-  );
-// User text has a space or a full stop; codes such as "address-link" have neither.
-const sentences = (src) => literals(src).filter((s) => /[\s.]/.test(s) && /\p{L}/u.test(s));
-const longest = (name, options) => {
-  assert.ok(options.length, `the ${name} slot has strings`);
-  return options.map(words).reduce((a, b) => (b.length > a.length ? b : a));
+  throw Error(`Timed out waiting for ${what}`);
 };
 
-function resultSlots() {
-  const render = between(flow, "function render(", "function matches(");
-  const firstLevel = render.slice(0, render.indexOf('el("details")'));
-  const show = between(flow, "function show(", "window.addEventListener");
-  const headline = between(flow, "function headline(", "function render(");
-  const line = (src, re) => src.split("\n").find((l) => re.test(l)) || "";
+/** Opens the built page with its scripts. `now` is the clock in seconds. */
+async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
+  const page = parseHTML(html);
+  const { document, Event } = page;
+  let flowWorker, lastPlan;
+  const workerSelf = {
+    postMessage(data) {
+      if (data.type === "plan") lastPlan = data;
+      setTimeout(() => flowWorker.onmessage({ data }));
+    },
+  };
+  Object.assign(globalThis, {
+    document,
+    window: { devicePixelRatio: 1, addEventListener() {} },
+    self: workerSelf,
+    matchMedia: () => ({ matches: true, addEventListener() {} }),
+    requestAnimationFrame: () => 0,
+    cancelAnimationFrame() {},
+    getComputedStyle: () => ({ getPropertyValue: () => "" }),
+    Worker: class {
+      constructor() { flowWorker = this; }
+      postMessage(data) { setTimeout(() => workerSelf.onmessage({ data })); }
+    },
+    fetch: async (url) => {
+      const file = join(dist, "data", String(url).replace(/^\.\/data\//, ""));
+      const body = url.endsWith("manifest.json")
+        ? JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), ...patch })
+        : readFileSync(file);
+      return new Response(body);
+    },
+  });
+  Date.now = () => now * 1000;
+  const id = ++pages;
+  await import(`${pathToFileURL(join(dist, "worker.mjs"))}?page=${id}`);
+  await import(`${pathToFileURL(join(dist, "flow.mjs"))}?page=${id}`);
+  const $ = (x) => document.getElementById(x);
+  await wait(() => $("progress").hidden, "the pool data");
+  const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
+  const choose = (name, value) => {
+    const inputs = [...document.querySelectorAll(`input[name=${name}]`)];
+    for (const i of inputs) i.removeAttribute("checked");
+    const pick = inputs.find((i) => i.value === value);
+    pick.setAttribute("checked", "");
+    fire(pick, "change");
+  };
+  const type = (field, value) => {
+    $(field).value = value;
+    fire($(field), "input");
+  };
   return {
-    // "Shield risk" or "Unshield risk" replaces the static "Risk score".
-    heading: longest("heading", literals(line(show, /result-heading"\)\.textContent =/))),
-    // The status chip: an engine band, "Incomplete" or "Not checked".
-    chip: longest("chip", [
-      ...literals(line(engine, /score <= \d+ \?/)).filter((s) => /^\p{Lu}/u.test(s)),
-      ...literals(line(render, /const band =/)).filter((s) => /^\p{Lu}/u.test(s)),
-      ...literals(line(render, /return show\(/)).slice(0, 1),
-    ]),
-    // The verdict line: the longest headline or "not checked" message.
-    verdict: longest("verdict", [...sentences(headline), ...sentences(line(render, /"verdict"\),?$/))]),
-    // One line after the verdict: "Use a new address." or the unsure answers.
-    followUp: longest(
-      "follow-up",
-      [...firstLevel.matchAll(/parts\.push\(el\("p", "([^"]+)"\)\)/g)].map((m) => m[1]),
-    ),
-    // What the pool records or the recipient gets.
-    amount: longest(
-      "amount",
-      sentences(between(firstLevel, 'parts.push(\n    el(\n      "p",\n      a.action', '"hint"')),
-    ),
-    balance: longest("balance", sentences(line(firstLevel, /remainingBalance\)/))),
-    summary: longest("summary", literals(line(render, /el\("summary", /)).slice(1)),
+    $,
+    choose,
+    type,
+    async submit(s) {
+      choose("action", s.action);
+      type("amount", s.amount);
+      choose("constraint", s.constraint);
+      if (s.action === "unshield") {
+        s.answers.forEach((a, i) => choose(`q${i + 1}`, a));
+        type("balance", s.balance ?? "");
+      }
+      fire($("flow-form"), "submit");
+      assert.equal($("result").getAttribute("aria-busy"), "true", `${label(s)} was submitted`);
+      await wait(() => $("result").getAttribute("aria-busy") === "false", label(s));
+      assert.ok($("notice").hidden, `${label(s)}: ${$("notice").textContent}`);
+      return { result: $("result"), plan: lastPlan };
+    },
+    close() {
+      Date.now = realNow;
+    },
   };
 }
+const label = (s) =>
+  `${s.action} ${s.amount} ${s.constraint}${s.answers ? " " + s.answers.join("/") : ""}${s.balance ? " balance " + s.balance : ""}`;
 
-test("form words stay within the UI-R4 cap", () => {
-  const counted = formWords();
-  assert.ok(FORM_CAP <= 122, "the form cap never goes above the 28 Oct 2026 design");
-  assert.ok(FORM_TARGET <= FORM_CAP);
-  assert.ok(
-    counted.length <= FORM_CAP,
-    `The form has ${counted.length} words, cap ${FORM_CAP} (target ${FORM_TARGET}). ` +
-      `A new sentence removes one of equal length (UI-R10).\n${counted.join(" ")}`,
-  );
+// --- Scenarios ---------------------------------------------------------------
+// Each line reaches a first-level variant on the current pool data; the coverage
+// test below checks that they still do after a data update. A plan takes up to a
+// few seconds, so the matrix stays small. "1" and "0.0731" ETH: a shared and an
+// odd amount. "1.01": a shield with a Low alternative. "17.3": an unshield with
+// no Low alternative. "0.002268462": an unshield that matches a swap output.
+const NO = ["no", "no", "no"],
+  UNSURE = ["unsure", "no", "no"];
+const scenarios = [
+  { action: "shield", amount: "1", constraint: "fixed" },
+  { action: "shield", amount: "1.01", constraint: "fixed" },
+  { action: "shield", amount: "1.01", constraint: "flexible" },
+  { action: "shield", amount: "0.0731", constraint: "flexible" },
+  { action: "unshield", amount: "0.0731", constraint: "fixed", answers: NO },
+  { action: "unshield", amount: "0.0731", constraint: "fixed", answers: UNSURE, balance: "100" },
+  { action: "unshield", amount: "0.0731", constraint: "flexible", answers: ["no", "unsure", "unsure"] },
+  { action: "unshield", amount: "0.0731", constraint: "fixed", answers: ["no", "no", "yes"], balance: "100" },
+  { action: "unshield", amount: "1", constraint: "fixed", answers: NO },
+  { action: "unshield", amount: "1", constraint: "flexible", answers: NO, balance: "100" },
+  { action: "unshield", amount: "1", constraint: "flexible", answers: UNSURE, balance: "100" },
+  { action: "unshield", amount: "1", constraint: "fixed", answers: ["yes", "no", "no"], balance: "100" },
+  { action: "unshield", amount: "1", constraint: "flexible", answers: ["no", "yes", "unsure"], balance: "100" },
+  { action: "unshield", amount: "1", constraint: "flexible", answers: ["no", "no", "yes"], balance: "100" },
+  { action: "unshield", amount: "17.3", constraint: "flexible", answers: UNSURE, balance: "100" },
+  { action: "unshield", amount: "0.002268462", constraint: "fixed", answers: NO },
+];
+
+const forms = {};
+const states = []; // { label, words, lines, plan, action }
+{
+  const page = await openPage();
+  try {
+    page.type("amount", "1");
+    forms.unshield = count(page.$("flow-form"));
+    page.choose("action", "shield");
+    forms.shield = count(page.$("flow-form"));
+    for (const s of scenarios) {
+      const { result, plan } = await page.submit(s);
+      states.push({ label: label(s), words: count(result), lines: visibleLines(result), plan, action: s.action });
+    }
+  } finally {
+    page.close();
+  }
+  // Not checked: old data, and a pool that does not cover the window.
+  for (const [name, options] of [
+    ["stale data", { now: manifest.dataTime + 30 * 86400 }],
+    ["short window", { patch: { windowStart: manifest.dataTime } }],
+  ]) {
+    const stale = await openPage(options);
+    try {
+      for (const action of ["shield", "unshield"]) {
+        const s = { action, amount: "1", constraint: "fixed", answers: NO, balance: "100" };
+        const { result, plan } = await stale.submit(s);
+        states.push({ label: `${name}: ${label(s)}`, words: count(result), lines: visibleLines(result), plan, action });
+      }
+    } finally {
+      stale.close();
+    }
+  }
+}
+const copyLines = [
+  ...new Set(states.flatMap((s) => s.lines.map((l) => words(l).join(" ")).filter(Boolean))),
+].sort();
+const copyWords = copyLines.reduce((n, l) => n + l.split(" ").length, 0);
+const largest = states.reduce((a, b) => (b.words.length > a.words.length ? b : a));
+
+if (process.env.WORDS_DEBUG) {
+  for (const [k, v] of Object.entries(forms)) console.log(`form ${k}: ${v.length} |`, v.join(" "));
+  for (const s of states) console.log(s.words.length, s.label, "|", s.words.join(" "));
+  console.log("largest", largest.words.length, largest.label);
+  console.log("copy", copyWords, copyLines);
+}
+
+test("the scenario matrix reaches every first-level variant", () => {
+  const reached = new Set();
+  for (const { action, plan } of states) {
+    const r = plan.result,
+      a = r.assessment;
+    reached.add(`${action} ${a.status}`);
+    for (const f of a.findings) reached.add(`${action} ${f.code}${f.reason ? " " + f.reason : ""}`);
+    if (a.status === "attention" && r.constraint === "flexible")
+      reached.add(`${action} ${r.alternatives.length ? "alternatives" : "no alternative"}`);
+    if (a.status === "attention" && r.constraint === "fixed") reached.add(`${action} fixed`);
+    if (a.unknown?.length) reached.add(`${action} unsure`);
+    if (r.remainingBalance != null) reached.add("balance");
+    if (action === "unshield" && a.status !== "not-checked" && r.remainingBalance == null) reached.add("no balance");
+    if (plan.sets.length) reached.add("matches");
+    if (plan.sets.some((set) => set.deposits.some((d) => d.kind === "reshield"))) reached.add("swap output");
+  }
+  const missing = [
+    "shield clear", "shield attention", "shield alternatives", "shield no alternative", "shield fixed",
+    "unshield clear", "unshield attention", "unshield incomplete", "unshield unsure",
+    "unshield alternatives", "unshield no alternative", "unshield fixed",
+    "unshield address-link address-reuse", "unshield rest-of-deposit", "unshield amount-stands-out",
+    "shield not-checked", "unshield not-checked", "shield stale-data", "unshield incomplete-window",
+    "balance", "no balance", "matches", "swap output",
+  ].filter((v) => !reached.has(v));
+  assert.deepEqual(missing, [], `variants not reached: ${missing.join(", ")}. Reached: ${[...reached].join(", ")}`);
+  assert.ok([...reached].some((v) => /address-link (?!address-reuse)/.test(v)), "a transfer-history link is reached");
 });
 
-test("result first-level words stay within the UI-R4 cap", () => {
-  const slots = resultSlots();
-  const counted = Object.values(slots).flat();
+test("form words stay within the UI-R4 caps", () => {
+  assert.ok(FORM_CAP <= 122 && SHIELD_FORM_CAP <= 122, "the form caps never go above the 28 Oct 2026 design");
+  assert.ok(FORM_TARGET <= FORM_CAP);
+  for (const [state, cap] of [["unshield", FORM_CAP], ["shield", SHIELD_FORM_CAP]]) {
+    const counted = forms[state];
+    assert.ok(
+      counted.length <= cap,
+      `The ${state} form has ${counted.length} words, cap ${cap} (target ${FORM_TARGET}). ` +
+        `A new sentence removes one of equal length (UI-R10).\n${counted.join(" ")}`,
+    );
+  }
+});
+
+test("result first-level words stay within the UI-R4 caps", () => {
   assert.ok(RESULT_TARGET <= RESULT_CAP);
   assert.ok(
-    counted.length <= RESULT_CAP,
-    `The result first level has ${counted.length} words, cap ${RESULT_CAP} (target ${RESULT_TARGET}). ` +
-      `A new sentence removes one of equal length (UI-R10).\n` +
-      Object.entries(slots)
-        .map(([k, v]) => `${k}: ${v.join(" ")}`)
-        .join("\n"),
+    largest.words.length <= RESULT_CAP,
+    `The largest result first level (${largest.label}) has ${largest.words.length} words, ` +
+      `cap ${RESULT_CAP} (target ${RESULT_TARGET}). A new sentence removes one of equal length (UI-R10).\n` +
+      largest.words.join(" "),
+  );
+  assert.ok(
+    copyWords <= RESULT_COPY_CAP,
+    `The first-level lines of all results have ${copyWords} words, cap ${RESULT_COPY_CAP}. ` +
+      `A line grew or a new one appeared.\n${copyLines.join("\n")}`,
   );
 });
 
-test("the word counter skips hidden text, numbers and the fold body", () => {
-  const html = `<form><p>Two words</p><p hidden>no</p><span aria-hidden="true">no</span>
+test("the word counter skips hidden text, numbers, data rows and the fold body", () => {
+  const { document } = parseHTML(`<div id="root"><p>Two words</p><p hidden>no</p><span aria-hidden="true">no</span>
     <p class="hint sr-only">no</p><template><b>no</b></template><script>no()</script>
     <input placeholder="0.00"><input placeholder="Your amount"><button>Check 70% 1.5</button>
     <select><option>Pick one</option></select>
-    <details><summary>What does this mean?</summary><p>no</p>no</details></form>`;
-  assert.deepEqual(words(visibleText(html)), [
-    "Two", "words", "Your", "amount", "Check", "Pick", "one", "What", "does", "this", "mean?",
+    <section id="matches"><h3>Match heading</h3><table><thead><tr><th>Sent</th></tr></thead>
+    <tbody><tr><td><span>1.5 ETH</span> <span>Swap output</span></td><td>3 Oct 2026</td></tr></tbody></table></section>
+    <details><summary>What does this mean?</summary><p>no</p>no</details></div>`);
+  assert.deepEqual(count(document.getElementById("root")), [
+    "Two", "words", "Your", "amount", "Check", "Pick", "one", "Match", "heading", "Sent", "Swap", "output",
+    "What", "does", "this", "mean?",
   ]);
 });
 
 // UI-R5: no paragraph in the form, except errors (p.error).
-const paragraphs = [...form.matchAll(/<p\b([^>]*)>/g)]
+const formSource = html.slice(html.indexOf('<form id="flow-form"'), html.indexOf("</form>"));
+const paragraphs = [...formSource.matchAll(/<p\b([^>]*)>/g)]
   .map((m) => m[1])
   .filter((attrs) => !/class="[^"]*\berror\b/.test(attrs));
 test(
