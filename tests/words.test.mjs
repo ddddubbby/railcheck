@@ -23,8 +23,10 @@
 // placeholders. aria-hidden text is drawn on screen, so it counts. Skipped:
 // `hidden`, .sr-only and .visually-hidden, <template>, <script>, <style>, and the body of a closed
 // <details> fold (its <summary> counts). In the matches table, the per-row
-// amounts and dates are data, not copy; its heading, column headers and tags
-// such as "Swap output" count. The alternatives lines count.
+// amounts and dates are data, not copy; its heading and column headers count.
+// Its kind tags ("Shield", "Swap output") are a per-row value too: each distinct
+// tag counts once per result, as a legend would (R1.7). The state pip labels
+// (Amount, Links, Coverage) count. The alternatives lines count.
 //
 // A word is a whitespace-separated token with at least one letter, so numbers
 // and amounts such as "0.00", "70%" or "1.5" do not count.
@@ -57,10 +59,18 @@ const FORM_ERROR_CAP = 60;
 const LINKS_FORM_CAP = 104;
 // The sum of the distinct form error messages, so any one that grows is caught.
 const ERROR_COPY_CAP = 28;
-const RESULT_CAP = 40;
+// R1.7: the three state pips came in (three words), one verdict line replaced the
+// headline and its follow-up lines, the recipient amount moved to the fold, and
+// the matches panel lost its sentence-like heading and visible column names:
+// 40 to 25, the target. Kind tags count once per label; with every tag counted,
+// the largest result (17.3 ETH, ten matching shield lines) has 33 words.
+const RESULT_CAP = 25;
 // R1.6: the link headlines share "That links them, whatever the amount.", and
 // the incomplete headline reuses "Some answers are not sure.": 153 to 148.
-const RESULT_COPY_CAP = 148;
+// R1.7: 148 to 114.
+const RESULT_COPY_CAP = 114;
+// UI-3: the verdict is one line of 10 words or fewer.
+const VERDICT_CAP = 10;
 const FORM_TARGET = 60;
 const RESULT_TARGET = 25;
 
@@ -76,8 +86,9 @@ const isHidden = (el) =>
   HIDDEN_CLASS.test(el.getAttribute("class") || "");
 
 /** Visible text pieces of a DOM subtree. A piece is one line of copy. */
-function visibleLines(root) {
-  const lines = [];
+function visibleLines(root, { tagsOnce = true } = {}) {
+  const lines = [],
+    tags = new Set();
   const walk = (node, data) => {
     if (node.nodeType === 3) {
       let text = node.textContent;
@@ -86,6 +97,12 @@ function visibleLines(root) {
       return;
     }
     if (node.nodeType !== 1 || isHidden(node)) return;
+    // A kind tag in a data row: the first of each label counts.
+    if (data && tagsOnce && node.classList?.contains("kind-tag")) {
+      const tag = node.textContent.trim();
+      if (tags.has(tag)) return;
+      tags.add(tag);
+    }
     if (node.tagName === "INPUT") {
       const p = node.getAttribute("placeholder"),
         type = node.getAttribute("type") || "";
@@ -104,7 +121,7 @@ function visibleLines(root) {
   walk(root, false);
   return lines;
 }
-const count = (root) => words(visibleLines(root).join(" "));
+const count = (root, options) => words(visibleLines(root, options).join(" "));
 
 // --- The built page ----------------------------------------------------------
 const dir = mkdtempSync(join(tmpdir(), "railcheck-words-"));
@@ -302,7 +319,22 @@ const scenarios = [
 
 const forms = []; // { action, state, words }
 const errorLines = new Set(); // every distinct form error shown
-const states = []; // { label, words, lines, plan, action }
+const states = []; // { label, words, strict, lines, verdict, pips, plan, action }
+// One measured result: the counted words, the count with every kind tag
+// (strict), the verdict line and the pip states on screen.
+const measured = (name, result, plan, action) => ({
+  label: name,
+  words: count(result),
+  strict: count(result, { tagsOnce: false }),
+  lines: visibleLines(result),
+  verdict: result.querySelector(".verdict")?.textContent ?? "",
+  pips: Object.fromEntries([...result.querySelectorAll(".pip")].map((p) => [p.dataset.pip, p.dataset.state])),
+  plan,
+  action,
+});
+// The swap-output history does not reach back to the window start: the manifest
+// says so, and the worker passes it to the engine (coverage "limited").
+const noHistory = { metrics: { ...manifest.metrics, reshieldHistoryComplete: false } };
 {
   const page = await openPage();
   try {
@@ -346,7 +378,7 @@ const states = []; // { label, words, lines, plan, action }
     }
     for (const s of scenarios) {
       const { result, plan } = await page.submit(s);
-      states.push({ label: label(s), words: count(result), lines: visibleLines(result), plan, action: s.action });
+      states.push(measured(label(s), result, plan, s.action));
     }
   } finally {
     page.close();
@@ -361,11 +393,25 @@ const states = []; // { label, words, lines, plan, action }
       for (const [action, constraint] of [["shield", "fixed"], ["unshield", "fixed"], ["unshield", "flexible"]]) {
         const s = { action, amount: "1", constraint, answers: NO, balance: "100" };
         const { result, plan } = await stale.submit(s);
-        states.push({ label: `${name}: ${label(s)}`, words: count(result), lines: visibleLines(result), plan, action });
+        states.push(measured(`${name}: ${label(s)}`, result, plan, action));
       }
     } finally {
       stale.close();
     }
+  }
+  // Incomplete swap-output history (the live manifest has it complete).
+  const partial = await openPage({ patch: noHistory });
+  try {
+    for (const s of [
+      { action: "shield", amount: "1", constraint: "fixed" },
+      { action: "unshield", amount: "0.0731", constraint: "fixed", answers: NO },
+      { action: "unshield", amount: "1", constraint: "flexible", answers: NO, balance: "100" },
+    ]) {
+      const { result, plan } = await partial.submit(s);
+      states.push(measured(`no swap-output history: ${label(s)}`, result, plan, s.action));
+    }
+  } finally {
+    partial.close();
   }
 }
 const copyLines = [
@@ -376,7 +422,7 @@ const largest = states.reduce((a, b) => (b.words.length > a.words.length ? b : a
 
 if (process.env.WORDS_DEBUG) {
   for (const f of forms) console.log(`form ${f.action}, ${f.state}: ${f.words.length} |`, f.words.join(" "));
-  for (const s of states) console.log(s.words.length, s.label, "|", s.words.join(" "));
+  for (const s of states) console.log(s.words.length, `(strict ${s.strict.length})`, s.label, JSON.stringify(s.pips), "|", s.words.join(" "));
   console.log("largest", largest.words.length, largest.label);
   console.log("copy", copyWords, copyLines);
 }
@@ -397,6 +443,7 @@ test("the scenario matrix reaches every first-level variant", () => {
     if (action === "unshield" && a.status !== "not-checked" && r.remainingBalance == null) reached.add("no balance");
     if (plan.sets.length) reached.add("matches");
     if (plan.sets.some((set) => set.deposits.some((d) => d.kind === "reshield"))) reached.add("swap output");
+    for (const m of a.coverage?.missing ?? []) reached.add(`${action} coverage ${m}`);
   }
   const missing = [
     "shield clear", "shield attention", "shield alternatives", "shield no alternative", "shield fixed",
@@ -406,6 +453,7 @@ test("the scenario matrix reaches every first-level variant", () => {
     "unshield rest-of-deposit", "unshield amount-stands-out",
     "shield not-checked", "unshield not-checked", "shield stale-data", "unshield incomplete-window",
     "balance", "no balance", "matches", "swap output",
+    "unshield coverage rest-of-deposit", "unshield coverage swap-output-history", "shield coverage swap-output-history",
   ].filter((v) => !reached.has(v));
   assert.deepEqual(missing, [], `variants not reached: ${missing.join(", ")}. Reached: ${[...reached].join(", ")}`);
   assert.ok(reached.has("unshield address-link past-transfer"), "a transfer-history link is reached");
@@ -440,7 +488,8 @@ test("form words stay within the UI-R4 caps", () => {
 });
 
 test("result first-level words stay within the UI-R4 caps", () => {
-  assert.ok(RESULT_TARGET <= RESULT_CAP);
+  // R1.7 reached the target: the cap is the target, and it may only go down.
+  assert.ok(RESULT_CAP <= RESULT_TARGET);
   assert.ok(
     largest.words.length <= RESULT_CAP,
     `The largest result first level (${largest.label}) has ${largest.words.length} words, ` +
@@ -454,20 +503,34 @@ test("result first-level words stay within the UI-R4 caps", () => {
   );
 });
 
+test("UI-3: each result has one verdict line of 10 words or fewer", () => {
+  for (const s of states) {
+    const verdicts = s.lines.length && s.verdict;
+    assert.ok(verdicts, `${s.label}: a verdict line shows`);
+    assert.ok(
+      words(s.verdict).length <= VERDICT_CAP,
+      `${s.label}: "${s.verdict}" has ${words(s.verdict).length} words, cap ${VERDICT_CAP}`,
+    );
+  }
+});
+
 test("the word counter skips hidden text, numbers, data rows and closed folds", () => {
   const { document } = parseHTML(`<div id="root"><p>Two words</p><p hidden>no</p><span aria-hidden="true">Drawn</span>
     <p class="hint sr-only">no</p><template><b>no</b></template><script>no()</script>
     <input placeholder="0.00"><input placeholder="Your amount"><button>Check 70% 1.5</button>
     <select><option>Pick one</option></select>
     <section id="matches"><h3>Match heading</h3><table><thead><tr><th>Sent</th></tr></thead>
-    <tbody><tr><td><span>1.5 ETH</span> <span>Swap output</span></td><td>3 Oct 2026</td></tr></tbody></table></section>
+    <tbody><tr><td><span>1.5 ETH</span> <span class="kind-tag">Swap output</span></td><td>3 Oct 2026</td></tr>
+    <tr><td><span>1.4 ETH</span> <span class="kind-tag">Swap output</span> <span class="kind-tag">Shield</span></td><td>2 Oct 2026</td></tr></tbody></table></section>
     <details><summary>What does this mean?</summary><p>no</p>no</details>
     <details id="opened"><summary>Open</summary><p>Shown</p></details></div>`);
   document.getElementById("opened").open = true;
   assert.deepEqual(count(document.getElementById("root")), [
     "Two", "words", "Drawn", "Your", "amount", "Check", "Pick", "one", "Match", "heading", "Sent", "Swap", "output",
-    "What", "does", "this", "mean?", "Open", "Shown",
+    "Shield", "What", "does", "this", "mean?", "Open", "Shown",
   ]);
+  // Strict: every kind tag counts.
+  assert.equal(count(document.getElementById("root"), { tagsOnce: false }).length, 22);
 });
 
 // UI-R5: no paragraph in the form, except errors (p.error).
@@ -612,8 +675,9 @@ test("UI-R2: the check runs with only token and amount, and the result is incomp
     const css = readFileSync(join(dist, "style.css"), "utf8");
     assert.match(css, /\.result\[data-band="Medium"\]\s*\{\s*--band:\s*var\(--medium\)/);
     assert.match(css, /--medium:\s*#e8c36a/, "Medium is the amber token");
-    assert.match(page.$("result-copy").textContent, /Some answers are not sure\./);
-    assert.doesNotMatch(page.$("result-copy").textContent, /No issue found/);
+    // The Links pip carries "not sure" now (R1.7): no sentence repeats it (UI-R3).
+    assert.equal(page.document.querySelector(".pip[data-pip=links]").dataset.state, "unknown");
+    assert.doesNotMatch(page.$("result-copy").textContent, /not sure|No issue found/);
   } finally {
     page.close();
   }
@@ -758,6 +822,232 @@ test("a double submit runs one scan loop, and the result stops it", async () => 
     assert.equal(loops(), 1, "still one loop after a few frames");
     await settled(page, "the result");
     assert.equal(loops(), 0, "no scan sweep over the settled result");
+  } finally {
+    page.close();
+  }
+});
+
+// --- Three-part result (R1.7: UI-3, UI-4, UI-5, UI-R3, UI-R7, UI-R8) -------------
+const pipsOf = (page) =>
+  Object.fromEntries([...page.document.querySelectorAll("#pips .pip")].map((p) => [p.dataset.pip, p.dataset.state]));
+async function result(s, options) {
+  const page = await openPage(options);
+  try {
+    const { result: panel, plan } = await page.submit(s);
+    return { page, panel, a: plan.result.assessment, pips: pipsOf(page) };
+  } finally {
+    page.close();
+  }
+}
+
+test("UI-3: the pips follow the three parts of the result, for each status", async () => {
+  const cases = [
+    // [name, scenario, page options, status, pips]
+    ["clear", { action: "unshield", amount: "0.0731", constraint: "fixed", answers: NO }, {}, "clear",
+      { amount: "empty", links: "empty", coverage: "empty" }],
+    ["attention by amount", { action: "unshield", amount: "1", constraint: "fixed", answers: NO }, {}, "attention",
+      { amount: "filled", links: "empty", coverage: "empty" }],
+    ["attention by link", { action: "unshield", amount: "0.0731", constraint: "fixed", answers: ["yes", "no", "no", "no"] }, {}, "attention",
+      { amount: "empty", links: "filled", coverage: "empty" }],
+    ["incomplete by unknown answers", { action: "unshield", amount: "0.0731", constraint: "fixed" }, {}, "incomplete",
+      { amount: "empty", links: "unknown", coverage: "unknown" }],
+    ["incomplete by an unknown address answer", { action: "unshield", amount: "0.0731", constraint: "fixed", answers: UNSURE }, {}, "incomplete",
+      { amount: "empty", links: "unknown", coverage: "empty" }],
+    ["incomplete by history", { action: "unshield", amount: "0.0731", constraint: "fixed", answers: NO }, { patch: noHistory }, "incomplete",
+      { amount: "empty", links: "empty", coverage: "unknown" }],
+    ["shield clear", { action: "shield", amount: "1", constraint: "fixed" }, {}, "clear",
+      { amount: "empty", coverage: "empty" }],
+    ["shield incomplete by history", { action: "shield", amount: "1", constraint: "fixed" }, { patch: noHistory }, "incomplete",
+      { amount: "empty", coverage: "unknown" }],
+    ["not-checked", { action: "unshield", amount: "1", constraint: "fixed", answers: NO }, { now: manifest.dataTime + 30 * 86400 }, "not-checked",
+      { links: "unknown", coverage: "unknown" }],
+  ];
+  for (const [name, s, options, status, expected] of cases) {
+    const { page, a, pips } = await result(s, options);
+    assert.equal(a.status, status, name);
+    assert.deepEqual(pips, expected, name);
+    if (name === "incomplete by history") assert.deepEqual(a.coverage.missing, ["swap-output-history"]);
+    // Each pip: a one-word visible label, a cue, and its state in the accessible name.
+    for (const pip of page.document.querySelectorAll("#pips .pip")) {
+      const label = { amount: "Amount", links: "Links", coverage: "Coverage" }[pip.dataset.pip];
+      assert.deepEqual(words(visibleLines(pip).join(" ")), [label], `${name}: ${label} shows one word`);
+      assert.equal(visibleLines(pip).includes("?"), pip.dataset.state === "unknown", `${name}: "?" marks unknown only`);
+      assert.ok(pip.querySelector(".pip-cue[aria-hidden=true]"), `${name}: ${label} has a cue`);
+      assert.match(pip.textContent.trim(), new RegExp(`^\\??${label}: [a-z ]+$`), `${name}: ${label} has a spoken state`);
+    }
+    // UI-R3: no sentence repeats a pip.
+    assert.doesNotMatch(page.$("result-copy").firstElementChild.textContent, /not sure|links them/i, name);
+  }
+});
+
+test("the worker passes the manifest's swap-output history flag to the engine", async () => {
+  for (const [complete, options] of [[true, {}], [false, { patch: noHistory }]]) {
+    const { a } = await result({ action: "unshield", amount: "0.0731", constraint: "fixed", answers: NO }, options);
+    assert.equal(a.snapshot.reshieldHistoryComplete, complete);
+    assert.equal(a.coverage.state, complete ? "complete" : "limited");
+    assert.equal(a.status, complete ? "clear" : "incomplete");
+  }
+});
+
+// A small cascade for the custom properties in style.css: top-level rules only
+// (no @media), ordered by specificity and then source order, inherited down the
+// tree, var() resolved. linkedom has no getComputedStyle; the same rules were
+// also checked in a browser.
+const css = readFileSync(join(dist, "style.css"), "utf8");
+const rules = (() => {
+  const out = [];
+  let i = 0,
+    order = 0;
+  while (i < css.length) {
+    const open = css.indexOf("{", i);
+    if (open < 0) break;
+    const head = css.slice(i, open).replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    let depth = 1,
+      j = open + 1;
+    for (; depth && j < css.length; j++) depth += css[j] === "{" ? 1 : css[j] === "}" ? -1 : 0;
+    if (!head.startsWith("@")) {
+      const props = [...css.slice(open + 1, j - 1).matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]);
+      if (props.length) for (const selector of head.split(",").map((x) => x.trim())) out.push({ selector, props, order: order++ });
+    }
+    i = j;
+  }
+  return out;
+})();
+const specificity = (sel) => {
+  const ids = (sel.match(/#[\w-]+/g) || []).length,
+    classes = (sel.match(/\.[\w-]+|\[[^\]]+\]|:(?!:)[\w-]+/g) || []).length,
+    tags = (sel.replace(/\[[^\]]+\]|[.#:][\w-]+(\([^)]*\))?/g, " ").match(/[a-z][\w-]*/gi) || []).length;
+  return ids * 10000 + classes * 100 + tags;
+};
+const matchesRule = (node, selector) => {
+  if (selector === ":root") return node === node.ownerDocument.documentElement;
+  try {
+    return node.matches(selector);
+  } catch {
+    return false;
+  }
+};
+function customProps(el) {
+  const chain = [];
+  for (let n = el; n && n.nodeType === 1; n = n.parentElement) chain.unshift(n);
+  let props = {};
+  for (const node of chain) {
+    const own = rules
+      .filter((r) => matchesRule(node, r.selector))
+      .sort((x, y) => specificity(x.selector) - specificity(y.selector) || x.order - y.order);
+    const next = { ...props };
+    for (const r of own) for (const [k, v] of r.props) next[k] = v;
+    // var() resolves on the element that declares it.
+    const resolve = (v, depth = 0) =>
+      depth > 8 ? v : v.replace(/var\((--[\w-]+)\)/g, (_, name) => resolve(next[name] ?? "", depth + 1));
+    for (const k of Object.keys(next)) next[k] = resolve(next[k]);
+    props = next;
+  }
+  return props;
+}
+
+test("UI-R7: incomplete and not-checked never use the green state, in classes or colours", async () => {
+  const root = customProps(parseHTML(html).document.documentElement),
+    green = root["--low"],
+    amber = root["--medium"];
+  assert.equal(green, "#5fe0ac");
+  assert.equal(amber, "#e8c36a");
+  const cases = [
+    ["clear", { action: "unshield", amount: "0.0731", constraint: "fixed", answers: NO }, {}],
+    ["incomplete by unknown answers", { action: "unshield", amount: "0.0731", constraint: "fixed" }, {}],
+    ["incomplete by history", { action: "unshield", amount: "0.0731", constraint: "fixed", answers: NO }, { patch: noHistory }],
+    ["shield incomplete by history", { action: "shield", amount: "1", constraint: "fixed" }, { patch: noHistory }],
+    ["attention", { action: "unshield", amount: "1", constraint: "fixed", answers: NO }, {}],
+    ["not-checked", { action: "unshield", amount: "1", constraint: "fixed", answers: NO }, { now: manifest.dataTime + 30 * 86400 }],
+  ];
+  const seen = new Set();
+  for (const [name, s, options] of cases) {
+    const { page, panel, a } = await result(s, options);
+    seen.add(a.status);
+    assert.equal(panel.dataset.status, a.status, name);
+    const band = customProps(panel)["--band"],
+      pips = [...page.document.querySelectorAll("#pips .pip")];
+    if (a.status === "clear") assert.equal(band, green, `${name}: green is for clear only`);
+    else if (a.status === "incomplete" || a.status === "not-checked") {
+      assert.equal(band, amber, `${name}: the amber state`);
+      assert.notEqual(panel.dataset.band, "Low", `${name}: not the Low band`);
+      assert.doesNotMatch(`${panel.className} ${page.$("band").className}`, /clear|low/i, name);
+      assert.equal(customProps(page.$("band"))["--band"], amber, `${name}: the status chip is amber`);
+    } else assert.notEqual(band, green, name);
+    for (const pip of pips) {
+      const colour = customProps(pip)["--pip"];
+      assert.notEqual(colour, green, `${name}: the ${pip.dataset.pip} pip is never green`);
+      if (pip.dataset.state === "unknown") assert.equal(colour, amber, `${name}: "?" is amber`);
+      if (pip.dataset.state === "empty") assert.equal(colour, root["--muted"], `${name}: empty is a neutral outline`);
+      if (pip.dataset.state === "filled") assert.equal(colour, band, `${name}: filled takes the band colour`);
+    }
+  }
+  assert.deepEqual([...seen].sort(), ["attention", "clear", "incomplete", "not-checked"], "a visual check for each status");
+});
+
+test("UI-5: the Links pip is a button that opens the links panel in place", async () => {
+  const page = await openPage();
+  try {
+    page.type("amount", "0.0731");
+    page.fire(page.$("flow-form"), "submit");
+    await settled(page, "the result");
+    const pip = page.document.querySelector(".pip[data-pip=links]"),
+      links = page.$("links");
+    assert.equal(pip.tagName, "BUTTON");
+    assert.equal(pip.getAttribute("type"), "button");
+    assert.equal(pip.getAttribute("aria-controls"), "links");
+    assert.ok(!links.hasAttribute("open"));
+    let focused = 0,
+      scrolled = 0;
+    page.$("links-toggle").focus = () => focused++;
+    links.scrollIntoView = () => scrolled++;
+    // A native button: Enter and Space fire click.
+    page.fire(pip, "click");
+    assert.ok(links.hasAttribute("open"), "the panel opens");
+    assert.equal(focused, 1, "focus moves to the panel");
+    assert.equal(scrolled, 1, "the panel scrolls into view");
+    assert.ok(!page.$("result").hidden, "the result stays");
+    // Coverage opens it too when the open part is the rest-of-shield answer.
+    assert.equal(page.document.querySelector(".pip[data-pip=coverage]").tagName, "BUTTON");
+    // A shield has no Links pip, and its pips are not interactive.
+    page.choose("action", "shield");
+    page.fire(page.$("flow-form"), "submit");
+    await settled(page, "the shield result");
+    assert.equal(page.document.querySelector(".pip[data-pip=links]"), null);
+    assert.equal(page.document.querySelectorAll("#pips button").length, 0);
+  } finally {
+    page.close();
+  }
+});
+
+test("UI-4, UI-R6, UI-R8: the matches panel stays open under the crowd, with a kind tag and icon per row", async () => {
+  const page = await openPage();
+  try {
+    const { result: panel, plan } = await page.submit({ action: "unshield", amount: "0.002268462", constraint: "fixed", answers: NO });
+    const box = page.$("matches"),
+      order = [...panel.children].map((c) => c.id);
+    assert.ok(!box.hidden);
+    // Directly under the meter: readout, crowd, matches, then the copy.
+    const at = order.indexOf("readout");
+    assert.deepEqual(order.slice(at, at + 3), ["readout", "crowd", "matches"]);
+    assert.ok(!box.closest("details"), "not in a fold");
+    const legs = plan.sets.flatMap((set) => set.deposits),
+      tags = [...box.querySelectorAll("tbody .kind-tag")];
+    assert.equal(tags.length, legs.length, "one tag per shield line");
+    tags.forEach((tag, i) => {
+      const kind = legs[i].kind === "reshield" ? "swap-output" : "shield";
+      assert.equal(tag.dataset.kind, kind);
+      assert.equal(tag.textContent.trim(), kind === "shield" ? "Shield" : "Swap output");
+      assert.equal(tag.querySelector("svg").getAttribute("aria-hidden"), "true");
+    });
+    assert.ok(tags.some((t) => t.dataset.kind === "swap-output") && tags.some((t) => t.dataset.kind === "shield"));
+    const icons = new Set(tags.map((t) => t.querySelector("path").getAttribute("d")));
+    assert.equal(icons.size, 2, "each kind has its own icon");
+    // No sentence in the panel: the heading and the tags are its only words.
+    assert.deepEqual([...new Set(words(visibleLines(box, { tagsOnce: false }).join(" ")))].sort(), ["Matches", "Shield", "Swap", "output"]);
+    // UI-R8: never "reshield", in text or markup.
+    assert.doesNotMatch(page.document.body.textContent, /reshield/i);
+    assert.doesNotMatch(page.document.body.innerHTML, /reshield/i);
   } finally {
     page.close();
   }

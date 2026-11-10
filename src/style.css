@@ -1100,19 +1100,97 @@ legend {
 }
 .match-leg {
   display: block;
-  line-height: 1.6;
+  /* A fixed line, so the kind tag does not push the dates out of line. */
+  line-height: 26px;
   white-space: nowrap;
 }
 .match-plus {
   color: var(--muted);
 }
-.match-tag {
+/* Kind tags (UI-4): an icon and a word per row. Shield is neutral; a swap
+   output takes the accent, so the two read apart before the word. */
+.kind-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   margin-left: 8px;
-  padding: 1px 6px;
-  border: 1px solid color-mix(in srgb, var(--band) 45%, transparent);
+  padding: 0 6px;
+  border: 1px solid var(--line);
   border-radius: 2px;
-  color: var(--band);
+  color: var(--muted);
+  font-family: var(--sans);
   font-size: var(--fs-caption);
+  line-height: 18px;
+  vertical-align: 1px;
+}
+.kind-tag[data-kind="swap-output"] {
+  color: var(--signal);
+  border-color: color-mix(in srgb, var(--signal) 45%, transparent);
+}
+.kind-tag svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.kind-tag[data-kind="shield"] svg {
+  fill: color-mix(in srgb, currentColor 25%, transparent);
+}
+/* The three state pips (UI-3). Filled: a problem was found, in the band colour.
+   "?": unknown, always amber. Empty: a neutral outline. Never green (UI-R7). */
+.pips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 20px;
+  padding: 0;
+  list-style: none;
+}
+.pip {
+  --pip: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px 10px 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-small);
+}
+button.pip {
+  cursor: pointer;
+  border-color: var(--edge);
+  transition: border-color 160ms;
+}
+button.pip:hover {
+  border-color: var(--text);
+}
+.pip[data-state="filled"] {
+  --pip: var(--band);
+}
+.pip[data-state="unknown"] {
+  --pip: var(--medium);
+}
+.pip-cue {
+  display: inline-grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid var(--pip);
+  border-radius: 50%;
+  color: var(--pip);
+  font: 700 10px/1 var(--mono);
+}
+.pip[data-state="filled"] .pip-cue {
+  background: var(--pip);
 }
 .band {
   color: var(--band);
@@ -1179,6 +1257,12 @@ legend {
 }
 .result[data-band="Critical"] {
   --band: var(--critical);
+}
+/* UI-R7: unknown never looks safe. Incomplete and not-checked take the amber
+   state whatever the score band, never the green one. */
+.result[data-status="incomplete"],
+.result[data-status="not-checked"] {
+  --band: var(--medium);
 }
 .result table {
   width: 100%;

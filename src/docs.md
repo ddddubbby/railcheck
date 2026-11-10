@@ -1,7 +1,7 @@
 ---
 title: railcheck for wallets: RAILGUN privacy advice SDK
 description: Add local privacy advice to your RAILGUN wallet. Build the pool from your own RPC. No data goes to railcheck. MIT license.
-updated: 2026-10-17
+updated: 2026-11-10
 ---
 # Add privacy advice to your RAILGUN wallet
 
@@ -11,7 +11,7 @@ railcheck tells a user if an amount can link a shield to an unshield. The user g
 
 - **It runs in your wallet.** The amount and the answers stay on the device of the user. railcheck receives no data.
 - **It needs no server from us.** Your wallet reads the shields from your own RPC. railcheck runs no server for you.
-- **It never asks for an address.** The wallet gives three answers: yes, no or not sure.
+- **It never asks for an address.** The wallet answers four questions with yes, no or not sure.
 - **It is free.** The license is MIT. You can use, change and fork the code.
 - **It works in a real flow.** On 17 October 2026, a wallet built its own pool, got advice, and sent a shield and an unshield on Sepolia. Both transactions are confirmed.
 
@@ -103,7 +103,7 @@ const advice = plan(pool, {
 | `action` | `"shield"` or `"unshield"` | Yes | — | The transaction that the user plans. |
 | `amount` | `bigint`, wei | Yes | — | Shield: the amount that leaves the public wallet. Unshield: the amount that leaves the private balance, before the 0.25% fee and after the broadcaster cost. |
 | `constraint` | `"fixed"` or `"flexible"` | No | `"fixed"` | `"fixed"` gives no other amount. `"flexible"` gives alternatives. |
-| `context` | object | No | `{}` | The three answers. Unshield only. See the next table. |
+| `context` | object | No | `{}` | The four answers. Unshield only. See the next table. |
 | `balance` | `bigint`, wei | No | `null` | The private balance. Unshield only. It gives `remainingBalance`. |
 | `budget` | number | No | `6` | The maximum number of unshield amounts to score. |
 | `maxAgeHours` | number | No | `48` | Older pool data gives `not-checked`. |
@@ -119,6 +119,7 @@ The context applies to an unshield only. Give the answers that the wallet knows.
 | `addressReuse` | `boolean` or `undefined` | Is the recipient address the same as the address that shielded? |
 | `pastTransfer` | `boolean` or `undefined` | Did the recipient address send to, or receive from, the address that shielded? |
 | `restOfDeposit` | `boolean` or `undefined` | Does this unshield remove the remaining part of a shield that the user partly unshielded before? |
+| `swapGasPayer` | `"broadcaster"`, `"public-wallet"` or `undefined` | Who paid the gas for the private swap that made this amount? `"public-wallet"` links the swap to that wallet. |
 
 The value `undefined` means "not sure". railcheck does not use it as "no". railcheck does not use it as a link.
 
@@ -160,7 +161,7 @@ The plugin prepares the transaction one time, with the amount from `onAdvice`. T
 
 ```json
 {
-  "format": "railcheck.advice/1",
+  "format": "railcheck.advice/2",
   "action": "shield",
   "constraint": "flexible",
   "assessment": {
@@ -173,7 +174,10 @@ The plugin prepares the transaction one time, with the amount from `onAdvice`. T
     "findings": [{ "code": "amount-stands-out" }],
     "unknown": [],
     "notes": ["timing-not-covered", "senders-unknown"],
-    "snapshot": { "chainId": 1, "block": 26210554, "time": 1792219379, "grouping": "none" }
+    "snapshot": { "chainId": 1, "block": 26210554, "time": 1792219379, "grouping": "none" },
+    "amountExposure": { "score": 97, "band": "Critical" },
+    "addressLinks": { "state": "not-applicable", "reasons": [], "unknown": [] },
+    "coverage": { "state": "complete", "missing": [] }
   },
   "alternatives": [
     { "status": "clear", "amounts": { "shieldInput": "1000000000000000000" }, "deposits": 71, "score": 1, "band": "Low" }
@@ -188,7 +192,7 @@ Amounts are `bigint` values in wei. `toJSON(advice)` changes them to strings.
 
 | Field | Type | Meaning |
 | --- | --- | --- |
-| `format` | string | `"railcheck.advice/1"`. A draft format. |
+| `format` | string | `"railcheck.advice/2"`. A draft format. |
 | `action` | string | `"shield"` or `"unshield"`. |
 | `constraint` | string | `"fixed"` or `"flexible"`. |
 | `assessment` | object | The assessment of the requested amount. |
@@ -211,16 +215,21 @@ Amounts are `bigint` values in wei. `toJSON(advice)` changes them to strings.
 | `unknown` | string[] | Context questions with no answer. |
 | `notes` | string[] | Information that does not change the score. |
 | `asset` | object | `chainId`, `address`, `symbol`, `decimals`. |
-| `snapshot` | object or `null` | `chainId`, `token`, `block`, `time`, `windowStart`, `grouping`. |
+| `snapshot` | object or `null` | `chainId`, `token`, `block`, `time`, `windowStart`, `grouping`, and `reshieldHistoryComplete` when the pool knows it. |
+| `amountExposure` | object or `null` | How much the amount alone stands out: `score` (0–100) and `band`. `null` when `not-checked`. |
+| `addressLinks` | object | `state`: `"found"`, `"none-reported"`, `"unknown"` or `"not-applicable"` (shield). `reasons`: the links found. `unknown`: the questions with no answer. |
+| `coverage` | object | `state`: `"complete"` or `"limited"`. `missing`: what the check could not use, such as `"rest-of-deposit"` or `"swap-output-history"`. |
 
 A `not-checked` assessment has no `score`, `band` or `amounts`.
+
+Format 2 adds `amountExposure`, `addressLinks` and `coverage`. The format 1 fields (`score`, `band`, `status`, `findings`, `unknown`) stay for one more minor version.
 
 ### Status values
 
 | Status | Meaning | Show to the user |
 | --- | --- | --- |
 | `clear` | The checks found no problem. | The user can continue. A Low score does not guarantee privacy. |
-| `incomplete` | One or more answers are "not sure". | The result and the open questions. |
+| `incomplete` | An answer is "not sure", or `coverage` is `"limited"`. | The result and the open questions. Never a green color. |
 | `attention` | A finding needs an action. | The finding, and the alternatives if there are alternatives. |
 | `not-checked` | railcheck cannot check this amount. | "Not checked". Never "clear". |
 
@@ -282,7 +291,7 @@ If `RPC_URL` is set, the server builds the pool from your RPC. If not, it downlo
 
 Rules for agents:
 
-1. Ask the user the three questions. Do not guess the answers. If the user does not know, send `not-sure`.
+1. Ask the user the four context questions. Do not guess the answers. If the user does not know, send `not-sure`.
 2. Do not show "clear" when the status is `not-checked`.
 3. Do not change the amount without the approval of the user.
 <!-- end:mcp -->
@@ -290,7 +299,7 @@ Rules for agents:
 ## What the check does not cover {#limits}
 
 - The score is the output of a model. It is not a measured probability of identification.
-- The check covers amounts and the three questions only. It does not cover time, IP addresses or data that is not on the chain.
+- The check covers amounts and the four context questions only. It does not cover time, IP addresses or data that is not on the chain.
 - The check covers 180 days, and sets of a maximum of 3 shields.
 
 For the method and all limits, see [How it works](/how-it-works/).
