@@ -159,14 +159,21 @@
           </div>
         </noscript>
         <form id="flow-form" novalidate autocomplete="off">
+          <fieldset class="tokens" id="tokens">
+            <legend class="sr-only">Token</legend>
+            <div class="token-row">
+              <div class="chips" id="token-chips"></div>
+              <span class="chain-tag"><span class="sr-only">Chain: </span>Ethereum</span>
+            </div>
+            <span class="sr-only" id="token-not-covered">Not covered. railcheck checks WETH on Ethereum only.</span>
+          </fieldset>
           <div class="step" data-step="1">
-            <fieldset class="group" aria-describedby="action-hint">
+            <fieldset class="group">
               <legend class="step-label"><span class="step-number" aria-hidden="true">1</span>What do you want to do?</legend>
               <div class="choices pair">
                 <label class="choice"><input type="radio" name="action" value="shield" /><span>Shield</span></label
                 ><label class="choice"><input type="radio" name="action" value="unshield" checked /><span>Unshield</span></label>
               </div>
-              <p class="hint" id="action-hint"><a href="/how-it-works/#words">What shield and unshield mean</a></p>
             </fieldset>
           </div>
           <div class="step" data-step="2">
@@ -207,15 +214,11 @@
               <div class="choices">{{Q2}}</div>
               <p class="error" id="q2-error" hidden>Select an answer.</p>
             </fieldset>
-            <fieldset class="group" id="q3-group" aria-describedby="q3-example q3-error">
+            <fieldset class="group" id="q3-group" aria-describedby="q3-error">
               <legend>
                 Will you unshield the rest of a shield that you partly unshielded
                 before?
               </legend>
-              <p class="hint example" id="q3-example">
-                Example: you shielded 9.12 ETH, unshielded 3 ETH, and now unshield
-                6.12 ETH.
-              </p>
               <div class="choices">{{Q3}}</div>
               <p class="error" id="q3-error" hidden>Select an answer.</p>
             </fieldset>

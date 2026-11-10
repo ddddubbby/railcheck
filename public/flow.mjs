@@ -2,6 +2,16 @@
 // Amounts and answers stay in memory: no storage, no URL, no network after load.
 import { parseAmount, formatWei } from "./lib/engine/index.mjs";
 
+// Token chips: the one source for the chip row. Adding a token, or changing the
+// second asset (USDC or USDT is still an open decision), is a one-line change
+// here. `covered: false` shows the dash and turns the form off; `soon` adds the
+// "Soon" tag. The first entry is the default.
+export const TOKENS = [
+  { id: "weth", label: "WETH", covered: true },
+  { id: "usdc", label: "USDC", covered: false, soon: true },
+  { id: "other", label: "Other", covered: false },
+];
+
 // The form stays hidden until this module runs. Without JavaScript, the noscript
 // message replaces it.
 document.documentElement.classList.remove("no-js");
@@ -77,6 +87,39 @@ function load() {
   worker.postMessage({ type: "load" });
 }
 
+// One radio per token. Built before the form shows, so nothing moves.
+function chips() {
+  $("token-chips").replaceChildren(
+    ...TOKENS.map((token, i) => {
+      const chip = el("label", undefined, "chip"),
+        input = el("input"),
+        face = el("span");
+      chip.dataset.covered = token.covered;
+      Object.assign(input, { type: "radio", name: "token", value: token.id });
+      if (!i) input.setAttribute("checked", "");
+      if (!token.covered) {
+        input.setAttribute("aria-describedby", "token-not-covered");
+        const dash = el("span", undefined, "dash");
+        dash.setAttribute("aria-hidden", "true");
+        face.append(dash);
+      }
+      face.append(token.label);
+      if (token.soon) face.append(el("span", "Soon", "soon"));
+      chip.append(input, face);
+      return chip;
+    }),
+  );
+}
+const token = () => TOKENS.find((t) => t.id === value("token")) || TOKENS[0];
+// Fail early: a token that is not covered turns the form off before any typing.
+// The typed amount stays, so switching back to a covered token goes on from it.
+function coverage() {
+  const off = !token().covered;
+  form.dataset.covered = !off;
+  $("amount").disabled = off;
+  $("check-button").disabled = off;
+  for (const step of form.querySelectorAll(".step")) step.toggleAttribute("inert", off);
+}
 // The form follows the action: shield has no address questions.
 function sync() {
   const shield = action() === "shield";
@@ -131,6 +174,7 @@ function field(id, optional = false, emptyMessage = "Enter an amount.") {
 }
 function submit(event) {
   event?.preventDefault();
+  if (!token().covered) return;
   const verb = action() === "shield" ? "shield" : "unshield",
     amount = field("amount", false, `Enter the amount that you will ${verb}.`);
   if (amount === null) return;
@@ -343,6 +387,12 @@ function render({ result: r, sets, lit, count, manifest }) {
   if (a.notes.includes("split-completes-total")) details.append(el("p", "If you unshield the rest later, your unshields add up to your shield."));
   details.append(el("p", `Checked: amount${answers.length ? ", " + answers.join(", ") : ""}. Not covered: timing, IP addresses.`, "hint"));
   details.append(el("p", `${count.toLocaleString("en")} shields, last 180 days, data of ${date(manifest.dataTime)}.`, "hint"));
+  // What shield and unshield mean: a link that was a hint in the form (UI-R5).
+  const words = el("p", undefined, "hint"),
+    link = el("a", "What shield and unshield mean");
+  link.href = "/how-it-works/#words";
+  words.append(link);
+  details.append(words);
   parts.push(details);
   show(band, parts);
 }
@@ -419,10 +469,13 @@ form.addEventListener("input", (e) => {
   $("result").hidden = true;
 });
 form.addEventListener("change", (e) => {
+  if (e.target.name === "token") coverage();
   if (e.target.name === "action") sync();
   if (/^q[123]$/.test(e.target.name)) $(e.target.name + "-error").hidden = true;
   $("result").hidden = true;
 });
 form.addEventListener("submit", submit);
+chips();
+coverage();
 sync();
 load();

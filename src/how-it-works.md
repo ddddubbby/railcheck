@@ -1,7 +1,7 @@
 ---
 title: How the railcheck privacy check works
 description: How railcheck scores a RAILGUN shield or unshield amount, what stays private, and what the check does not cover.
-updated: 2026-10-28
+updated: 2026-11-10
 ---
 # How the check works
 
@@ -31,6 +31,7 @@ Enter the amount before the 0.25% unshield fee.
    - The same address for the shield and the unshield: at least 100.
    - A past transfer between the two addresses: at least 90.
    - An unshield of the rest of a shield that you partly unshielded before: at least 90.
+     Example: you shielded 9.12 ETH, unshielded 3 ETH, and now unshield 6.12 ETH.
 5. "Not sure" is unknown. railcheck does not use it as "no", and does not use it as a link. The result is then incomplete.
 
 If the amount can be smaller, railcheck tries common amounts from 70% to 100% of your amount, largest first. It shows the first amount with a score of 5 or less. It scores a maximum of 6 amounts.
