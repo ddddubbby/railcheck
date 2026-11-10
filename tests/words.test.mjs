@@ -42,13 +42,16 @@ import { parseHTML } from "linkedom";
 // 28 Oct 2026 design). Targets: 60 words for the form and 25 for the result
 // first level.
 // Each form cap is the largest of its states: empty amount, amount typed (fee
-// hint), "fixed" picked, and, for shield, the error states too.
-const FORM_CAP = 115; // unshield (the default): amount typed, with the fee hint
+// hint), "fixed" picked, a token that is not covered (unshield), and, for
+// shield, the error states too.
+// R1.5: the token chips (WETH, USDC, Soon, Other, Ethereum) came in, and the
+// action hint and the q3 example left the form: 115 to 105.
+const FORM_CAP = 105; // unshield (the default): amount typed, with the fee hint
 const SHIELD_FORM_CAP = 40; // shield: amount typed, with the fee hint
 // Unshield with errors showing: a submit with no answers shows three "Select an
-// answer." lines. Measured at 124, above the 122 of the 28 Oct 2026 design: a
-// finding for the page owner. It may only go down, to 122 and below.
-const FORM_ERROR_CAP = 124;
+// answer." lines. Measured at 124 before R1.5, above the 122 of the 28 Oct 2026
+// design; 114 since. It may only go down.
+const FORM_ERROR_CAP = 114;
 // The sum of the distinct form error messages, so any one that grows is caught.
 const ERROR_COPY_CAP = 31;
 const RESULT_CAP = 40;
@@ -152,10 +155,12 @@ const wait = async (ok, what) => {
 async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
   const page = parseHTML(html);
   const { document, Event } = page;
-  let flowWorker, lastPlan;
+  let flowWorker, lastPlan, held = null;
   const workerSelf = {
     postMessage(data) {
       if (data.type === "plan") lastPlan = data;
+      // While held, worker replies wait in a queue until release().
+      if (held) return held.push(data);
       setTimeout(() => flowWorker.onmessage({ data }));
     },
   };
@@ -182,7 +187,7 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
   Date.now = () => now * 1000;
   const id = ++pages;
   await import(`${pathToFileURL(join(dist, "worker.mjs"))}?page=${id}`);
-  await import(`${pathToFileURL(join(dist, "flow.mjs"))}?page=${id}`);
+  const flow = await import(`${pathToFileURL(join(dist, "flow.mjs"))}?page=${id}`);
   const $ = (x) => document.getElementById(x);
   await wait(() => $("progress").hidden, "the pool data");
   const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
@@ -199,6 +204,8 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
   };
   return {
     $,
+    document,
+    flow,
     choose,
     type,
     /** A submit that the form rejects: it shows errors and sends nothing. */
@@ -219,6 +226,19 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
       await wait(() => $("result").getAttribute("aria-busy") === "false", label(s));
       assert.ok($("notice").hidden, `${label(s)}: ${$("notice").textContent}`);
       return { result: $("result"), plan: lastPlan };
+    },
+    fire,
+    /** Holds the worker replies; release() delivers them. */
+    hold() {
+      held = [];
+      return {
+        replies: () => held.length,
+        release() {
+          const queue = held;
+          held = null;
+          for (const data of queue) flowWorker.onmessage({ data });
+        },
+      };
     },
     close() {
       Date.now = realNow;
@@ -290,6 +310,12 @@ const states = []; // { label, words, lines, plan, action }
         page.submit_();
         measure(action, "error: balance below amount");
         page.type("balance", "");
+        // A token that is not covered: the form stays on screen, dimmed.
+        for (const token of ["usdc", "other"]) {
+          page.choose("token", token);
+          measure(action, `token ${token}`);
+        }
+        page.choose("token", "weth");
       }
     }
     for (const s of scenarios) {
@@ -362,7 +388,7 @@ test("form words stay within the UI-R4 caps", () => {
   assert.ok(FORM_TARGET <= FORM_CAP);
   const capOf = ({ action, state }) =>
     action === "shield" ? SHIELD_FORM_CAP : state.startsWith("error") ? FORM_ERROR_CAP : FORM_CAP;
-  assert.equal(forms.length, 12, "every form state was measured");
+  assert.equal(forms.length, 14, "every form state was measured");
   const errorWords = [...errorLines].reduce((n, l) => n + words(l).length, 0);
   assert.ok(errorLines.size >= 5, `five different errors were shown: ${[...errorLines].join(" | ")}`);
   assert.ok(
@@ -420,3 +446,105 @@ test(
     assert.deepEqual(paragraphs, []);
   },
 );
+
+// --- Token chips (UI-1, UI-R1) -------------------------------------------------
+test("the token chips render from the config, WETH checked, with the Ethereum tag", async () => {
+  const page = await openPage();
+  try {
+    const { TOKENS } = page.flow,
+      chips = [...page.document.querySelectorAll("#token-chips .chip")],
+      inputs = chips.map((c) => c.querySelector("input[name=token]"));
+    // One source: the HTML has no chip of its own; every chip comes from TOKENS.
+    assert.ok(!/name="token"/.test(html), "src/index.html has no hard-coded chip");
+    assert.deepEqual(inputs.map((i) => i.value), TOKENS.map((t) => t.id));
+    assert.deepEqual(
+      chips.map((c) => words(visibleLines(c).join(" ")).join(" ")),
+      TOKENS.map((t) => (t.soon ? `${t.label} Soon` : t.label)),
+    );
+    assert.deepEqual(TOKENS.map((t) => t.label), ["WETH", "USDC", "Other"]);
+    assert.equal(TOKENS.find((t) => t.id === "usdc").soon, true, "USDC shows Soon before R3");
+    // linkedom keeps the checked state in the attribute, which :checked reads.
+    assert.deepEqual([...page.document.querySelectorAll("input[name=token]:checked")].map((i) => i.value), ["weth"]);
+    for (const [i, t] of TOKENS.entries()) {
+      assert.equal(chips[i].dataset.covered, String(t.covered));
+      assert.equal(!!chips[i].querySelector(".dash[aria-hidden=true]"), !t.covered, `${t.label}: the dash marks a token that is not covered`);
+    }
+    // A native radio group with an accessible name.
+    const group = page.$("tokens");
+    assert.equal(group.tagName, "FIELDSET");
+    assert.equal(group.querySelector("legend").textContent.trim(), "Token");
+    assert.ok(group.querySelector(".chain-tag").textContent.includes("Ethereum"));
+    assert.ok(!group.querySelector(".chain-tag input, .chain-tag button"), "the chain tag is not interactive");
+    assert.equal(page.$("flow-form").firstElementChild, group, "the chips come first, before the amount");
+    assert.equal(page.$("amount").disabled, false);
+    assert.equal(page.$("check-button").disabled, false);
+  } finally {
+    page.close();
+  }
+});
+
+test("a token that is not covered turns the form off before typing, and WETH turns it back on", async () => {
+  const page = await openPage();
+  try {
+    const form = page.$("flow-form");
+    page.type("amount", "1.5");
+    for (const token of ["other", "usdc"]) {
+      page.choose("token", token);
+      assert.equal(page.$("amount").disabled, true, `${token}: the amount field is disabled`);
+      assert.equal(page.$("check-button").disabled, true, `${token}: the button is disabled`);
+      assert.equal(form.dataset.covered, "false", `${token}: the form shows the not-covered state`);
+      for (const step of form.querySelectorAll(".step")) assert.ok(step.hasAttribute("inert"), `${token}: the steps are inert`);
+      const chip = form.querySelector(`input[name=token][value=${token}]`);
+      assert.ok(chip.closest(".chip").querySelector(".dash"), `${token}: the chip shows the dash`);
+      assert.equal(chip.getAttribute("aria-describedby"), "token-not-covered");
+      assert.ok(page.$("token-not-covered").classList.contains("sr-only"), "the explanation is not visible text");
+      page.$("flow-form").dispatchEvent(new page.document.defaultView.Event("submit", { cancelable: true }));
+      assert.equal(page.$("result").getAttribute("aria-busy"), "false", `${token}: nothing is sent`);
+    }
+    page.choose("token", "weth");
+    assert.equal(page.$("amount").disabled, false);
+    assert.equal(page.$("check-button").disabled, false);
+    assert.equal(form.dataset.covered, "true");
+    assert.ok(![...form.querySelectorAll(".step")].some((s) => s.hasAttribute("inert")));
+    assert.equal(page.$("amount").value, "1.5", "the typed amount stays");
+  } finally {
+    page.close();
+  }
+});
+
+test("a change during the scan drops the check in flight: no stale result, focus or announcement", async () => {
+  const page = await openPage();
+  try {
+    const heading = page.$("result-heading");
+    let focused = 0;
+    heading.focus = () => focused++;
+    const changes = [
+      ["token other", () => page.choose("token", "other")],
+      ["token usdc", () => page.choose("token", "usdc")],
+      ["amount typed", () => page.type("amount", "2")],
+      ["answer changed", () => page.choose("q1", "unsure")],
+    ];
+    for (const [name, change] of changes) {
+      page.choose("token", "weth");
+      page.type("amount", "1");
+      for (const q of ["q1", "q2", "q3"]) page.choose(q, "no");
+      page.$("announcement").textContent = "";
+      const worker = page.hold();
+      page.fire(page.$("flow-form"), "submit");
+      assert.equal(page.$("result").getAttribute("aria-busy"), "true", `${name}: the check was sent`);
+      await wait(() => worker.replies() > 0, `${name}: the plan reply`);
+      change();
+      assert.ok(page.$("result").hidden, `${name}: the panel hides at once`);
+      assert.equal(page.$("result").getAttribute("aria-busy"), "false", `${name}: the panel is no longer busy`);
+      assert.equal(page.$("check-button").hasAttribute("aria-busy"), false, `${name}: the button is no longer busy`);
+      worker.release();
+      await new Promise((r) => setTimeout(r, 50));
+      assert.ok(page.$("result").hidden, `${name}: the late reply shows no result`);
+      assert.equal(page.$("result-copy").children.length, 0, `${name}: no result copy`);
+      assert.equal(page.$("announcement").textContent, "", `${name}: no announcement`);
+      assert.equal(focused, 0, `${name}: focus does not move`);
+    }
+  } finally {
+    page.close();
+  }
+});
