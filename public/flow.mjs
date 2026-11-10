@@ -293,9 +293,13 @@ const QUESTION = {
 // "empty": nothing found, a neutral outline. null: the pip does not apply and is
 // not shown (Links for a shield, Amount when nothing was scored). No state uses
 // the green of a Low band (UI-R7).
+// The rest-of-shield answer is a link too: its question is in the links panel,
+// which the Links pip opens. So a rest-of-deposit finding fills the Links pip, and
+// every attention result has at least one filled pip.
 export function pipStates(a) {
   const exposure = a.amountExposure,
-    links = a.addressLinks?.state,
+    rest = a.findings?.some((f) => f.code === "rest-of-deposit"),
+    links = rest && a.addressLinks ? "found" : a.addressLinks?.state,
     coverage = a.coverage?.state;
   return {
     amount: exposure ? (exposure.band === "Low" ? "empty" : "filled") : null,
@@ -348,7 +352,7 @@ function headline(a) {
       ? "Stands out: a full unshield is easy to match."
       : a.status === "clear"
         ? "This shield blends in."
-        : "No amount issue.";
+        : "No amount issue found.";
   if (link)
     return {
       "address-reuse": "Same address as the shield. Use a new address.",
@@ -358,7 +362,7 @@ function headline(a) {
     }[link.reason];
   if (codes.includes("rest-of-deposit")) return "Your unshields add up to one shield.";
   if (codes.includes("amount-stands-out")) return "This amount points to shields.";
-  if (a.status === "incomplete") return "No amount issue.";
+  if (a.status === "incomplete") return "No amount issue found.";
   return "No issue found by the available checks.";
 }
 // First level (UI-3): band, meter, pips, one verdict line and what to do.
@@ -376,7 +380,7 @@ function render({ result: r, sets, lit, count, manifest }) {
     matches([]);
     draw([]);
     return show("Not checked", [
-      el("p", a.findings[0].code === "stale-data" ? "The pool data is too old. Reload later." : "The pool data does not cover 180 days.", "verdict"),
+      el("p", a.findings[0].code === "stale-data" ? "The pool data is too old. Reload later." : "The data does not cover 180 days.", "verdict"),
     ]);
   }
   const band = a.status === "incomplete" ? "Incomplete" : a.band;

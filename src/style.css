@@ -1749,6 +1749,20 @@ details p {
     margin-right: 4px;
   }
 }
+/* Narrow phones: an amount and its kind tag do not fit on one line, so the tag
+   goes under the amount. Each line of both columns takes two rows, so the
+   dates stay level with their amounts. */
+@media (max-width: 379px) {
+  .matches .match-leg {
+    height: 50px;
+    line-height: 24px;
+  }
+  .matches .kind-tag {
+    display: flex;
+    width: max-content;
+    margin: 2px 0 0;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

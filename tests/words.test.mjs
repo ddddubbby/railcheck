@@ -65,6 +65,9 @@ const ERROR_COPY_CAP = 28;
 // 40 to 25, the target. Kind tags count once per label; with every tag counted,
 // the largest result (17.3 ETH, ten matching shield lines) has 33 words.
 const RESULT_CAP = 25;
+// The same largest state with every kind tag counted, one per matching shield
+// line (strict). Measured at R1.7; it may only go down too.
+const RESULT_STRICT_CAP = 33;
 // R1.6: the link headlines share "That links them, whatever the amount.", and
 // the incomplete headline reuses "Some answers are not sure.": 153 to 148.
 // R1.7: 148 to 114.
@@ -329,6 +332,13 @@ const measured = (name, result, plan, action) => ({
   lines: visibleLines(result),
   verdict: result.querySelector(".verdict")?.textContent ?? "",
   pips: Object.fromEntries([...result.querySelectorAll(".pip")].map((p) => [p.dataset.pip, p.dataset.state])),
+  // The spoken name: the visible label and the visually hidden state (the cue is aria-hidden).
+  pipNames: Object.fromEntries(
+    [...result.querySelectorAll(".pip")].map((p) => [
+      p.dataset.pip,
+      [...p.childNodes].filter((n) => n.nodeType !== 1 || n.getAttribute("aria-hidden") !== "true").map((n) => n.textContent).join(""),
+    ]),
+  ),
   plan,
   action,
 });
@@ -419,6 +429,7 @@ const copyLines = [
 ].sort();
 const copyWords = copyLines.reduce((n, l) => n + l.split(" ").length, 0);
 const largest = states.reduce((a, b) => (b.words.length > a.words.length ? b : a));
+const largestStrict = states.reduce((a, b) => (b.strict.length > a.strict.length ? b : a));
 
 if (process.env.WORDS_DEBUG) {
   for (const f of forms) console.log(`form ${f.action}, ${f.state}: ${f.words.length} |`, f.words.join(" "));
@@ -501,6 +512,33 @@ test("result first-level words stay within the UI-R4 caps", () => {
     `The first-level lines of all results have ${copyWords} words, cap ${RESULT_COPY_CAP}. ` +
       `A line grew or a new one appeared.\n${copyLines.join("\n")}`,
   );
+  assert.ok(
+    largestStrict.strict.length <= RESULT_STRICT_CAP,
+    `With every kind tag counted, the largest result first level (${largestStrict.label}) has ` +
+      `${largestStrict.strict.length} words, cap ${RESULT_STRICT_CAP}.\n${largestStrict.strict.join(" ")}`,
+  );
+});
+
+test("a result that needs attention, or scores above Low, fills at least one pip", () => {
+  let checked = 0;
+  for (const s of states) {
+    const a = s.plan.result.assessment;
+    if (a.status !== "attention" && !(a.band && a.band !== "Low")) continue;
+    checked++;
+    assert.ok(Object.values(s.pips).includes("filled"), `${s.label} (${a.status}, ${a.band}): no filled pip ${JSON.stringify(s.pips)}`);
+  }
+  assert.ok(checked >= 10, `${checked} attention states were checked`);
+  // The rest of a shield, with a Low amount and no address link: the Links pip
+  // carries it, and says so to screen readers.
+  const rest = states.find((s) => s.label === "unshield 0.0731 fixed no/no/yes/no balance 100");
+  assert.ok(rest, "the rest-of-shield state is in the matrix");
+  const a = rest.plan.result.assessment;
+  assert.equal(a.status, "attention");
+  assert.equal(a.amountExposure.band, "Low");
+  assert.equal(a.addressLinks.state, "none-reported");
+  assert.ok(a.findings.some((f) => f.code === "rest-of-deposit"));
+  assert.deepEqual(rest.pips, { amount: "empty", links: "filled", coverage: "empty" });
+  assert.equal(rest.pipNames.links, "Links: found");
 });
 
 test("UI-3: each result has one verdict line of 10 words or fewer", () => {

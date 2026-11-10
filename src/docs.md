@@ -217,8 +217,8 @@ Amounts are `bigint` values in wei. `toJSON(advice)` changes them to strings.
 | `asset` | object | `chainId`, `address`, `symbol`, `decimals`. |
 | `snapshot` | object or `null` | `chainId`, `token`, `block`, `time`, `windowStart`, `grouping`, and `reshieldHistoryComplete` when the pool knows it. |
 | `amountExposure` | object or `null` | How much the amount alone stands out: `score` (0–100) and `band`. `null` when `not-checked`. |
-| `addressLinks` | object | `state`: `"found"`, `"none-reported"`, `"unknown"` or `"not-applicable"` (shield). `reasons`: the links found. `unknown`: the questions with no answer. |
-| `coverage` | object | `state`: `"complete"` or `"limited"`. `missing`: what the check could not use, such as `"rest-of-deposit"` or `"swap-output-history"`. |
+| `addressLinks` | object | `state`: `"found"`, `"none-reported"`, `"unknown"` or `"not-applicable"`. A shield is always `"not-applicable"`. A `not-checked` unshield is `"unknown"`. `reasons`: the links found. `unknown`: the questions with no answer. |
+| `coverage` | object | `state`: `"complete"` or `"limited"`. `missing`: what the check could not use. `"rest-of-deposit"`: the rest-of-shield answer is not sure. `"swap-output-history"`: the pool lacks the full swap-output history. A `not-checked` result gives its finding code: `"stale-data"`, `"incomplete-window"` or, from the Kohaku adapter, `"unsupported-asset"`. |
 
 A `not-checked` assessment has no `score`, `band` or `amounts`.
 
