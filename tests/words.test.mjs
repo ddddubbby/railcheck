@@ -3,8 +3,9 @@
 // It counts rendered text, not source strings. The test builds the page into a
 // temporary folder (scripts/build.mjs, as CI does), loads dist/index.html into
 // linkedom (a small DOM, no browser), and runs the real dist/flow.mjs and
-// dist/worker.mjs against it. The worker runs in the same process on the real
-// pool in public/data, with the clock set to the data time.
+// dist/worker.mjs against it. The worker runs in the same process on a frozen
+// copy of the real pool (tests/fixtures/words-pool, taken from public/data on
+// 10 Nov 2026), with the clock set to the fixture's dataTime.
 //
 // Form: the visible text of <form id="flow-form"> after the runtime sync(), with
 // an amount typed so the fee hint shows. Unshield (the default) and shield each
@@ -94,6 +95,11 @@ const dir = mkdtempSync(join(tmpdir(), "railcheck-words-"));
 after(() => rmSync(dir, { recursive: true, force: true }));
 for (const path of ["data", "src", "public", "lib", "packages", "scripts", "package.json"])
   cpSync(path, join(dir, path), { recursive: true });
+// Frozen pool: the daily data update rewrites public/data, which would move the
+// scenario outcomes and the caps. The page is built and checked on this copy.
+const FIXTURE = "tests/fixtures/words-pool";
+for (const file of ["manifest.json", "railgun-eth.bin"])
+  cpSync(join(FIXTURE, file), join(dir, "public/data", file));
 symlinkSync(resolve("node_modules"), join(dir, "node_modules"), "dir");
 const build = spawnSync(process.execPath, ["scripts/build.mjs"], {
   cwd: dir,
@@ -104,6 +110,7 @@ assert.equal(build.status, 0, build.stderr);
 const dist = join(dir, "dist");
 const html = readFileSync(join(dist, "index.html"), "utf8");
 const manifest = JSON.parse(readFileSync(join(dist, "data/manifest.json"), "utf8"));
+assert.equal(manifest.sha256, JSON.parse(readFileSync(join(FIXTURE, "manifest.json"), "utf8")).sha256, "the page uses the frozen pool");
 
 // --- Browser stand-ins for flow.mjs and worker.mjs -----------------------------
 {
@@ -208,8 +215,8 @@ const label = (s) =>
   `${s.action} ${s.amount} ${s.constraint}${s.answers ? " " + s.answers.join("/") : ""}${s.balance ? " balance " + s.balance : ""}`;
 
 // --- Scenarios ---------------------------------------------------------------
-// Each line reaches a first-level variant on the current pool data; the coverage
-// test below checks that they still do after a data update. A plan takes up to a
+// Each line reaches a first-level variant on the frozen pool; the coverage test
+// below checks that they still do if the fixture is ever replaced. A plan takes up to a
 // few seconds, so the matrix stays small. "1" and "0.0731" ETH: a shared and an
 // odd amount. "1.01": a shield with a Low alternative. "17.3": an unshield with
 // no Low alternative. "0.002268462": an unshield that matches a swap output.
