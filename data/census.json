@@ -1,0 +1,1707 @@
+{
+  "chainId": 1,
+  "contract": "0xfa7093cdd9ee6932b4eb2c9e1cde7ce00b1fa4b9",
+  "windowDays": 180,
+  "fromBlock": 25090074,
+  "toBlock": 26381209,
+  "fromTime": 1778721959,
+  "toTime": 1794273959,
+  "readFromBlock": 25090074,
+  "complete": true,
+  "tokens": {
+    "0x027ce48b9b346728557e8d420fe936a72bf9b1c7": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "4975031250000000000001"
+      }
+    },
+    "0x031de51f3e8016514bd0963d0b2ab825a591db9a": {
+      "public": {
+        "count": 1,
+        "valueWei": "105329948298848279792"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x05be1d4c307c19450a6fd7ce7307ce72a3829a60": {
+      "public": {
+        "count": 1,
+        "valueWei": "53092741935483870967"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x085780639cc2cacd35e474e71f4d000e2405d8f6": {
+      "public": {
+        "count": 18,
+        "valueWei": "70168824550393212801552"
+      },
+      "reshield": {
+        "count": 23,
+        "valueWei": "223897702330791421358"
+      },
+      "unshield": {
+        "count": 30,
+        "valueWei": "80956675710384288015697"
+      }
+    },
+    "0x088a72024995d9858f2fbf6529d24ca9e7954bbd": {
+      "public": {
+        "count": 1,
+        "valueWei": "102533567187066229974421"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x0ab87046fbb341d058f17cbc4c1133f25a20a52f": {
+      "public": {
+        "count": 2,
+        "valueWei": "5781598312095770229"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "4026819872905016881"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "9783897139538285143"
+      }
+    },
+    "0x0d8e9046a6a6e24f5c0ff86303940b270208d26a": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 4,
+        "valueWei": "650575637693935384993876"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "648869194552289506163552"
+      }
+    },
+    "0x0dc4bc369ff564543738ebb04f2f1e6f4343f3b7": {
+      "public": {
+        "count": 1,
+        "valueWei": "131342625389829933433246"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "131014268826355358599663"
+      }
+    },
+    "0x0e186357c323c806c1efdad36d217f7a54b63d18": {
+      "public": {
+        "count": 1,
+        "valueWei": "997500000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "995006250000000000"
+      }
+    },
+    "0x11a2bf09f5b97689e6038f2b67ed9995d4042ac6": {
+      "public": {
+        "count": 2,
+        "valueWei": "1009348770018139"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "1006825398093094"
+      }
+    },
+    "0x11baa40e8821e4df0b09c7087246c8e97d179938": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 4,
+        "valueWei": "875336846"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "873148504"
+      }
+    },
+    "0x12d9fe4c9494dc363c6290bfdbb2bd9ed6358c13": {
+      "public": {
+        "count": 1,
+        "valueWei": "4621371128705211750338875"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "110722701495000000000000000"
+      }
+    },
+    "0x13239c268beddd88ad0cb02050d3ff6a9d00de6d": {
+      "public": {
+        "count": 3,
+        "valueWei": "5721204071402544196874786"
+      },
+      "reshield": {
+        "count": 10,
+        "valueWei": "2599062098607707553065507"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x163f8c2467924be0ae7b5347228cabf260318753": {
+      "public": {
+        "count": 1,
+        "valueWei": "9908127897110051483"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "9883357577367276355"
+      }
+    },
+    "0x18084fba666a33d37592fa2633fd49a74dd93a88": {
+      "public": {
+        "count": 2,
+        "valueWei": "5933871499540238"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "5900000000000000"
+      }
+    },
+    "0x1958853a8be062dc4f401750eb233f5850f0d0d2": {
+      "public": {
+        "count": 1,
+        "valueWei": "12005147021139544067"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "2416278398291444813"
+      }
+    },
+    "0x1a85938bc4719f9a6bcabda377bdd42b584be678": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 2,
+        "valueWei": "210910133"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x1abaea1f7c830bd89acc67ec4af516284b1bc33c": {
+      "public": {
+        "count": 3,
+        "valueWei": "1049703556"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "13505879235"
+      }
+    },
+    "0x1b379a79c91a540b2bcd612b4d713f31de1b80cc": {
+      "public": {
+        "count": 4,
+        "valueWei": "415367509921875000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "407407827672070312500001"
+      }
+    },
+    "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984": {
+      "public": {
+        "count": 5,
+        "valueWei": "1517923005034119201150"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "519107959723671403148"
+      }
+    },
+    "0x21cd589a989615a9e901328d3c089bbca16d00b2": {
+      "public": {
+        "count": 2,
+        "valueWei": "8964357905643"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "8941947010879"
+      }
+    },
+    "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599": {
+      "public": {
+        "count": 79,
+        "valueWei": "4119016525"
+      },
+      "reshield": {
+        "count": 18,
+        "valueWei": "37945256"
+      },
+      "unshield": {
+        "count": 141,
+        "valueWei": "3913831364"
+      }
+    },
+    "0x2741537d43f3d146c4130bca3ed99821915354bb": {
+      "public": {
+        "count": 1,
+        "valueWei": "367934729"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x292fcdd1b104de5a00250febba9bc6a5092a0076": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "133749497960000000000000000"
+      }
+    },
+    "0x2b591e99afe9f32eaa6214f7b7629768c40eeb39": {
+      "public": {
+        "count": 44,
+        "valueWei": "3120157957565805"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "9950062500000"
+      }
+    },
+    "0x2d1f7226bd1f780af6b9a49dcc0ae00e8df4bdee": {
+      "public": {
+        "count": 1,
+        "valueWei": "99620325000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x2e8b7190ee84e7ac757ddff42ba14d4eae24b865": {
+      "public": {
+        "count": 1,
+        "valueWei": "1995000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x30b818b381e5b7fd7172f097a11b3b23656d4403": {
+      "public": {
+        "count": 1,
+        "valueWei": "18522082387446507635855"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x35e7bf11193c40b943df1fb33e20f947a6eb04e4": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "490749645"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "489522771"
+      }
+    },
+    "0x365accfca291e7d3914637abf1f7635db165bb09": {
+      "public": {
+        "count": 6,
+        "valueWei": "4420221750000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "73883222669153295748"
+      }
+    },
+    "0x3c3a81e81dc49a522a592e7622a7e711c06bf354": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "672266010505744466663"
+      }
+    },
+    "0x405be842cdb64b69470972eb83c07c2c0788d864": {
+      "public": {
+        "count": 1,
+        "valueWei": "994507501348"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x45804880de22913dafe09f4980848ece6ecbaf78": {
+      "public": {
+        "count": 22,
+        "valueWei": "7690169620727989913"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "237452030245811181"
+      },
+      "unshield": {
+        "count": 24,
+        "valueWei": "7365346179652657680"
+      }
+    },
+    "0x467bccd9d29f223bce8043b84e8c8b282827790f": {
+      "public": {
+        "count": 7,
+        "valueWei": "341557824"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 7,
+        "valueWei": "340703931"
+      }
+    },
+    "0x46f6e9bbcce8638b20ebbc83d33a2b5bfa9b7894": {
+      "public": {
+        "count": 4,
+        "valueWei": "218726980674492"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "24937500000000"
+      }
+    },
+    "0x47d13fb0803409c7fe169a210d4e906165f1a432": {
+      "public": {
+        "count": 1,
+        "valueWei": "996203250000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "993712741875000000"
+      }
+    },
+    "0x48bc1c9a13e3bafc8b2ff7df472f40e528d0cf2d": {
+      "public": {
+        "count": 1,
+        "valueWei": "99750000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x48c845d0818baa17d22b2c0be41915ec084599bd": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 3,
+        "valueWei": "1561450688"
+      },
+      "unshield": {
+        "count": 3,
+        "valueWei": "1557547062"
+      }
+    },
+    "0x4a220e6096b25eadb88358cb44068a3248254675": {
+      "public": {
+        "count": 10,
+        "valueWei": "926677500000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 11,
+        "valueWei": "913415737500000000000"
+      }
+    },
+    "0x4ac429a7cdf2b533e2c0cff1b017f2c344e864e2": {
+      "public": {
+        "count": 4,
+        "valueWei": "1223166024465036254887446761"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x4c9edd5852cd905f086c759e8383e09bff1e68b3": {
+      "public": {
+        "count": 1,
+        "valueWei": "501253132832080200"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x4e3fbd56cd56c3e72c1403e103b45db9da5b9d2b": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "235454895392774045034"
+      }
+    },
+    "0x4f2b33840227ddd0e28da8d4185d6fa07adfed87": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "49750312500000000000"
+      }
+    },
+    "0x4fabb145d64652a948d72533023f6e7a623c7c53": {
+      "public": {
+        "count": 1,
+        "valueWei": "191333320845492732003"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "91104987543379000173"
+      }
+    },
+    "0x514910771af9ca656af840dff83e8264ecf986ca": {
+      "public": {
+        "count": 12,
+        "valueWei": "1855046300157819361979"
+      },
+      "reshield": {
+        "count": 4,
+        "valueWei": "153708876022825403526"
+      },
+      "unshield": {
+        "count": 14,
+        "valueWei": "1286116022500371112086"
+      }
+    },
+    "0x562ea6fffd1293b9433e7b81a2682c31892ea013": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 6,
+        "valueWei": "30670709807"
+      },
+      "unshield": {
+        "count": 10,
+        "valueWei": "51444557048"
+      }
+    },
+    "0x56a3ba04e95d34268a19b2a4474dc979babdaf76": {
+      "public": {
+        "count": 1,
+        "valueWei": "2011687935600000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x57e114b691db790c35207b2e685d4a43181e6061": {
+      "public": {
+        "count": 1,
+        "valueWei": "6253327500000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "4774647006360503100007"
+      }
+    },
+    "0x58d7fa7356d68c494c2de09f95d55c2ff2d38bd3": {
+      "public": {
+        "count": 1,
+        "valueWei": "100686125744407331711256"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 3,
+        "valueWei": "100434410430046313381978"
+      }
+    },
+    "0x58d97b57bb95320f9a05dc918aef65434969c2b2": {
+      "public": {
+        "count": 1,
+        "valueWei": "8878743510000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x593eaa888c80fd8530c7e6d5073f515442244bb7": {
+      "public": {
+        "count": 1,
+        "valueWei": "99750000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x5e293d57f13269cf40729042356c30b083c1ac29": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 8,
+        "valueWei": "73721948233"
+      },
+      "unshield": {
+        "count": 5,
+        "valueWei": "72653503902"
+      }
+    },
+    "0x5f7827fdeb7c20b443265fc2f40845b715385ff2": {
+      "public": {
+        "count": 1,
+        "valueWei": "997500000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "199500000000000000"
+      }
+    },
+    "0x5f98805a4e8be255a32880fdec7f6728c6568ba0": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "5935068750000000000002"
+      }
+    },
+    "0x62262e1a946dbdf61ff344937e9818d1254c7f30": {
+      "public": {
+        "count": 1,
+        "valueWei": "99750000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x664e9d73db2a3514f6b437137de4779977a06e81": {
+      "public": {
+        "count": 1,
+        "valueWei": "1562128700763665594856"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x66a5cfb2e9c529f14fe6364ad1075df3a649c0a5": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 2,
+        "valueWei": "18313793400603683789293"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "18268008917102174579820"
+      }
+    },
+    "0x6810e776880c02933d47db1b9fc05908e5386b96": {
+      "public": {
+        "count": 1,
+        "valueWei": "60843001275000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "60690893771812500000"
+      }
+    },
+    "0x68749665ff8d2d112fa859aa293f07a622782f38": {
+      "public": {
+        "count": 2,
+        "valueWei": "16637"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "105395"
+      }
+    },
+    "0x68ad3f6da23ad1cd24cb5089492ccf186bfbbe7b": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 3,
+        "valueWei": "55179283953933690227"
+      },
+      "unshield": {
+        "count": 3,
+        "valueWei": "20237129003136002268"
+      }
+    },
+    "0x6982508145454ce325ddbe47a25d4ec3d2311933": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "2255434273260087202861422"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "127701243070783108197243420"
+      }
+    },
+    "0x69beef353c663a93a8964da52e41852c5d0efc44": {
+      "public": {
+        "count": 2,
+        "valueWei": "1995000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "1990012500000000"
+      }
+    },
+    "0x6b175474e89094c44da98b954eedeac495271d0f": {
+      "public": {
+        "count": 315,
+        "valueWei": "17595014509938282065672183"
+      },
+      "reshield": {
+        "count": 32,
+        "valueWei": "222130130257700223042316"
+      },
+      "unshield": {
+        "count": 721,
+        "valueWei": "21459457898281160881024349"
+      }
+    },
+    "0x6b61d8680c4f9e560c8306807908553f95c749c5": {
+      "public": {
+        "count": 1,
+        "valueWei": "9975000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x6c3f90f043a72fa612cbac8115ee7e52bde6e490": {
+      "public": {
+        "count": 1,
+        "valueWei": "100250626566416040100"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "100000000000000000000"
+      }
+    },
+    "0x6f40d4a6237c257fff2db00fa0510deeecd303eb": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "170297687343750000000000"
+      }
+    },
+    "0x7c5408d54fc07097b98175529c8735096cdb5e3f": {
+      "public": {
+        "count": 2,
+        "valueWei": "109725000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x7d1afa7b718fb893db30a3abc0cfc608aacfebb0": {
+      "public": {
+        "count": 1,
+        "valueWei": "49828993604250000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x7f39c581f595b53c5cb19bd0b3f8da6c935e2ca0": {
+      "public": {
+        "count": 3,
+        "valueWei": "372680226469159917"
+      },
+      "reshield": {
+        "count": 21,
+        "valueWei": "1037491369572794315"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "151657762392803747"
+      }
+    },
+    "0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9": {
+      "public": {
+        "count": 8,
+        "valueWei": "65692084838080822567"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 8,
+        "valueWei": "136814475396949010387"
+      }
+    },
+    "0x83e9f223e1edb3486f876ee888d76bfba26c475a": {
+      "public": {
+        "count": 1,
+        "valueWei": "997500000000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "995006250000000000000000"
+      }
+    },
+    "0x86269d70f7868ff19b44745b5c00b1099ddc5f06": {
+      "public": {
+        "count": 1,
+        "valueWei": "997500000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x87bbba0fe8caea1dd978f753abc2d5d128933e28": {
+      "public": {
+        "count": 1,
+        "valueWei": "70020137832750000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "69845087488168125000000"
+      }
+    },
+    "0x88800092ff476844f74dc2fc427974bbee2794ae": {
+      "public": {
+        "count": 2,
+        "valueWei": "791653834177500000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x8ed97a637a790be1feff5e888d43629dc05408f6": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 18,
+        "valueWei": "2992500508461958908766488"
+      }
+    },
+    "0x95ad61b0a150d79219dcf64e1e6cc01f0b64c4ce": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "9512227138179900018109685"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "9488446570334450268064411"
+      }
+    },
+    "0x9925805b9b0dda34418798ccf95bcff5633f9176": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 2,
+        "valueWei": "10319177969642420717253"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "148790292463256410647"
+      }
+    },
+    "0x9a1f11f93939dbf1103a4321206b334181359a96": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "80193031156"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x9b44efca3e2a707b63dc00ce79d646e5e5d24ba5": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "130136563003197"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x9bc2c28df6560c343d3fa9c152bed80d4511dead": {
+      "public": {
+        "count": 1,
+        "valueWei": "990000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0x9ce84f6a69986a83d92c324df10bc8e64771030f": {
+      "public": {
+        "count": 1,
+        "valueWei": "14607956749575000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "14571436857701062500000"
+      }
+    },
+    "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": {
+      "public": {
+        "count": 3003,
+        "valueWei": "62697081434492"
+      },
+      "reshield": {
+        "count": 148,
+        "valueWei": "1201505609517"
+      },
+      "unshield": {
+        "count": 5321,
+        "valueWei": "61395419780257"
+      }
+    },
+    "0xa12cc123ba206d4031d1c7f6223d1c2ec249f4f3": {
+      "public": {
+        "count": 1,
+        "valueWei": "104238717838208751930"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 3,
+        "valueWei": "514003259519321153038"
+      }
+    },
+    "0xa6a47cbb792aa1715b815fd487e8e591adb892c7": {
+      "public": {
+        "count": 2,
+        "valueWei": "1995000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "1990012500000000"
+      }
+    },
+    "0xa882606494d86804b5514e07e6bd2d6a6ee6d68a": {
+      "public": {
+        "count": 4,
+        "valueWei": "973194076114988916060333432"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xa989edfee575425904514d4090846a5afd58f225": {
+      "public": {
+        "count": 6,
+        "valueWei": "58617394228"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "58262101123"
+      }
+    },
+    "0xaa5e4eedfec704c0f4c63a35cf34b4ec62c737cc": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "198817420"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xaa7a9ca87d3694b5755f213b5d04094b8d0f0a6f": {
+      "public": {
+        "count": 2,
+        "valueWei": "20024313750000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "19974252965625000000000"
+      }
+    },
+    "0xae78736cd615f374d3085123a210448e74fc6393": {
+      "public": {
+        "count": 1,
+        "valueWei": "166902697500000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "166485440756250000"
+      }
+    },
+    "0xb0ffa8000886e57f86dd5264b9582b2ad87b2b91": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 2,
+        "valueWei": "15650439685003861361615"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "15611313585791351708211"
+      }
+    },
+    "0xb29dc1703facd2967bb8ade2e392385644c6dca9": {
+      "public": {
+        "count": 1,
+        "valueWei": "997500000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xb4d32c79cac06e8159615ff45098cf2ea6e776ef": {
+      "public": {
+        "count": 1,
+        "valueWei": "99750000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xb8674758463f598c46d5944e97162535f5952927": {
+      "public": {
+        "count": 1,
+        "valueWei": "9975000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xb8e63b5a00b59dca4dc275a1f91a5f14d7c2058f": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 3,
+        "valueWei": "100938639427"
+      },
+      "unshield": {
+        "count": 3,
+        "valueWei": "100686292830"
+      }
+    },
+    "0xba3f535bbcccca2a154b573ca6c5a49baae0a3ea": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "49700000000000000000"
+      }
+    },
+    "0xbba4d1cecc111bdc74bd2f95050fb11acb3b8a5e": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "47112737123"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "65835512739"
+      }
+    },
+    "0xbc6da0fe9ad5f3b0d58160288917aa56653660e9": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "780683851776170415"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xbeef047a543e45807105e51a8bbefcc5950fcfba": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 2,
+        "valueWei": "6882038722590756020"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xbeef050ecd6a16c4e7bffbb52ebba7846c4b8cd4": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 2,
+        "valueWei": "7364090022576728"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": {
+      "public": {
+        "count": 9842,
+        "valueWei": "61063480979897735076859"
+      },
+      "reshield": {
+        "count": 259,
+        "valueWei": "322547404956470097724"
+      },
+      "unshield": {
+        "count": 15690,
+        "valueWei": "59967361881960978375075"
+      }
+    },
+    "0xc139190f447e929f090edeb554d95abb8b18ac1c": {
+      "public": {
+        "count": 1,
+        "valueWei": "1171822350564752069716760"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "1168892794688340189542469"
+      }
+    },
+    "0xc3f42ca0dcdfc9390a4ef881cb25116f5682def1": {
+      "public": {
+        "count": 19,
+        "valueWei": "132085659441557333412387669"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 31,
+        "valueWei": "152659384252023849497606709"
+      }
+    },
+    "0xc7ea3c3e2ad0553b960f10ae25da3ce34e15256a": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "3353934201562104"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xc8c1351c63d70f6a4dc13c66631764fa1db0ac9d": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "113057400465155403"
+      }
+    },
+    "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": {
+      "public": {
+        "count": 3,
+        "valueWei": "500893137"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 3,
+        "valueWei": "499637215"
+      }
+    },
+    "0xcd5fe23c85820f7b72d0926fc9b05b43e359b7ee": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "594198771748153641"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "9950062500000000000"
+      }
+    },
+    "0xd33526068d116ce69f19a9ee46f0bd304f21a51f": {
+      "public": {
+        "count": 1,
+        "valueWei": "1593678479233769483746"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    },
+    "0xd533a949740bb3306d119cc777fa900ba034cd52": {
+      "public": {
+        "count": 7,
+        "valueWei": "52162286265664160401002"
+      },
+      "reshield": {
+        "count": 1,
+        "valueWei": "6922755984375000000000"
+      },
+      "unshield": {
+        "count": 10,
+        "valueWei": "63004487027138044419960"
+      }
+    },
+    "0xd536e7a9543cf9867a580b45cec7f748a1fe11ec": {
+      "public": {
+        "count": 1,
+        "valueWei": "2746012635334971377983148"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 3,
+        "valueWei": "2736250110277569542090283"
+      }
+    },
+    "0xdac17f958d2ee523a2206206994597c13d831ec7": {
+      "public": {
+        "count": 5373,
+        "valueWei": "123880656389022"
+      },
+      "reshield": {
+        "count": 154,
+        "valueWei": "2288243888482"
+      },
+      "unshield": {
+        "count": 6005,
+        "valueWei": "110979243385180"
+      }
+    },
+    "0xdc035d45d973e3ec169d2276ddab16f1e407384f": {
+      "public": {
+        "count": 5,
+        "valueWei": "44888497500000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 5,
+        "valueWei": "44776276256250000000000"
+      }
+    },
+    "0xddb3422497e61e13543bea06989c0789117555c5": {
+      "public": {
+        "count": 1,
+        "valueWei": "2304579167935403091622898"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "2298817720015564583893844"
+      }
+    },
+    "0xde342a3e269056fc3305f9e315f4c40d917ba521": {
+      "public": {
+        "count": 1,
+        "valueWei": "135646093048018669"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "135306977815398623"
+      }
+    },
+    "0xe0f63a424a4439cbe457d80e4f4b51ad25b2c56c": {
+      "public": {
+        "count": 4,
+        "valueWei": "20009738480061"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 4,
+        "valueWei": "19959714133862"
+      }
+    },
+    "0xe343167631d89b6ffc58b88d6b7fb0228795491d": {
+      "public": {
+        "count": 2,
+        "valueWei": "24937500"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "23880150"
+      }
+    },
+    "0xe76c6c83af64e4c60245d8c7de953df673a7a33d": {
+      "public": {
+        "count": 58,
+        "valueWei": "928911460912204990557147"
+      },
+      "reshield": {
+        "count": 19,
+        "valueWei": "5635404688661104305212"
+      },
+      "unshield": {
+        "count": 77,
+        "valueWei": "169507397803730005957785"
+      }
+    },
+    "0xfa8c3e8aad32b2819c371b205c5ba1aeb72f7f29": {
+      "public": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "reshield": {
+        "count": 5,
+        "valueWei": "4108376834"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "2133372219"
+      }
+    },
+    "0xfaba6f8e4a5e8ab82f62fe7c39859fa577269be3": {
+      "public": {
+        "count": 3,
+        "valueWei": "9362683351904440472957"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 2,
+        "valueWei": "9339276643524679371775"
+      }
+    },
+    "0xfd09911130e6930bf87f2b0554c44f400bd80d3e": {
+      "public": {
+        "count": 6,
+        "valueWei": "153030598257051871305955"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 8,
+        "valueWei": "98923221448919041576584"
+      }
+    },
+    "0xfe0c30065b384f05761f15d0cc899d4f9f9cc0eb": {
+      "public": {
+        "count": 1,
+        "valueWei": "700243934450550000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 1,
+        "valueWei": "698493324614423625000"
+      }
+    },
+    "0xfea89ed0aa02fb8f6adbb3095d23d204203978d6": {
+      "public": {
+        "count": 1,
+        "valueWei": "99750000000000000000"
+      },
+      "reshield": {
+        "count": 0,
+        "valueWei": "0"
+      },
+      "unshield": {
+        "count": 0,
+        "valueWei": "0"
+      }
+    }
+  }
+}
