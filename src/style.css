@@ -1752,7 +1752,7 @@ details p {
 /* Narrow phones: an amount and its kind tag do not fit on one line, so the tag
    goes under the amount. Each line of both columns takes two rows, so the
    dates stay level with their amounts. */
-@media (max-width: 379px) {
+@media (max-width: 419px) {
   .matches .match-leg {
     height: 50px;
     line-height: 24px;
