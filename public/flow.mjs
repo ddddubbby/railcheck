@@ -30,7 +30,14 @@ let worker,
   frame,
   lastSets = [],
   lastLit = [];
-const ANSWER = { yes: true, no: false, unsure: undefined };
+// The links panel (UI-5): four optional toggles, "?" (unsure) by default. Each
+// name is the engine context field; "?" is undefined, never "no".
+const LINKS = {
+  addressReuse: { yes: true, no: false },
+  pastTransfer: { yes: true, no: false },
+  restOfDeposit: { yes: true, no: false },
+  swapGasPayer: { yes: "public-wallet", no: "broadcaster" },
+};
 const eth = (wei) => formatWei(BigInt(wei));
 const date = (t) =>
   new Date(t * 1000).toLocaleDateString("en-GB", {
@@ -128,7 +135,7 @@ function sync() {
     ? "Can the amount change a little?"
     : "Can the amount be smaller?";
   $("flexible-label").textContent = shield ? "Yes, within 10%" : "Yes, down to 70%";
-  $("questions").hidden = shield;
+  $("unshield-options").hidden = shield;
   $("check-button").textContent = shield ? "Check shield amount" : "Check unshield amount";
   // The old message names the old action, so clear it when the action changes.
   for (const id of ["amount", "balance"]) {
@@ -172,21 +179,17 @@ function field(id, optional = false, emptyMessage = "Enter an amount.") {
     return null;
   }
 }
-function submit(event) {
+// A re-run from the links panel is quiet: focus and scroll stay in the panel.
+let quiet = false;
+function submit(event, options = {}) {
   event?.preventDefault();
+  quiet = !!options.quiet;
   if (!token().covered) return;
   const verb = action() === "shield" ? "shield" : "unshield",
     amount = field("amount", false, `Enter the amount that you will ${verb}.`);
   if (amount === null) return;
   const message = { type: "plan", action: action(), amount, constraint: value("constraint") };
   if (message.action === "unshield") {
-    const answers = {};
-    for (const q of ["q1", "q2", "q3"]) {
-      answers[q] = value(q);
-      $(q + "-error").hidden = !!answers[q];
-    }
-    const missing = ["q1", "q2", "q3"].find((q) => !answers[q]);
-    if (missing) return form.querySelector(`input[name=${missing}]`).focus();
     const balance = field("balance", true);
     if (balance === null) return;
     if (balance && parseAmount(balance) < parseAmount(amount)) {
@@ -198,11 +201,9 @@ function submit(event) {
       input.focus();
       return;
     }
-    message.context = {
-      addressReuse: ANSWER[answers.q1],
-      pastTransfer: ANSWER[answers.q2],
-      restOfDeposit: ANSWER[answers.q3],
-    };
+    message.context = Object.fromEntries(
+      Object.entries(LINKS).map(([q, map]) => [q, map[value(q)]]),
+    );
     message.balance = balance;
   }
   if (!ready)
@@ -251,8 +252,11 @@ function draw(ids, scan = 0) {
     ctx.fillRect(x * stepX, y * stepY, Math.max(1, stepX - 2), Math.max(1, stepY - 2));
   }
 }
+// One scan loop at a time: a second submit (double click, double Enter) cancels
+// the frame the first one queued, so stop() always ends the only loop.
 function animate() {
   draw([], ((performance.now() - start) % 600) / 600);
+  cancelAnimationFrame(frame);
   frame = requestAnimationFrame(animate);
 }
 function stop() {
@@ -277,7 +281,12 @@ function readout(score, band) {
   decode();
 }
 
-const QUESTION = { addressReuse: "same address", pastTransfer: "past transfers", restOfDeposit: "rest of shield" };
+const QUESTION = {
+  addressReuse: "same address",
+  pastTransfer: "past transfers",
+  restOfDeposit: "rest of shield",
+  swapGasPayer: "swap gas from a public wallet",
+};
 // The most important finding first, in a few words.
 function headline(a) {
   const codes = a.findings.map((f) => f.code),
@@ -286,14 +295,17 @@ function headline(a) {
     return a.status === "clear"
       ? "This shield blends in."
       : "This shield stands out. A later unshield of all of it is easy to match.";
+  // The reason leads; "That links them, whatever the amount." follows it.
   if (link)
-    return link.reason === "address-reuse"
-      ? "Same address as the shield. That links them, whatever the amount."
-      : "The addresses have a transfer history. That links them, whatever the amount.";
+    return {
+      "address-reuse": "Same address as the shield.",
+      "past-transfer": "The addresses have a transfer history.",
+      "swap-gas-payer": "A public wallet paid the swap gas.",
+    }[link.reason];
   if (codes.includes("rest-of-deposit"))
     return "This is the rest of a shield. Your unshields add up to it.";
   if (codes.includes("amount-stands-out")) return "This amount points to shields.";
-  if (a.status === "incomplete") return "No amount issue, but some answers are not sure.";
+  if (a.status === "incomplete") return "No amount issue.";
   return "No issue found by the available checks.";
 }
 // First level: the verdict and what to do. Everything that explains it waits
@@ -320,8 +332,12 @@ function render({ result: r, sets, lit, count, manifest }) {
   matches(lastSets);
   draw(lastLit);
   parts.push(el("p", headline(a), "verdict"));
-  if (a.findings.some((f) => f.code === "address-link")) parts.push(el("p", "Use a new address."));
-  else if (a.status === "attention" && a.unknown?.length) parts.push(el("p", "Some answers are not sure."));
+  const found = a.findings.find((f) => f.code === "address-link");
+  if (found) {
+    parts.push(el("p", "That links them, whatever the amount."));
+    // A new address does not help when the swap gas already links the funds.
+    if (found.reason !== "swap-gas-payer") parts.push(el("p", "Use a new address."));
+  } else if (a.unknown?.length || a.addressLinks?.unknown?.length) parts.push(el("p", "Some answers are not sure."));
   parts.push(
     el(
       "p",
@@ -369,7 +385,7 @@ function render({ result: r, sets, lit, count, manifest }) {
     a.action === "unshield"
       ? Object.entries(QUESTION).map(([q, label]) => {
           const v = last.context[q];
-          return `${label} ${v === undefined ? "unknown" : v ? "yes" : "no"}`;
+          return `${label} ${v == null ? "unknown" : v === true || v === "public-wallet" ? "yes" : "no"}`;
         })
       : [];
   const details = el("details");
@@ -443,6 +459,7 @@ function show(band, parts) {
   $("result-copy").replaceChildren(...parts);
   panel.hidden = false;
   $("announcement").textContent = `${band}. ${parts[0].textContent}`;
+  if (quiet) return;
   $("result-heading").focus({ preventScroll: true });
   panel.scrollIntoView({ block: "start", behavior: reduced.matches ? "instant" : "smooth" });
 }
@@ -453,8 +470,8 @@ window.addEventListener("resize", () => {
 // not the rest of a deposit, so a "yes" there becomes "no"; other answers stay.
 function choose(amount) {
   $("amount").value = formatWei(BigInt(amount));
-  if (action() === "unshield" && value("q3") === "yes")
-    form.querySelector("input[name=q3][value=no]").checked = true;
+  if (action() === "unshield" && value("restOfDeposit") === "yes")
+    form.querySelector("input[name=restOfDeposit][value=no]").checked = true;
   fee();
   submit();
 }
@@ -468,6 +485,8 @@ function drop() {
 }
 // A changed input also clears its own error.
 form.addEventListener("input", (e) => {
+  // A link toggle also fires "change", which re-runs the check: leave it to that.
+  if (Object.hasOwn(LINKS, e.target.name)) return;
   if (e.target.id === "amount") fee();
   const error = $(e.target.id + "-error");
   if (error) {
@@ -479,9 +498,22 @@ form.addEventListener("input", (e) => {
 form.addEventListener("change", (e) => {
   if (e.target.name === "token") coverage();
   if (e.target.name === "action") sync();
-  if (/^q[123]$/.test(e.target.name)) $(e.target.name + "-error").hidden = true;
+  // A toggle changed while a result shows (or a check runs): check again, so
+  // the result never stays stale. drop() ends the check in flight first.
+  const again = Object.hasOwn(LINKS, e.target.name) && !panel.hidden;
   drop();
+  if (again) submit(undefined, { quiet: true });
 });
+// Opens the links panel in place (UI-5). The Links pip in the result (R1.7)
+// calls this too.
+export function openLinks() {
+  const links = $("links");
+  if (action() !== "unshield") return false;
+  links.setAttribute("open", "");
+  $("links-toggle").focus({ preventScroll: true });
+  links.scrollIntoView({ block: "nearest", behavior: reduced.matches ? "instant" : "smooth" });
+  return true;
+}
 form.addEventListener("submit", submit);
 chips();
 coverage();

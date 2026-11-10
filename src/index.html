@@ -199,29 +199,26 @@
               </div>
             </fieldset>
           </div>
-          <div class="step" data-step="3" id="questions">
-            <h2 class="step-label"><span class="step-number" aria-hidden="true">3</span>Recipient and earlier unshields</h2>
-            <fieldset class="group" id="q1-group" aria-describedby="q1-error">
-              <legend>Will you unshield to the address that shielded?</legend>
-              <div class="choices">{{Q1}}</div>
-              <p class="error" id="q1-error" hidden>Select an answer.</p>
-            </fieldset>
-            <fieldset class="group" id="q2-group" aria-describedby="q2-error">
-              <legend>
-                Did the recipient address ever send funds to the address that
-                shielded, or get funds from it?
-              </legend>
-              <div class="choices">{{Q2}}</div>
-              <p class="error" id="q2-error" hidden>Select an answer.</p>
-            </fieldset>
-            <fieldset class="group" id="q3-group" aria-describedby="q3-error">
-              <legend>
-                Will you unshield the rest of a shield that you partly unshielded
-                before?
-              </legend>
-              <div class="choices">{{Q3}}</div>
-              <p class="error" id="q3-error" hidden>Select an answer.</p>
-            </fieldset>
+          <div class="step" id="unshield-options">
+            <details class="links" id="links">
+              <summary id="links-toggle">Check links</summary>
+              <fieldset class="group link-row">
+                <legend>Will you unshield to the address that shielded?</legend>
+                <div class="choices">{{ADDRESS_REUSE}}</div>
+              </fieldset>
+              <fieldset class="group link-row">
+                <legend>Has the recipient ever sent to or received from the shielding address?</legend>
+                <div class="choices">{{PAST_TRANSFER}}</div>
+              </fieldset>
+              <fieldset class="group link-row">
+                <legend>Is this the rest of a shield you partly unshielded before?</legend>
+                <div class="choices">{{REST_OF_DEPOSIT}}</div>
+              </fieldset>
+              <fieldset class="group link-row">
+                <legend>Did a public wallet pay gas for the private swap you unshield?</legend>
+                <div class="choices">{{SWAP_GAS_PAYER}}</div>
+              </fieldset>
+            </details>
             <label class="balance-label" for="balance">Private balance (optional)</label>
             <div class="amount-wrap">
               <input

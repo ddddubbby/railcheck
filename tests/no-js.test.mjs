@@ -19,7 +19,8 @@ test("no-JavaScript users get a message instead of a dead form", () => {
 });
 
 test("decorative step numbers stay out of accessible names", () => {
-  for (const n of ["1", "2", "3"])
+  // Two numbered steps since R1.6: the link questions are an optional panel.
+  for (const n of ["1", "2"])
     assert.ok(html.includes(`<span class="step-number" aria-hidden="true">${n}</span>`));
 });
 
@@ -29,7 +30,7 @@ test("matching shields show open, right under the score pixels", () => {
     matches = html.indexOf('id="matches"'),
     copy = html.indexOf('id="result-copy"');
   assert.ok(readout >= 0 && readout < crowd && crowd < matches && matches < copy, "the matches follow the meter and the pixel crowd");
-  assert.ok(!/<details[^>]*>[^]*id="matches"/.test(html), "the matches are not collapsed");
+  assert.ok(!/<details[^>]*>(?:(?!<\/details>)[^])*id="matches"/.test(html), "the matches are not collapsed");
   assert.ok(!/details\.append\(matchTable/.test(flow), "the match table stays out of Details");
   assert.ok(flow.includes("matches(lastSets)"));
 });

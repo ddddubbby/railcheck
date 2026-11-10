@@ -27,12 +27,13 @@ Enter the amount before the 0.25% unshield fee.
 1. railcheck looks for sets of 1, 2 or 3 shields that add up to your amount. It accepts a difference of up to 0.000005 ETH.
 2. Each matching set gets a weight. Smaller sets get a higher weight. The check also includes the probability that no set is exact.
 3. The strongest match sets the amount score. Many competing matches decrease it.
-4. Your answers can set a minimum score:
+4. Your answers under "Check links" can set a minimum score. The questions are optional:
    - The same address for the shield and the unshield: at least 100.
    - A past transfer between the two addresses: at least 90.
    - An unshield of the rest of a shield that you partly unshielded before: at least 90.
      Example: you shielded 9.12 ETH, unshielded 3 ETH, and now unshield 6.12 ETH.
-5. "Not sure" is unknown. railcheck does not use it as "no", and does not use it as a link. The result is then incomplete.
+   - A public wallet paid the gas of the private swap whose output you unshield: at least 90.
+5. "?" (not sure) is the default, and it is unknown. railcheck does not use it as "no", and does not use it as a link. If the amount score is Low, the result is then incomplete, never clear. The swap gas answer counts only when a swap output sets the score.
 
 If the amount can be smaller, railcheck tries common amounts from 70% to 100% of your amount, largest first. It shows the first amount with a score of 5 or less. It scores a maximum of 6 amounts.
 
