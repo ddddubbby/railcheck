@@ -155,10 +155,12 @@ const wait = async (ok, what) => {
 async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
   const page = parseHTML(html);
   const { document, Event } = page;
-  let flowWorker, lastPlan;
+  let flowWorker, lastPlan, held = null;
   const workerSelf = {
     postMessage(data) {
       if (data.type === "plan") lastPlan = data;
+      // While held, worker replies wait in a queue until release().
+      if (held) return held.push(data);
       setTimeout(() => flowWorker.onmessage({ data }));
     },
   };
@@ -224,6 +226,19 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
       await wait(() => $("result").getAttribute("aria-busy") === "false", label(s));
       assert.ok($("notice").hidden, `${label(s)}: ${$("notice").textContent}`);
       return { result: $("result"), plan: lastPlan };
+    },
+    fire,
+    /** Holds the worker replies; release() delivers them. */
+    hold() {
+      held = [];
+      return {
+        replies: () => held.length,
+        release() {
+          const queue = held;
+          held = null;
+          for (const data of queue) flowWorker.onmessage({ data });
+        },
+      };
     },
     close() {
       Date.now = realNow;
@@ -492,6 +507,43 @@ test("a token that is not covered turns the form off before typing, and WETH tur
     assert.equal(form.dataset.covered, "true");
     assert.ok(![...form.querySelectorAll(".step")].some((s) => s.hasAttribute("inert")));
     assert.equal(page.$("amount").value, "1.5", "the typed amount stays");
+  } finally {
+    page.close();
+  }
+});
+
+test("a change during the scan drops the check in flight: no stale result, focus or announcement", async () => {
+  const page = await openPage();
+  try {
+    const heading = page.$("result-heading");
+    let focused = 0;
+    heading.focus = () => focused++;
+    const changes = [
+      ["token other", () => page.choose("token", "other")],
+      ["token usdc", () => page.choose("token", "usdc")],
+      ["amount typed", () => page.type("amount", "2")],
+      ["answer changed", () => page.choose("q1", "unsure")],
+    ];
+    for (const [name, change] of changes) {
+      page.choose("token", "weth");
+      page.type("amount", "1");
+      for (const q of ["q1", "q2", "q3"]) page.choose(q, "no");
+      page.$("announcement").textContent = "";
+      const worker = page.hold();
+      page.fire(page.$("flow-form"), "submit");
+      assert.equal(page.$("result").getAttribute("aria-busy"), "true", `${name}: the check was sent`);
+      await wait(() => worker.replies() > 0, `${name}: the plan reply`);
+      change();
+      assert.ok(page.$("result").hidden, `${name}: the panel hides at once`);
+      assert.equal(page.$("result").getAttribute("aria-busy"), "false", `${name}: the panel is no longer busy`);
+      assert.equal(page.$("check-button").hasAttribute("aria-busy"), false, `${name}: the button is no longer busy`);
+      worker.release();
+      await new Promise((r) => setTimeout(r, 50));
+      assert.ok(page.$("result").hidden, `${name}: the late reply shows no result`);
+      assert.equal(page.$("result-copy").children.length, 0, `${name}: no result copy`);
+      assert.equal(page.$("announcement").textContent, "", `${name}: no announcement`);
+      assert.equal(focused, 0, `${name}: focus does not move`);
+    }
   } finally {
     page.close();
   }

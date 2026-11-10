@@ -834,13 +834,19 @@ legend {
   border-color: var(--signal);
   background: rgba(174, 188, 229, 0.16);
 }
-.chip[data-covered="true"] input:checked + span::before {
+/* Every chip keeps the room of its icon, tick or dash, whether checked or not,
+   so its width and the row do not move when the token changes. */
+.chip[data-covered="true"] > span::before {
   content: "";
   width: 9px;
   height: 5px;
   border-left: 1.5px solid var(--signal);
   border-bottom: 1.5px solid var(--signal);
   transform: translateY(-2px) rotate(-45deg);
+  opacity: 0;
+}
+.chip[data-covered="true"] input:checked + span::before {
+  opacity: 1;
   animation: tick 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .chip[data-covered="false"] input:checked + span {
@@ -883,15 +889,16 @@ legend {
   border-radius: 50%;
   background: var(--signal);
 }
-/* Phones: chips and the chain tag stay on one row down to 360px. */
+/* Phones: chips and the chain tag stay on one row down to 360px. Narrower, the
+   tag wraps to a second row, the same for every token. */
 @media (max-width: 479px) {
   .token-row,
   .chips {
     gap: 6px;
   }
   .chip > span {
-    gap: 6px;
-    padding: 0 11px;
+    gap: 5px;
+    padding: 0 9px;
   }
   .chain-tag {
     gap: 6px;

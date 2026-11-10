@@ -458,7 +458,15 @@ function choose(amount) {
   fee();
   submit();
 }
-// A changed input makes the old result stale and clears its own error.
+// A changed input makes the old result stale, and the check in flight too: its
+// reply would show a result for inputs that are gone. A new request id makes the
+// worker reply and the delayed render after the scan drop it.
+function drop() {
+  request++;
+  stop();
+  panel.hidden = true;
+}
+// A changed input also clears its own error.
 form.addEventListener("input", (e) => {
   if (e.target.id === "amount") fee();
   const error = $(e.target.id + "-error");
@@ -466,13 +474,13 @@ form.addEventListener("input", (e) => {
     error.hidden = true;
     e.target.removeAttribute("aria-invalid");
   }
-  $("result").hidden = true;
+  drop();
 });
 form.addEventListener("change", (e) => {
   if (e.target.name === "token") coverage();
   if (e.target.name === "action") sync();
   if (/^q[123]$/.test(e.target.name)) $(e.target.name + "-error").hidden = true;
-  $("result").hidden = true;
+  drop();
 });
 form.addEventListener("submit", submit);
 chips();
