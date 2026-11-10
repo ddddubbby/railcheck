@@ -217,6 +217,7 @@ function submit(event, options = {}) {
   $("readout").hidden = true;
   $("band").textContent = "";
   $("result-copy").replaceChildren();
+  $("pips").hidden = true;
   matches([]);
   $("scan-label").hidden = false;
   if (!reduced.matches) animate();
@@ -287,67 +288,114 @@ const QUESTION = {
   restOfDeposit: "rest of shield",
   swapGasPayer: "swap gas from a public wallet",
 };
-// The most important finding first, in a few words.
+// The three state pips (UI-3), read from the v2 parts of the result. "filled": a
+// problem was found, in the band colour. "unknown": shown as "?", in amber.
+// "empty": nothing found, a neutral outline. null: the pip does not apply and is
+// not shown (Links for a shield, Amount when nothing was scored). No state uses
+// the green of a Low band (UI-R7).
+// The rest-of-shield answer is a link too: its question is in the links panel,
+// which the Links pip opens. So a rest-of-deposit finding fills the Links pip, and
+// every attention result has at least one filled pip.
+export function pipStates(a) {
+  const exposure = a.amountExposure,
+    rest = a.findings?.some((f) => f.code === "rest-of-deposit"),
+    links = rest && a.addressLinks ? "found" : a.addressLinks?.state,
+    coverage = a.coverage?.state;
+  return {
+    amount: exposure ? (exposure.band === "Low" ? "empty" : "filled") : null,
+    links: { found: "filled", unknown: "unknown", "none-reported": "empty" }[links] ?? null,
+    coverage: { limited: "unknown", complete: "empty" }[coverage] ?? null,
+  };
+}
+const PIP = {
+  amount: { label: "Amount", says: { filled: "stands out", empty: "blends in" } },
+  links: { label: "Links", says: { filled: "found", unknown: "unknown", empty: "none reported" } },
+  coverage: { label: "Coverage", says: { unknown: "limited", empty: "complete" } },
+};
+// One pip per part: a cue and a one-word label. The state is in the accessible
+// name only ("Links: unknown"). Links opens the links panel in place (UI-5);
+// Coverage does too when the missing part is the rest-of-shield answer.
+function pips(a) {
+  const states = pipStates(a),
+    answers = a.action === "unshield";
+  $("pips").replaceChildren(
+    ...Object.entries(states)
+      .filter(([, state]) => state)
+      .map(([name, state]) => {
+        const { label, says } = PIP[name],
+          opens = answers && (name === "links" || (name === "coverage" && a.coverage.missing.includes("rest-of-deposit"))),
+          pip = el(opens ? "button" : "span", undefined, "pip"),
+          cue = el("span", state === "unknown" ? "?" : undefined, "pip-cue");
+        cue.setAttribute("aria-hidden", "true");
+        pip.dataset.pip = name;
+        pip.dataset.state = state;
+        pip.append(cue, label, el("span", `: ${says[state]}`, "sr-only"));
+        if (opens) {
+          pip.type = "button";
+          pip.setAttribute("aria-controls", "links");
+          pip.onclick = () => openLinks();
+        }
+        const item = el("li");
+        item.append(pip);
+        return item;
+      }),
+  );
+  $("pips").hidden = false;
+}
+// The verdict: the most important finding first, in 10 words or fewer. The pips
+// already show what is unknown, so the verdict does not repeat it (UI-R3).
 function headline(a) {
   const codes = a.findings.map((f) => f.code),
     link = a.findings.find((f) => f.code === "address-link");
   if (a.action === "shield")
-    return a.status === "clear"
-      ? "This shield blends in."
-      : "This shield stands out. A later unshield of all of it is easy to match.";
-  // The reason leads; "That links them, whatever the amount." follows it.
+    return a.status === "attention"
+      ? "Stands out: a full unshield is easy to match."
+      : a.status === "clear"
+        ? "This shield blends in."
+        : "No amount issue found.";
   if (link)
     return {
-      "address-reuse": "Same address as the shield.",
-      "past-transfer": "The addresses have a transfer history.",
+      "address-reuse": "Same address as the shield. Use a new address.",
+      "past-transfer": "The addresses have a transfer history. Use a new address.",
+      // A new address does not help when the swap gas already links the funds.
       "swap-gas-payer": "A public wallet paid the swap gas.",
     }[link.reason];
-  if (codes.includes("rest-of-deposit"))
-    return "This is the rest of a shield. Your unshields add up to it.";
+  if (codes.includes("rest-of-deposit")) return "Your unshields add up to one shield.";
   if (codes.includes("amount-stands-out")) return "This amount points to shields.";
-  if (a.status === "incomplete") return "No amount issue.";
+  if (a.status === "incomplete") return "No amount issue found.";
   return "No issue found by the available checks.";
 }
-// First level: the verdict and what to do. Everything that explains it waits
-// in "What does this mean?".
+// First level (UI-3): band, meter, pips, one verdict line and what to do.
+// Everything that explains it waits in "What does this mean?".
 function render({ result: r, sets, lit, count, manifest }) {
   const a = r.assessment,
     parts = [],
     notes = [];
+  panel.dataset.status = a.status;
   if (a.status === "not-checked") {
     panel.dataset.band = "Medium";
     $("readout").hidden = true;
     $("scan-label").hidden = true;
+    pips(a);
     matches([]);
     draw([]);
     return show("Not checked", [
-      el("p", a.findings[0].code === "stale-data" ? "The pool data is too old. Reload later." : "The pool data does not cover 180 days.", "verdict"),
+      el("p", a.findings[0].code === "stale-data" ? "The pool data is too old. Reload later." : "The data does not cover 180 days.", "verdict"),
     ]);
   }
   const band = a.status === "incomplete" ? "Incomplete" : a.band;
+  // UI-R7: incomplete takes the amber state, never the green one.
   panel.dataset.band = band === "Incomplete" ? "Medium" : a.band;
   lastSets = sets || [];
   lastLit = lit || [];
   readout(a.score, band);
+  pips(a);
   matches(lastSets);
   draw(lastLit);
   parts.push(el("p", headline(a), "verdict"));
   const found = a.findings.find((f) => f.code === "address-link");
-  if (found) {
-    parts.push(el("p", "That links them, whatever the amount."));
-    // A new address does not help when the swap gas already links the funds.
-    if (found.reason !== "swap-gas-payer") parts.push(el("p", "Use a new address."));
-  } else if (a.unknown?.length || a.addressLinks?.unknown?.length) parts.push(el("p", "Some answers are not sure."));
-  parts.push(
-    el(
-      "p",
-      a.action === "shield"
-        ? `The pool records ${eth(a.amounts.poolCredit)} ETH.`
-        : `The recipient gets ${eth(a.amounts.recipientAmount)} ETH.`,
-      "hint",
-    ),
-  );
-  if (a.status === "attention" && !a.findings.some((f) => f.code === "address-link")) {
+  if (found) notes.push(el("p", "That links them, whatever the amount."));
+  if (a.status === "attention" && !found) {
     if (r.constraint !== "flexible") notes.push(el("p", "Your amount is fixed, so no alternative is shown."));
     else if (r.alternatives.length)
       for (const alt of r.alternatives) {
@@ -357,15 +405,12 @@ function render({ result: r, sets, lit, count, manifest }) {
         use.onclick = () => choose(amount);
         parts.push(use);
       }
-    else
-      parts.push(
-        el(
-          "p",
-          a.action === "shield"
-            ? "No Low amount within 10%. Keep yours."
-            : `No Low amount between ${eth(r.searched.from)} and ${eth(r.searched.to)} ETH.`,
-        ),
-      );
+    else if (a.action === "shield") parts.push(el("p", "No Low amount within 10%. Keep yours."));
+    else {
+      // The range searched follows from "down to 70%": it waits in the fold.
+      parts.push(el("p", "No Low amount found."));
+      notes.push(el("p", `No Low amount between ${eth(r.searched.from)} and ${eth(r.searched.to)} ETH.`));
+    }
   }
   if (a.action === "unshield" && r.remainingBalance !== null)
     parts.push(el("p", `Balance left: ${eth(r.remainingBalance)} ETH.`, "hint"));
@@ -378,7 +423,12 @@ function render({ result: r, sets, lit, count, manifest }) {
           ? "An observer can link your unshield to one of the shields above, or to a set of them that adds up to it."
           : "An observer can link your unshield to one of the shields above.",
       ),
+      el("p", "Matches show the amount sent before the shield fee, and the date in UTC.", "hint"),
     );
+  if (lastSets.some((set) => set.deposits.some((d) => d.kind === "reshield")))
+    notes.splice(2, 0, el("p", "A swap output comes from a private swap, not from a shield sent by an address.", "hint"));
+  if (a.coverage?.missing.includes("swap-output-history"))
+    notes.push(el("p", "The swap output history is not complete, so a match can be missing."));
   if (a.action === "shield") notes.push(el("p", "Check again when you unshield."));
   // What was checked, in one line, unknown answers included.
   const answers =
@@ -390,6 +440,14 @@ function render({ result: r, sets, lit, count, manifest }) {
       : [];
   const details = el("details");
   details.append(el("summary", "What does this mean?"), ...notes);
+  details.append(
+    el(
+      "p",
+      a.action === "shield"
+        ? `The pool records ${eth(a.amounts.poolCredit)} ETH.`
+        : `The recipient gets ${eth(a.amounts.recipientAmount)} ETH.`,
+    ),
+  );
   if (a.action === "shield")
     details.append(
       el(
@@ -401,6 +459,7 @@ function render({ result: r, sets, lit, count, manifest }) {
     );
   if (a.action === "unshield" && a.modelScore !== a.score) details.append(el("p", `Amount score ${a.modelScore}.`));
   if (a.notes.includes("split-completes-total")) details.append(el("p", "If you unshield the rest later, your unshields add up to your shield."));
+  details.append(el("p", "A filled dot is a problem found, ? is not known, and an empty dot is none found.", "hint"));
   details.append(el("p", `Checked: amount${answers.length ? ", " + answers.join(", ") : ""}. Not covered: timing, IP addresses.`, "hint"));
   details.append(el("p", `${count.toLocaleString("en")} shields, last 180 days, data of ${date(manifest.dataTime)}.`, "hint"));
   // What shield and unshield mean: a link that was a hint in the form (UI-R5).
@@ -413,28 +472,53 @@ function render({ result: r, sets, lit, count, manifest }) {
   show(band, parts);
 }
 // The shields an unshield of this amount could be linked to, open right under
-// the score and its pixel crowd: they are the reason for the score, so they
-// never hide in the fold.
+// the meter and its pixel crowd: they are the reason for the score, so they
+// never hide in the fold (UI-4, UI-R6). No sentence here: the heading, the data
+// and a kind tag per row. The column names are for screen readers; the fold
+// explains them.
 function matches(sets) {
   const box = $("matches");
   box.hidden = !sets.length;
   if (!sets.length) return box.replaceChildren();
-  const heading = el("h3", "Shields that match this amount");
+  const heading = el("h3", "Matches");
   heading.id = "matches-heading";
   box.replaceChildren(heading, matchTable(sets));
 }
+// Kind tags (UI-4, UI-R8): a shield sent from an address, or a swap output made
+// by a private swap. The engine calls the second a "reshield"; the page never does.
+const SVG = "http://www.w3.org/2000/svg";
+const KIND = {
+  shield: { label: "Shield", path: "M6 1 10.5 2.8V6c0 2.6-1.9 4.4-4.5 5C3.4 10.4 1.5 8.6 1.5 6V2.8Z" },
+  "swap-output": { label: "Swap output", path: "M1.5 4h8M7 1.5 9.5 4 7 6.5M10.5 8h-8M5 5.5 2.5 8 5 10.5" },
+};
+function kindTag(kind) {
+  const { label, path } = KIND[kind],
+    tag = el("span", undefined, "kind-tag"),
+    icon = document.createElementNS(SVG, "svg"),
+    line = document.createElementNS(SVG, "path");
+  tag.dataset.kind = kind;
+  icon.setAttribute("viewBox", "0 0 12 12");
+  icon.setAttribute("aria-hidden", "true");
+  icon.setAttribute("focusable", "false");
+  line.setAttribute("d", path);
+  icon.append(line);
+  tag.append(icon, label);
+  return tag;
+}
 function matchTable(sets) {
   const table = el("table"),
-    head = table.createTHead().insertRow(),
+    head = table.createTHead(),
+    row = head.insertRow(),
     body = table.createTBody(),
     sent = (nano) => {
       const gross = (BigInt(nano) * 10n ** 9n * 10000n) / 9975n;
       return formatWei(((gross + 500000000000n) / 1000000000000n) * 1000000000000n);
     };
+  head.className = "sr-only";
   for (const name of ["Matching shields sent", "Dates (UTC)"]) {
     const th = el("th", name);
     th.scope = "col";
-    head.append(th);
+    row.append(th);
   }
   // One line per shield in a set, so amounts and dates line up.
   for (const set of sets) {
@@ -444,9 +528,7 @@ function matchTable(sets) {
     set.deposits.forEach((d, i) => {
       const leg = el("span", undefined, "match-leg");
       if (i) leg.append(el("span", "+ ", "match-plus"));
-      leg.append(`${sent(d.amount)} ETH`);
-      // A swap output is not a shield someone sent from an address: tag it.
-      if (d.kind === "reshield") leg.append(" ", el("span", "Swap output", "match-tag"));
+      leg.append(`${sent(d.amount)} ETH`, kindTag(d.kind === "reshield" ? "swap-output" : "shield"));
       amounts.append(leg);
       dates.append(el("span", date(d.time), "match-leg"));
     });

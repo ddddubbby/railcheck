@@ -46,6 +46,10 @@ self.onmessage = async ({ data }) => {
           time: manifest.dataTime,
           windowStart: manifest.windowStart ?? manifest.dataTime - 180 * 86400,
           grouping: manifest.grouping ?? "none",
+          // false when the swap-output rows do not reach back to the window
+          // start: coverage is then "limited" (swap-output-history). Missing
+          // in older manifests: left out, as before.
+          reshieldHistoryComplete: manifest.metrics?.reshieldHistoryComplete,
         },
       });
       const amount = parseAmount(data.amount),
