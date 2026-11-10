@@ -33,7 +33,7 @@ Enter the amount before the 0.25% unshield fee.
    - An unshield of the rest of a shield that you partly unshielded before: at least 90.
      Example: you shielded 9.12 ETH, unshielded 3 ETH, and now unshield 6.12 ETH.
    - A public wallet paid the gas of the private swap whose output you unshield: at least 90.
-5. "?" (not sure) is the default, and it is unknown. railcheck does not use it as "no", and does not use it as a link. The result is then incomplete.
+5. "?" (not sure) is the default, and it is unknown. railcheck does not use it as "no", and does not use it as a link. If the amount score is Low, the result is then incomplete, never clear. The swap gas answer counts only when a swap output sets the score.
 
 If the amount can be smaller, railcheck tries common amounts from 70% to 100% of your amount, largest first. It shows the first amount with a score of 5 or less. It scores a maximum of 6 amounts.
 

@@ -715,7 +715,7 @@ test("the links panel: closed by default, after the amount, keyboard reachable, 
       assert.deepEqual(inputs.map((input) => input.name), Array(3).fill(LINKS[i]));
       assert.deepEqual(inputs.map((input) => input.value), ["yes", "no", "unsure"]);
       assert.deepEqual(inputs.map((input) => input.closest("label").textContent.trim()), ["Yes", "No", "?"]);
-      assert.equal(inputs[2].getAttribute("aria-label"), "Not sure", '"?" has a spoken name');
+      assert.equal(inputs[2].getAttribute("aria-label"), "? Not sure", '"?" has a spoken name');
       assert.deepEqual([...row.querySelectorAll("input:checked")].map((input) => input.value), ["unsure"], '"?" is the default');
     });
     assert.equal(page.flow.openLinks(), true);

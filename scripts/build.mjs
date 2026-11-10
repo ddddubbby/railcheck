@@ -243,7 +243,7 @@ for (const [file, destination, path] of [
       [
         ["yes", "Yes", ""],
         ["no", "No", ""],
-        ["unsure", "?", ' aria-label="Not sure" checked'],
+        ["unsure", "?", ' aria-label="? Not sure" checked'],
       ]
         .map(
           ([value, label, extra]) =>
@@ -354,7 +354,7 @@ railcheck has two parts: a web check for users, and a wallet SDK (\`@railcheck/c
 
 ## Instructions for agents
 
-- Ask the user for missing inputs. Do not guess the answers to the three questions. If the user does not know, send "not sure" (\`undefined\`).
+- Ask the user for missing inputs. Do not guess the answers to the link questions. If the user does not know, send "not sure" (\`undefined\`).
 - Never show the status \`not-checked\` as \`clear\`.
 - A Low score does not guarantee privacy. Say this when you give a result.
 - Do not give addresses to railcheck. The check does not use them.

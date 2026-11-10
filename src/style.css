@@ -186,6 +186,9 @@ header {
 .links summary {
   font-size: var(--fs-small);
 }
+.links[open] {
+  padding-bottom: 16px;
+}
 .links[open] summary {
   margin-bottom: 8px;
 }
