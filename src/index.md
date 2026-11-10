@@ -11,10 +11,11 @@ An unusual amount can show which shield is yours. railcheck compares your amount
 - Action: shield or unshield.
 - Amount in ETH. For an unshield, give the amount before the 0.25% fee.
 - Can the amount change? Shield: within 10%. Unshield: down to 70%.
-- Unshield only: three questions, each with yes, no or not sure:
+- Unshield only, optional under "Check links": four questions, each with yes, no or "?" (not sure, the default):
   - Will you unshield to the address that shielded?
-  - Did the recipient address ever send funds to the address that shielded, or get funds from it?
-  - Will you unshield the rest of a shield that you partly unshielded before?
+  - Has the recipient ever sent to or received from the shielding address?
+  - Is this the rest of a shield you partly unshielded before?
+  - Did a public wallet pay gas for the private swap you unshield?
 - Optional: your private balance.
 
 ## Result

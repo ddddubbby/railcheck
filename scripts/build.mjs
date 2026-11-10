@@ -235,17 +235,19 @@ for (const [file, destination, path] of [
       "{{FOOTER}}",
       footer(source, path === "/" ? `Data updated ${date(manifest.dataTime)}` : ""),
     );
-  for (const q of ["q1", "q2", "q3"])
+  // The link toggles (UI-5): Yes, No and "?", which is the default and means
+  // unknown. The name is the engine context field.
+  for (const q of ["addressReuse", "pastTransfer", "restOfDeposit", "swapGasPayer"])
     html = html.replace(
-      `{{${q.toUpperCase()}}}`,
+      `{{${q.replace(/[A-Z]/g, "_$&").toUpperCase()}}}`,
       [
-        ["yes", "Yes"],
-        ["no", "No"],
-        ["unsure", "Not sure"],
+        ["yes", "Yes", ""],
+        ["no", "No", ""],
+        ["unsure", "?", ' aria-label="Not sure" checked'],
       ]
         .map(
-          ([value, label]) =>
-            `<label class="choice"><input type="radio" name="${q}" value="${value}" aria-describedby="${q}-error"><span>${label}</span></label>`,
+          ([value, label, extra]) =>
+            `<label class="choice"><input type="radio" name="${q}" value="${value}"${extra}><span>${label}</span></label>`,
         )
         .join(""),
     );

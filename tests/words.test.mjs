@@ -13,7 +13,7 @@
 //
 // Result: the test submits a matrix of real scenarios (shield and unshield;
 // clear, attention, incomplete and not-checked; with and without balance;
-// fixed and flexible amounts; answers no, yes and not sure) and counts the
+// fixed and flexible amounts; link answers left at "?", or set to no or yes) and counts the
 // visible text of the result section after each render. RESULT_CAP caps the
 // largest state. RESULT_COPY_CAP caps the sum of the distinct first-level lines
 // seen over the matrix (numbers taken out), so a line that grows is caught even
@@ -43,19 +43,24 @@ import { parseHTML } from "linkedom";
 // first level.
 // Each form cap is the largest of its states: empty amount, amount typed (fee
 // hint), "fixed" picked, a token that is not covered (unshield), and, for
-// shield, the error states too.
+// shield, the error states too. The open links panel has its own cap.
 // R1.5: the token chips (WETH, USDC, Soon, Other, Ethereum) came in, and the
 // action hint and the q3 example left the form: 115 to 105.
-const FORM_CAP = 105; // unshield (the default): amount typed, with the fee hint
+// R1.6: the link questions moved into the closed "Check links" panel and are
+// optional: 105 to 53.
+const FORM_CAP = 53; // unshield (the default): amount typed, with the fee hint
 const SHIELD_FORM_CAP = 40; // shield: amount typed, with the fee hint
-// Unshield with errors showing: a submit with no answers shows three "Select an
-// answer." lines. Measured at 124 before R1.5, above the 122 of the 28 Oct 2026
-// design; 114 since. It may only go down.
-const FORM_ERROR_CAP = 114;
+// Unshield with an error showing. The "Select an answer." errors left with R1.6:
+// 114 to 60. It may only go down.
+const FORM_ERROR_CAP = 60;
+// Unshield with the links panel open: its four questions and toggles (UI-5).
+const LINKS_FORM_CAP = 104;
 // The sum of the distinct form error messages, so any one that grows is caught.
-const ERROR_COPY_CAP = 31;
+const ERROR_COPY_CAP = 28;
 const RESULT_CAP = 40;
-const RESULT_COPY_CAP = 153;
+// R1.6: the link headlines share "That links them, whatever the amount.", and
+// the incomplete headline reuses "Some answers are not sure.": 153 to 148.
+const RESULT_COPY_CAP = 148;
 const FORM_TARGET = 60;
 const RESULT_TARGET = 25;
 
@@ -151,11 +156,16 @@ const wait = async (ok, what) => {
   throw Error(`Timed out waiting for ${what}`);
 };
 
-/** Opens the built page with its scripts. `now` is the clock in seconds. */
-async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
+/**
+ * Opens the built page with its scripts. `now` is the clock in seconds. `motion`
+ * turns reduced motion off; `raf` replaces requestAnimationFrame and
+ * cancelAnimationFrame.
+ */
+async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = false, raf } = {}) {
   const page = parseHTML(html);
   const { document, Event } = page;
   let flowWorker, lastPlan, held = null;
+  const sent = []; // every message flow.mjs sent to the worker
   const workerSelf = {
     postMessage(data) {
       if (data.type === "plan") lastPlan = data;
@@ -168,13 +178,16 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
     document,
     window: { devicePixelRatio: 1, addEventListener() {} },
     self: workerSelf,
-    matchMedia: () => ({ matches: true, addEventListener() {} }),
-    requestAnimationFrame: () => 0,
-    cancelAnimationFrame() {},
+    matchMedia: () => ({ matches: !motion, addEventListener() {} }),
+    requestAnimationFrame: raf?.request ?? (() => 0),
+    cancelAnimationFrame: raf?.cancel ?? (() => {}),
     getComputedStyle: () => ({ getPropertyValue: () => "" }),
     Worker: class {
       constructor() { flowWorker = this; }
-      postMessage(data) { setTimeout(() => workerSelf.onmessage({ data })); }
+      postMessage(data) {
+        sent.push(data);
+        setTimeout(() => workerSelf.onmessage({ data }));
+      }
     },
     fetch: async (url) => {
       const file = join(dist, "data", String(url).replace(/^\.\/data\//, ""));
@@ -206,6 +219,8 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
     $,
     document,
     flow,
+    sent,
+    plan: () => lastPlan,
     choose,
     type,
     /** A submit that the form rejects: it shows errors and sends nothing. */
@@ -218,7 +233,8 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
       type("amount", s.amount);
       choose("constraint", s.constraint);
       if (s.action === "unshield") {
-        s.answers.forEach((a, i) => choose(`q${i + 1}`, a));
+        // No answers: every toggle stays at "?", the default.
+        LINKS.forEach((q, i) => choose(q, s.answers?.[i] ?? "unsure"));
         type("balance", s.balance ?? "");
       }
       fire($("flow-form"), "submit");
@@ -245,6 +261,8 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {} } = {}) {
     },
   };
 }
+// The four toggles of the links panel, in order (UI-5).
+const LINKS = ["addressReuse", "pastTransfer", "restOfDeposit", "swapGasPayer"];
 const label = (s) =>
   `${s.action} ${s.amount} ${s.constraint}${s.answers ? " " + s.answers.join("/") : ""}${s.balance ? " balance " + s.balance : ""}`;
 
@@ -254,26 +272,32 @@ const label = (s) =>
 // few seconds, so the matrix stays small. "1" and "0.0731" ETH: a shared and an
 // odd amount. "1.01": a shield with a Low alternative. "17.3": an unshield with
 // no Low alternative. "0.002268462": an unshield that matches a swap output.
-const NO = ["no", "no", "no"],
-  UNSURE = ["unsure", "no", "no"];
+// Answers are the four link toggles; a scenario without answers leaves all four
+// at "?", the default since R1.6.
+const NO = ["no", "no", "no", "no"],
+  UNSURE = ["unsure", "no", "no", "no"];
 const scenarios = [
   { action: "shield", amount: "1", constraint: "fixed" },
   { action: "shield", amount: "1.01", constraint: "fixed" },
   { action: "shield", amount: "1.01", constraint: "flexible" },
   { action: "shield", amount: "0.0731", constraint: "flexible" },
+  { action: "unshield", amount: "0.0731", constraint: "fixed" },
   { action: "unshield", amount: "0.0731", constraint: "fixed", answers: NO },
   { action: "unshield", amount: "0.0731", constraint: "flexible", answers: NO, balance: "100" },
   { action: "unshield", amount: "0.0731", constraint: "fixed", answers: UNSURE, balance: "100" },
-  { action: "unshield", amount: "0.0731", constraint: "flexible", answers: ["no", "unsure", "unsure"] },
-  { action: "unshield", amount: "0.0731", constraint: "fixed", answers: ["no", "no", "yes"], balance: "100" },
+  { action: "unshield", amount: "0.0731", constraint: "flexible", answers: ["no", "unsure", "unsure", "no"] },
+  { action: "unshield", amount: "0.0731", constraint: "fixed", answers: ["no", "no", "yes", "no"], balance: "100" },
+  { action: "unshield", amount: "1", constraint: "fixed" },
   { action: "unshield", amount: "1", constraint: "fixed", answers: NO },
   { action: "unshield", amount: "1", constraint: "flexible", answers: NO, balance: "100" },
-  { action: "unshield", amount: "1", constraint: "flexible", answers: UNSURE, balance: "100" },
-  { action: "unshield", amount: "1", constraint: "fixed", answers: ["yes", "no", "no"], balance: "100" },
-  { action: "unshield", amount: "1", constraint: "flexible", answers: ["no", "yes", "unsure"], balance: "100" },
-  { action: "unshield", amount: "1", constraint: "flexible", answers: ["no", "no", "yes"], balance: "100" },
-  { action: "unshield", amount: "17.3", constraint: "flexible", answers: UNSURE, balance: "100" },
+  { action: "unshield", amount: "1", constraint: "flexible", balance: "100" },
+  { action: "unshield", amount: "1", constraint: "fixed", answers: ["yes", "no", "no", "no"], balance: "100" },
+  { action: "unshield", amount: "1", constraint: "flexible", answers: ["no", "yes", "unsure", "unsure"], balance: "100" },
+  { action: "unshield", amount: "1", constraint: "flexible", answers: ["no", "no", "yes", "no"], balance: "100" },
+  { action: "unshield", amount: "1", constraint: "flexible", answers: ["no", "no", "no", "yes"], balance: "100" },
+  { action: "unshield", amount: "17.3", constraint: "flexible", balance: "100" },
   { action: "unshield", amount: "0.002268462", constraint: "fixed", answers: NO },
+  { action: "unshield", amount: "0.002268462", constraint: "fixed", answers: ["no", "no", "no", "unsure"] },
 ];
 
 const forms = []; // { action, state, words }
@@ -303,9 +327,11 @@ const states = []; // { label, words, lines, plan, action }
       measure(action, "amount typed, fixed");
       page.choose("constraint", "flexible");
       if (action === "unshield") {
-        page.submit_();
-        measure(action, "error: no answers");
-        for (const q of ["q1", "q2", "q3"]) page.choose(q, "no");
+        // The links panel, open (UI-5). Closed again for the states below.
+        assert.equal(page.flow.openLinks(), true);
+        measure(action, "links open");
+        page.$("links").removeAttribute("open");
+        page.$("links").open = false;
         page.type("balance", "0.5");
         page.submit_();
         measure(action, "error: balance below amount");
@@ -366,6 +392,7 @@ test("the scenario matrix reaches every first-level variant", () => {
       reached.add(`${action} ${r.alternatives.length ? "alternatives" : "no alternative"}`);
     if (a.status === "attention" && r.constraint === "fixed") reached.add(`${action} fixed`);
     if (a.unknown?.length) reached.add(`${action} unsure`);
+    if (a.addressLinks?.unknown?.includes("swapGasPayer")) reached.add(`${action} swap gas payer unknown`);
     if (r.remainingBalance != null) reached.add("balance");
     if (action === "unshield" && a.status !== "not-checked" && r.remainingBalance == null) reached.add("no balance");
     if (plan.sets.length) reached.add("matches");
@@ -375,22 +402,31 @@ test("the scenario matrix reaches every first-level variant", () => {
     "shield clear", "shield attention", "shield alternatives", "shield no alternative", "shield fixed",
     "unshield clear", "unshield attention", "unshield incomplete", "unshield unsure",
     "unshield alternatives", "unshield no alternative", "unshield fixed",
-    "unshield address-link address-reuse", "unshield rest-of-deposit", "unshield amount-stands-out",
+    "unshield address-link address-reuse", "unshield address-link swap-gas-payer", "unshield swap gas payer unknown",
+    "unshield rest-of-deposit", "unshield amount-stands-out",
     "shield not-checked", "unshield not-checked", "shield stale-data", "unshield incomplete-window",
     "balance", "no balance", "matches", "swap output",
   ].filter((v) => !reached.has(v));
   assert.deepEqual(missing, [], `variants not reached: ${missing.join(", ")}. Reached: ${[...reached].join(", ")}`);
-  assert.ok([...reached].some((v) => /address-link (?!address-reuse)/.test(v)), "a transfer-history link is reached");
+  assert.ok(reached.has("unshield address-link past-transfer"), "a transfer-history link is reached");
 });
 
 test("form words stay within the UI-R4 caps", () => {
   assert.ok(FORM_CAP <= 122 && SHIELD_FORM_CAP <= 122, "the form caps never go above the 28 Oct 2026 design");
-  assert.ok(FORM_TARGET <= FORM_CAP);
+  // R1.6 brought the default unshield form under FORM_TARGET; the error and
+  // links-open states are still above it.
+  assert.ok(LINKS_FORM_CAP <= 122, "the open links panel stays within the 28 Oct 2026 design");
   const capOf = ({ action, state }) =>
-    action === "shield" ? SHIELD_FORM_CAP : state.startsWith("error") ? FORM_ERROR_CAP : FORM_CAP;
+    action === "shield"
+      ? SHIELD_FORM_CAP
+      : state.startsWith("error")
+        ? FORM_ERROR_CAP
+        : state === "links open"
+          ? LINKS_FORM_CAP
+          : FORM_CAP;
   assert.equal(forms.length, 14, "every form state was measured");
   const errorWords = [...errorLines].reduce((n, l) => n + words(l).length, 0);
-  assert.ok(errorLines.size >= 5, `five different errors were shown: ${[...errorLines].join(" | ")}`);
+  assert.ok(errorLines.size >= 4, `four different errors were shown: ${[...errorLines].join(" | ")}`);
   assert.ok(
     errorWords <= ERROR_COPY_CAP,
     `The form errors have ${errorWords} words, cap ${ERROR_COPY_CAP}.\n${[...errorLines].join("\n")}`,
@@ -522,12 +558,10 @@ test("a change during the scan drops the check in flight: no stale result, focus
       ["token other", () => page.choose("token", "other")],
       ["token usdc", () => page.choose("token", "usdc")],
       ["amount typed", () => page.type("amount", "2")],
-      ["answer changed", () => page.choose("q1", "unsure")],
     ];
     for (const [name, change] of changes) {
       page.choose("token", "weth");
       page.type("amount", "1");
-      for (const q of ["q1", "q2", "q3"]) page.choose(q, "no");
       page.$("announcement").textContent = "";
       const worker = page.hold();
       page.fire(page.$("flow-form"), "submit");
@@ -544,6 +578,186 @@ test("a change during the scan drops the check in flight: no stale result, focus
       assert.equal(page.$("announcement").textContent, "", `${name}: no announcement`);
       assert.equal(focused, 0, `${name}: focus does not move`);
     }
+  } finally {
+    page.close();
+  }
+});
+
+// --- Links panel (UI-5, UI-R2, UI-R7, UI-R9) -----------------------------------
+const settled = (page, what) =>
+  wait(() => !page.$("result").hidden && page.$("result").getAttribute("aria-busy") === "false", what);
+
+test("UI-R2: the check runs with only token and amount, and the result is incomplete in amber", async () => {
+  const page = await openPage();
+  try {
+    page.type("amount", "0.0731");
+    page.fire(page.$("flow-form"), "submit");
+    await settled(page, "the result with no answers");
+    assert.ok(page.$("notice").hidden);
+    assert.ok(![...page.$("flow-form").querySelectorAll(".error")].some((e) => !e.hidden), "no error shows");
+    const message = page.sent.findLast((m) => m.type === "plan");
+    assert.deepEqual(message.context, {
+      addressReuse: undefined,
+      pastTransfer: undefined,
+      restOfDeposit: undefined,
+      swapGasPayer: undefined,
+    });
+    const a = page.plan().result.assessment;
+    assert.equal(a.status, "incomplete");
+    assert.equal(a.addressLinks.state, "unknown");
+    assert.equal(a.band, "Low", "the amount alone scores Low on this pool");
+    // UI-R7: unknown never looks safe. Incomplete takes the amber state.
+    assert.equal(page.$("band").textContent, "Incomplete");
+    assert.equal(page.$("result").dataset.band, "Medium");
+    const css = readFileSync(join(dist, "style.css"), "utf8");
+    assert.match(css, /\.result\[data-band="Medium"\]\s*\{\s*--band:\s*var\(--medium\)/);
+    assert.match(css, /--medium:\s*#e8c36a/, "Medium is the amber token");
+    assert.match(page.$("result-copy").textContent, /Some answers are not sure\./);
+    assert.doesNotMatch(page.$("result-copy").textContent, /No issue found/);
+  } finally {
+    page.close();
+  }
+});
+
+test("each toggle maps to its context value, the swap gas payer included", async () => {
+  const page = await openPage();
+  try {
+    page.type("amount", "1");
+    const cases = [
+      [["yes", "yes", "yes", "yes"], { addressReuse: true, pastTransfer: true, restOfDeposit: true, swapGasPayer: "public-wallet" }],
+      [["no", "no", "no", "no"], { addressReuse: false, pastTransfer: false, restOfDeposit: false, swapGasPayer: "broadcaster" }],
+      [["unsure", "unsure", "unsure", "unsure"], { addressReuse: undefined, pastTransfer: undefined, restOfDeposit: undefined, swapGasPayer: undefined }],
+      [["no", "unsure", "no", "yes"], { addressReuse: false, pastTransfer: undefined, restOfDeposit: false, swapGasPayer: "public-wallet" }],
+    ];
+    for (const [answers, context] of cases) {
+      page.choose("action", "unshield"); // hides any result, so the toggles below do not re-run
+      LINKS.forEach((q, i) => page.choose(q, answers[i]));
+      page.fire(page.$("flow-form"), "submit");
+      await settled(page, answers.join("/"));
+      assert.deepEqual(page.sent.findLast((m) => m.type === "plan").context, context, answers.join("/"));
+    }
+    // The engine reads the last one: the public wallet gives the address link.
+    const a = page.plan().result.assessment;
+    assert.deepEqual(a.addressLinks.reasons, ["swap-gas-payer"]);
+    assert.ok(a.score >= 90);
+    assert.match(page.$("result-copy").textContent, /A public wallet paid the swap gas\./);
+    assert.doesNotMatch(page.$("result-copy").textContent, /Use a new address/);
+  } finally {
+    page.close();
+  }
+});
+
+test("a toggle change re-runs the check in place; a reply for the old answers is dropped", async () => {
+  const page = await openPage();
+  try {
+    const heading = page.$("result-heading");
+    let focused = 0;
+    heading.focus = () => focused++;
+    page.type("amount", "1");
+    page.fire(page.$("flow-form"), "submit");
+    await settled(page, "the first result");
+    assert.equal(page.$("band").textContent, "Medium");
+    focused = 0;
+    const before = page.sent.length;
+    page.choose("addressReuse", "yes");
+    assert.equal(page.$("result").getAttribute("aria-busy"), "true", "the check runs again at once");
+    assert.equal(page.sent.length, before + 1);
+    assert.equal(page.sent.at(-1).context.addressReuse, true);
+    await settled(page, "the re-run");
+    assert.equal(page.$("band").textContent, "Critical");
+    assert.match(page.$("result-copy").textContent, /Same address as the shield\./);
+    assert.equal(focused, 0, "a re-run leaves focus in the panel");
+
+    // A change while the check is in flight: the old reply never renders.
+    const worker = page.hold();
+    page.choose("addressReuse", "no");
+    await wait(() => worker.replies() > 0, "the first reply");
+    page.choose("pastTransfer", "yes");
+    await wait(() => worker.replies() > 1, "the second reply");
+    worker.release();
+    await settled(page, "the result for the last answers");
+    assert.match(page.$("result-copy").textContent, /The addresses have a transfer history\./);
+    assert.equal(page.plan().result.assessment.addressLinks.reasons[0], "past-transfer");
+
+    // No result on screen: a toggle does not start a check.
+    page.type("amount", "2");
+    const count = page.sent.length;
+    page.choose("restOfDeposit", "no");
+    assert.equal(page.sent.length, count);
+    assert.ok(page.$("result").hidden);
+  } finally {
+    page.close();
+  }
+});
+
+test("the links panel: closed by default, after the amount, keyboard reachable, one fieldset per row, hidden for shield", async () => {
+  const page = await openPage();
+  try {
+    const links = page.$("links"),
+      summary = links.firstElementChild;
+    assert.equal(links.tagName, "DETAILS");
+    assert.ok(!links.hasAttribute("open"), "closed by default");
+    assert.equal(summary.tagName, "SUMMARY", "a native disclosure: Tab reaches it, Enter and Space open it");
+    assert.equal(summary.id, "links-toggle");
+    assert.equal(summary.textContent.trim(), "Check links");
+    assert.ok(!summary.hasAttribute("tabindex"));
+    const order = [...page.$("flow-form").querySelectorAll("*")],
+      at = (el) => order.indexOf(el);
+    assert.ok(at(page.$("amount")) < at(links), "after the amount");
+    assert.ok(at(links) < at(page.$("check-button")), "before the button");
+    const rows = [...links.querySelectorAll("fieldset")];
+    assert.equal(rows.length, 4);
+    const legends = rows.map((row) => row.querySelector("legend").textContent.trim());
+    assert.equal(new Set(legends).size, 4, "no question twice (UI-R9)");
+    rows.forEach((row, i) => {
+      assert.ok(words(legends[i]).length <= 12, `"${legends[i]}" has 12 words or fewer`);
+      const inputs = [...row.querySelectorAll("input[type=radio]")];
+      assert.deepEqual(inputs.map((input) => input.name), Array(3).fill(LINKS[i]));
+      assert.deepEqual(inputs.map((input) => input.value), ["yes", "no", "unsure"]);
+      assert.deepEqual(inputs.map((input) => input.closest("label").textContent.trim()), ["Yes", "No", "?"]);
+      assert.equal(inputs[2].getAttribute("aria-label"), "Not sure", '"?" has a spoken name');
+      assert.deepEqual([...row.querySelectorAll("input:checked")].map((input) => input.value), ["unsure"], '"?" is the default');
+    });
+    assert.equal(page.flow.openLinks(), true);
+    assert.ok(links.hasAttribute("open"), "openLinks() opens it in place (R1.7 calls it from the pip)");
+    page.choose("action", "shield");
+    assert.ok(page.$("unshield-options").hidden, "hidden for shield");
+    assert.ok(links.closest("[hidden]"));
+    assert.equal(page.flow.openLinks(), false, "nothing to open for a shield");
+    page.type("amount", "1");
+    page.fire(page.$("flow-form"), "submit");
+    assert.equal(page.sent.at(-1).context, undefined, "a shield sends no link answers");
+    await settled(page, "the shield result");
+  } finally {
+    page.close();
+  }
+});
+
+test("a double submit runs one scan loop, and the result stops it", async () => {
+  // A fake frame clock: queued callbacks run only when tick() is called.
+  const frames = new Map();
+  let next = 0;
+  const raf = {
+    request: (fn) => (frames.set(++next, fn), next),
+    cancel: (id) => frames.delete(id),
+  };
+  const loops = () => [...frames.values()].filter((fn) => fn.name === "animate").length;
+  const tick = () => {
+    const queued = [...frames];
+    frames.clear();
+    for (const [, fn] of queued) fn();
+  };
+  const page = await openPage({ motion: true, raf });
+  try {
+    page.type("amount", "1");
+    page.fire(page.$("flow-form"), "submit");
+    page.fire(page.$("flow-form"), "submit"); // double click or double Enter
+    assert.equal(loops(), 1, "one scan loop after two submits");
+    tick();
+    tick();
+    assert.equal(loops(), 1, "still one loop after a few frames");
+    await settled(page, "the result");
+    assert.equal(loops(), 0, "no scan sweep over the settled result");
   } finally {
     page.close();
   }

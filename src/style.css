@@ -176,6 +176,29 @@ header {
 .choices + .hint {
   margin-top: 10px;
 }
+/* Links panel (UI-5): optional, closed by default, opens in place. */
+.links {
+  border: 1px solid var(--edge);
+  border-radius: 2px;
+  padding: 2px 16px;
+  margin: 0 0 24px;
+}
+.links summary {
+  font-size: var(--fs-small);
+}
+.links[open] summary {
+  margin-bottom: 8px;
+}
+.link-row {
+  margin-bottom: 20px;
+}
+.link-row legend {
+  font-size: var(--fs-small);
+  margin-bottom: 8px;
+}
+.link-row .choice span {
+  min-height: 44px;
+}
 .balance-label {
   display: block;
   margin: 8px 0 10px;
@@ -549,12 +572,7 @@ form {
 }
 /* Active step: soft blink until the user finishes it. */
 .step:has(#amount:placeholder-shown) .step-number,
-.step:has(#amount[aria-invalid="true"]) .step-number,
-.step:has(#amount:not(:placeholder-shown)):not(:has([aria-invalid="true"]))
-  ~ #questions:not(
-    :has([name="q1"]:checked):has([name="q2"]:checked):has([name="q3"]:checked)
-  )
-  .step-number {
+.step:has(#amount[aria-invalid="true"]) .step-number {
   opacity: 1;
   color: var(--signal);
   border-color: var(--signal);
@@ -563,10 +581,6 @@ form {
 /* Completed steps settle and dim. */
 .step:has([name="action"]:checked) .step-number,
 .step:has(#amount:not(:placeholder-shown)):not(:has([aria-invalid="true"]))
-  .step-number,
-#questions:has([name="q1"]:checked):has([name="q2"]:checked):has(
-    [name="q3"]:checked
-  )
   .step-number {
   opacity: 0.55;
   color: var(--inset);
