@@ -11,7 +11,12 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The first run after a new pool is added reads that pool's whole 180-day
+    # window (bootstrap): about as much as the census, which took about 10
+    # minutes on 10 Nov. The limit leaves room for slow public fallback RPCs.
+    # That read has a 30-minute budget: past it, or on any failure, the new
+    # pool is left out of the run and the published pools still update.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -32,14 +37,16 @@ jobs:
         id: snapshot
         shell: bash
         run: |
-          git add data/deposits.csv data/reshields.csv public/data/railgun-eth.bin public/data/manifest.json
+          # The manifest and the files of every pool in it (WETH, USDT, USDC).
+          files=$(node scripts/snapshot-files.mjs)
+          git add -- $files
           if git diff --cached --quiet; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git commit -m 'Update confirmed RAILGUN ETH deposits'
+          git commit -m 'Update confirmed RAILGUN ETH, USDT and USDC deposits'
           git push
           echo 'changed=true' >> "$GITHUB_OUTPUT"
       # Commits made with GITHUB_TOKEN do not trigger other Actions workflows.

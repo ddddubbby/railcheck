@@ -39,6 +39,14 @@ test("production build emits metadata and excludes secrets from its source ZIP",
       "RPC_URL=https://secret.invalid/private-key\n",
     );
     writeFileSync(join(directory, "data/validation.json"), "{}\n");
+    // R3.2: a manifest with a `pools` map and a stablecoin pool file. The
+    // build reads the top level only and copies every pool file.
+    const manifestPath = join(directory, "public/data/manifest.json");
+    const withPools = JSON.parse(readFileSync(manifestPath, "utf8"));
+    withPools.pools = { usdt: { version: 3, file: "railgun-usdt.bin", count: 0 } };
+    writeFileSync(manifestPath, JSON.stringify(withPools, null, 2) + "\n");
+    const usdtPool = Buffer.from("EXCK\x03\0\0\0\0\0\0\0\0\0\0\0", "latin1");
+    writeFileSync(join(directory, "public/data/railgun-usdt.bin"), usdtPool);
     const run = spawnSync(process.execPath, ["scripts/build.mjs"], {
       cwd: directory,
       env: {
@@ -49,6 +57,8 @@ test("production build emits metadata and excludes secrets from its source ZIP",
       encoding: "utf8",
     });
     assert.equal(run.status, 0, run.stderr);
+    assert.deepEqual(readFileSync(join(directory, "dist/data/railgun-usdt.bin")), usdtPool);
+    assert.deepEqual(JSON.parse(readFileSync(join(directory, "dist/data/manifest.json"), "utf8")).pools, withPools.pools);
     const html = readFileSync(join(directory, "dist/index.html"), "utf8");
     assert.match(
       html,
