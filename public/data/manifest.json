@@ -4,208 +4,32 @@
   "token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
   "chainId": 1,
   "file": "railgun-eth.bin",
-  "sha256": "8f239e10f34df0eded28f8bc446de0da1b9c39a889a4e7d96b30269dddb2e273",
-  "size": 172636,
-  "count": 10154,
-  "publicCount": 9896,
+  "sha256": "17287eeff50486f210c1b86c1f07f946451aca463f1ba44e94ebf00808f2e17c",
+  "size": 172992,
+  "count": 10175,
+  "publicCount": 9917,
   "reshieldCount": 258,
-  "firstDepositTime": 1778834171,
-  "lastDepositTime": 1794369323,
-  "dataTime": 1794369923,
+  "firstDepositTime": 1778844803,
+  "lastDepositTime": 1794387539,
+  "dataTime": 1794388547,
   "firstBlock": 24847460,
-  "lastBlock": 26389178,
-  "lastBlockHash": "0xdfc5dfe8533fbd3149ac5e42b4ba0929c0d4eed5e3e906723ebd55077b57027a",
+  "lastBlock": 26390721,
+  "lastBlockHash": "0x27523e25ec3e3c2f1e0cc13248101ded7a183b969962469aa2fa491567730061",
   "confirmations": 64,
-  "buildTime": "2026-11-11T04:18:37.507Z",
+  "buildTime": "2026-11-11T09:28:48.760Z",
   "source": "Ethereum mainnet RAILGUN Shield events, WETH only; reshields (swap outputs: transactions with Nullified events) are marked and can raise a score, never lower it.",
-  "windowStart": 1778817923,
-  "windowEnd": 1794369923,
+  "windowStart": 1778836547,
+  "windowEnd": 1794388547,
   "grouping": "none",
   "activity": {
     "version": 1,
     "chainId": 1,
     "token": "WETH",
-    "fromTime": 1794110723,
-    "dataTime": 1794369923,
-    "lastBlock": 26389178,
-    "lastBlockHash": "0xdfc5dfe8533fbd3149ac5e42b4ba0929c0d4eed5e3e906723ebd55077b57027a",
+    "fromTime": 1794129347,
+    "dataTime": 1794388547,
+    "lastBlock": 26390721,
+    "lastBlockHash": "0x27523e25ec3e3c2f1e0cc13248101ded7a183b969962469aa2fa491567730061",
     "withdrawals": [
-      {
-        "time": 1794110771,
-        "amountWei": "48485982672683228"
-      },
-      {
-        "time": 1794111371,
-        "amountWei": "83025915000000000"
-      },
-      {
-        "time": 1794111407,
-        "amountWei": "45878305693641434"
-      },
-      {
-        "time": 1794112007,
-        "amountWei": "43354342500000000"
-      },
-      {
-        "time": 1794112079,
-        "amountWei": "997500000000000"
-      },
-      {
-        "time": 1794112127,
-        "amountWei": "51863628758162859"
-      },
-      {
-        "time": 1794112307,
-        "amountWei": "299250000000000"
-      },
-      {
-        "time": 1794112895,
-        "amountWei": "50412659086817405"
-      },
-      {
-        "time": 1794113591,
-        "amountWei": "48508630858791241"
-      },
-      {
-        "time": 1794113663,
-        "amountWei": "16302788171909429"
-      },
-      {
-        "time": 1794113663,
-        "amountWei": "299250000000000"
-      },
-      {
-        "time": 1794114191,
-        "amountWei": "299250000000000"
-      },
-      {
-        "time": 1794114191,
-        "amountWei": "49543431443977133"
-      },
-      {
-        "time": 1794114431,
-        "amountWei": "4631556684548956"
-      },
-      {
-        "time": 1794114791,
-        "amountWei": "48175271038215137"
-      },
-      {
-        "time": 1794116183,
-        "amountWei": "52302867211964730"
-      },
-      {
-        "time": 1794116915,
-        "amountWei": "51220440679520431"
-      },
-      {
-        "time": 1794117407,
-        "amountWei": "5006508460999299088"
-      },
-      {
-        "time": 1794117419,
-        "amountWei": "53703505573172932"
-      },
-      {
-        "time": 1794117995,
-        "amountWei": "39930310149365467"
-      },
-      {
-        "time": 1794118595,
-        "amountWei": "42597279345724367"
-      },
-      {
-        "time": 1794119219,
-        "amountWei": "40111388903656581"
-      },
-      {
-        "time": 1794119435,
-        "amountWei": "19625826492358927"
-      },
-      {
-        "time": 1794119675,
-        "amountWei": "45134999710770292"
-      },
-      {
-        "time": 1794120095,
-        "amountWei": "48869155194801357"
-      },
-      {
-        "time": 1794120563,
-        "amountWei": "1346780933177087"
-      },
-      {
-        "time": 1794120755,
-        "amountWei": "45171875359052634"
-      },
-      {
-        "time": 1794121115,
-        "amountWei": "46152000000000000"
-      },
-      {
-        "time": 1794121511,
-        "amountWei": "48758304637644081"
-      },
-      {
-        "time": 1794122087,
-        "amountWei": "43725004288532514"
-      },
-      {
-        "time": 1794122771,
-        "amountWei": "49016765225895991"
-      },
-      {
-        "time": 1794122771,
-        "amountWei": "2972550000000000"
-      },
-      {
-        "time": 1794123347,
-        "amountWei": "43480142003575379"
-      },
-      {
-        "time": 1794123503,
-        "amountWei": "2693407426540112"
-      },
-      {
-        "time": 1794123767,
-        "amountWei": "39047780926607540"
-      },
-      {
-        "time": 1794124787,
-        "amountWei": "48578059025579992"
-      },
-      {
-        "time": 1794125567,
-        "amountWei": "40716463964279887"
-      },
-      {
-        "time": 1794126347,
-        "amountWei": "41252843663922371"
-      },
-      {
-        "time": 1794126455,
-        "amountWei": "4987500000000000"
-      },
-      {
-        "time": 1794126767,
-        "amountWei": "51784635474806538"
-      },
-      {
-        "time": 1794127343,
-        "amountWei": "46839390151015605"
-      },
-      {
-        "time": 1794128123,
-        "amountWei": "49086094726186637"
-      },
-      {
-        "time": 1794128699,
-        "amountWei": "51369782031047536"
-      },
-      {
-        "time": 1794129275,
-        "amountWei": "54183811691013474"
-      },
       {
         "time": 1794129707,
         "amountWei": "20000000000000000"
@@ -2881,31 +2705,190 @@
       {
         "time": 1794369767,
         "amountWei": "28698491078616572"
+      },
+      {
+        "time": 1794370247,
+        "amountWei": "28703030905690849"
+      },
+      {
+        "time": 1794370871,
+        "amountWei": "21649713797034024"
+      },
+      {
+        "time": 1794371567,
+        "amountWei": "21381075907351531"
+      },
+      {
+        "time": 1794372083,
+        "amountWei": "1454021227595874637"
+      },
+      {
+        "time": 1794372203,
+        "amountWei": "23803806337208916"
+      },
+      {
+        "time": 1794372623,
+        "amountWei": "23756901854640459"
+      },
+      {
+        "time": 1794373319,
+        "amountWei": "27349466106013591"
+      },
+      {
+        "time": 1794374039,
+        "amountWei": "26530125250193538"
+      },
+      {
+        "time": 1794374615,
+        "amountWei": "24626273751674216"
+      },
+      {
+        "time": 1794375395,
+        "amountWei": "23806576725670605"
+      },
+      {
+        "time": 1794376055,
+        "amountWei": "24794319485198463"
+      },
+      {
+        "time": 1794376199,
+        "amountWei": "3926751261712141405"
+      },
+      {
+        "time": 1794376499,
+        "amountWei": "27772936953234615"
+      },
+      {
+        "time": 1794376595,
+        "amountWei": "29287000000000000"
+      },
+      {
+        "time": 1794377099,
+        "amountWei": "27399540884533867"
+      },
+      {
+        "time": 1794377699,
+        "amountWei": "29566384332446250"
+      },
+      {
+        "time": 1794378143,
+        "amountWei": "29830275726816417"
+      },
+      {
+        "time": 1794378911,
+        "amountWei": "24986634321279027"
+      },
+      {
+        "time": 1794379691,
+        "amountWei": "27830407313949094"
+      },
+      {
+        "time": 1794379787,
+        "amountWei": "179550000000000000"
+      },
+      {
+        "time": 1794379919,
+        "amountWei": "239305948140383977"
+      },
+      {
+        "time": 1794380207,
+        "amountWei": "27452204536222865"
+      },
+      {
+        "time": 1794380939,
+        "amountWei": "28832816430241116"
+      },
+      {
+        "time": 1794381419,
+        "amountWei": "24643799522022067"
+      },
+      {
+        "time": 1794382055,
+        "amountWei": "23999803447970942"
+      },
+      {
+        "time": 1794382583,
+        "amountWei": "27467808215198325"
+      },
+      {
+        "time": 1794383279,
+        "amountWei": "25568752854587247"
+      },
+      {
+        "time": 1794383519,
+        "amountWei": "299250000000000000"
+      },
+      {
+        "time": 1794383795,
+        "amountWei": "27956869853153542"
+      },
+      {
+        "time": 1794384239,
+        "amountWei": "25718841671073956"
+      },
+      {
+        "time": 1794384659,
+        "amountWei": "74218522070592407"
+      },
+      {
+        "time": 1794384731,
+        "amountWei": "300000000000000"
+      },
+      {
+        "time": 1794384767,
+        "amountWei": "2031820659757537"
+      },
+      {
+        "time": 1794384959,
+        "amountWei": "4350902495152363"
+      },
+      {
+        "time": 1794385271,
+        "amountWei": "698250000000000000"
+      },
+      {
+        "time": 1794385487,
+        "amountWei": "26508069186552799"
+      },
+      {
+        "time": 1794386255,
+        "amountWei": "23774123690286076"
+      },
+      {
+        "time": 1794387335,
+        "amountWei": "28502499273809120"
+      },
+      {
+        "time": 1794387779,
+        "amountWei": "26627542233958816"
+      },
+      {
+        "time": 1794388007,
+        "amountWei": "5236977151229712"
       }
     ]
   },
   "metrics": {
-    "publicShieldsAdded": 77,
-    "reshieldsAdded": 1,
+    "publicShieldsAdded": 23,
+    "reshieldsAdded": 0,
     "reshieldsFromBlock": 25085365,
     "reshieldHistoryComplete": true,
     "unshieldsByToken3d": {
-      "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": 713,
-      "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 113,
-      "0xdac17f958d2ee523a2206206994597c13d831ec7": 135,
-      "0xcbb7c0000ab88b473b1f5afd9ef808440eed33bf": 2,
-      "0x6b175474e89094c44da98b954eedeac495271d0f": 23,
+      "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": 709,
+      "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 112,
+      "0xdac17f958d2ee523a2206206994597c13d831ec7": 142,
       "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599": 4,
+      "0x6b175474e89094c44da98b954eedeac495271d0f": 22,
       "0x12d9fe4c9494dc363c6290bfdbb2bd9ed6358c13": 1,
       "0xe76c6c83af64e4c60245d8c7de953df673a7a33d": 1
     },
     "multiNoteShields": {
-      "weth": 2,
-      "usdt": 1,
-      "usdc": 2
+      "weth": 0,
+      "usdt": 0,
+      "usdc": 0
     }
   },
-  "activitySha256": "aa5e7dc73794ebca9aec8adeda9f3012f6341c7fb62f446242e967fdfbcc1448",
+  "activitySha256": "b1022db627eb1de12b12935a877202a3b457e28cdf5fea4bacda1b0adf524824",
   "pools": {
     "usdt": {
       "version": 3,
@@ -2916,55 +2899,31 @@
       "decimals": 6,
       "unitDecimals": 6,
       "file": "railgun-usdt.bin",
-      "sha256": "7424f8655bbc5da18fcd4160bd099d2a2ae2cdc8ea5862f64f7b65e1a9519ce1",
-      "size": 95456,
-      "count": 5614,
-      "publicCount": 5461,
-      "reshieldCount": 153,
+      "sha256": "b20b2cd14bec29c258a163f1e5d3c24e9e32a70d9b3ce4803efd8ed8d5e5cee3",
+      "size": 95524,
+      "count": 5618,
+      "publicCount": 5464,
+      "reshieldCount": 154,
       "firstDepositTime": 1778836679,
-      "lastDepositTime": 1794366923,
-      "dataTime": 1794369923,
+      "lastDepositTime": 1794386003,
+      "dataTime": 1794388547,
       "firstBlock": 25098040,
-      "lastBlock": 26389178,
-      "lastBlockHash": "0xdfc5dfe8533fbd3149ac5e42b4ba0929c0d4eed5e3e906723ebd55077b57027a",
+      "lastBlock": 26390721,
+      "lastBlockHash": "0x27523e25ec3e3c2f1e0cc13248101ded7a183b969962469aa2fa491567730061",
       "confirmations": 64,
-      "windowStart": 1778817923,
-      "windowEnd": 1794369923,
+      "windowStart": 1778836547,
+      "windowEnd": 1794388547,
       "grouping": "none",
       "reshieldHistoryComplete": true,
       "activity": {
         "version": 1,
         "chainId": 1,
         "token": "USDT",
-        "fromTime": 1794110723,
-        "dataTime": 1794369923,
-        "lastBlock": 26389178,
-        "lastBlockHash": "0xdfc5dfe8533fbd3149ac5e42b4ba0929c0d4eed5e3e906723ebd55077b57027a",
+        "fromTime": 1794129347,
+        "dataTime": 1794388547,
+        "lastBlock": 26390721,
+        "lastBlockHash": "0x27523e25ec3e3c2f1e0cc13248101ded7a183b969962469aa2fa491567730061",
         "withdrawals": [
-          {
-            "time": 1794115751,
-            "amountWei": "2362967"
-          },
-          {
-            "time": 1794119219,
-            "amountWei": "1001301692"
-          },
-          {
-            "time": 1794120407,
-            "amountWei": "1001301692"
-          },
-          {
-            "time": 1794121547,
-            "amountWei": "500650846"
-          },
-          {
-            "time": 1794125831,
-            "amountWei": "39900000000"
-          },
-          {
-            "time": 1794125903,
-            "amountWei": "39900000000"
-          },
           {
             "time": 1794131087,
             "amountWei": "9975000"
@@ -3480,10 +3439,62 @@
           {
             "time": 1794350003,
             "amountWei": "125294769"
+          },
+          {
+            "time": 1794372839,
+            "amountWei": "148421928507"
+          },
+          {
+            "time": 1794373067,
+            "amountWei": "129050765995"
+          },
+          {
+            "time": 1794379571,
+            "amountWei": "29526000000"
+          },
+          {
+            "time": 1794379607,
+            "amountWei": "2500000000"
+          },
+          {
+            "time": 1794383399,
+            "amountWei": "10000000"
+          },
+          {
+            "time": 1794383675,
+            "amountWei": "40000000000"
+          },
+          {
+            "time": 1794384827,
+            "amountWei": "199500000"
+          },
+          {
+            "time": 1794385487,
+            "amountWei": "39900000000"
+          },
+          {
+            "time": 1794386783,
+            "amountWei": "39900000000"
+          },
+          {
+            "time": 1794387191,
+            "amountWei": "9975000"
+          },
+          {
+            "time": 1794387215,
+            "amountWei": "19950000000"
+          },
+          {
+            "time": 1794387767,
+            "amountWei": "20000000"
+          },
+          {
+            "time": 1794388331,
+            "amountWei": "4009950000"
           }
         ]
       },
-      "activitySha256": "f76cc1e046ff12645684458787f4dbcc0c53aba7f64d13d78ae30d6605e5d747"
+      "activitySha256": "eb7ff8f91b71d656960fecefc8e03d06bc335f77f474c989be5ec7b1fb00d493"
     },
     "usdc": {
       "version": 3,
@@ -3494,67 +3505,31 @@
       "decimals": 6,
       "unitDecimals": 6,
       "file": "railgun-usdc.bin",
-      "sha256": "0661910091d0f3b162d96c2cac7fdf9a211a44c391e47ecb50fb6bbc0e0ecc90",
-      "size": 53668,
-      "count": 3156,
-      "publicCount": 3007,
+      "sha256": "778047795a49a6ec60f7a32000be96c9babf8613d75362f9f962227eb834b109",
+      "size": 53704,
+      "count": 3158,
+      "publicCount": 3009,
       "reshieldCount": 149,
-      "firstDepositTime": 1778835779,
-      "lastDepositTime": 1794349895,
-      "dataTime": 1794369923,
+      "firstDepositTime": 1778857823,
+      "lastDepositTime": 1794387059,
+      "dataTime": 1794388547,
       "firstBlock": 25098040,
-      "lastBlock": 26389178,
-      "lastBlockHash": "0xdfc5dfe8533fbd3149ac5e42b4ba0929c0d4eed5e3e906723ebd55077b57027a",
+      "lastBlock": 26390721,
+      "lastBlockHash": "0x27523e25ec3e3c2f1e0cc13248101ded7a183b969962469aa2fa491567730061",
       "confirmations": 64,
-      "windowStart": 1778817923,
-      "windowEnd": 1794369923,
+      "windowStart": 1778836547,
+      "windowEnd": 1794388547,
       "grouping": "none",
       "reshieldHistoryComplete": true,
       "activity": {
         "version": 1,
         "chainId": 1,
         "token": "USDC",
-        "fromTime": 1794110723,
-        "dataTime": 1794369923,
-        "lastBlock": 26389178,
-        "lastBlockHash": "0xdfc5dfe8533fbd3149ac5e42b4ba0929c0d4eed5e3e906723ebd55077b57027a",
+        "fromTime": 1794129347,
+        "dataTime": 1794388547,
+        "lastBlock": 26390721,
+        "lastBlockHash": "0x27523e25ec3e3c2f1e0cc13248101ded7a183b969962469aa2fa491567730061",
         "withdrawals": [
-          {
-            "time": 1794111095,
-            "amountWei": "425540000"
-          },
-          {
-            "time": 1794113039,
-            "amountWei": "212770000"
-          },
-          {
-            "time": 1794113495,
-            "amountWei": "283690000"
-          },
-          {
-            "time": 1794114407,
-            "amountWei": "9975000000"
-          },
-          {
-            "time": 1794115631,
-            "amountWei": "354610000"
-          },
-          {
-            "time": 1794115655,
-            "amountWei": "1500000000"
-          },
-          {
-            "time": 1794117959,
-            "amountWei": "900000000"
-          },
-          {
-            "time": 1794124235,
-            "amountWei": "10100000"
-          },
-          {
-            "time": 1794124463,
-            "amountWei": "289900000"
-          },
           {
             "time": 1794130979,
             "amountWei": "1700000000"
@@ -3970,10 +3945,42 @@
           {
             "time": 1794367451,
             "amountWei": "74812500000"
+          },
+          {
+            "time": 1794371891,
+            "amountWei": "29390595991"
+          },
+          {
+            "time": 1794379163,
+            "amountWei": "598500000"
+          },
+          {
+            "time": 1794379811,
+            "amountWei": "8179500000"
+          },
+          {
+            "time": 1794384647,
+            "amountWei": "219450000"
+          },
+          {
+            "time": 1794386411,
+            "amountWei": "52303255038"
+          },
+          {
+            "time": 1794386855,
+            "amountWei": "997000000"
+          },
+          {
+            "time": 1794387059,
+            "amountWei": "297000000"
+          },
+          {
+            "time": 1794388007,
+            "amountWei": "198100295"
           }
         ]
       },
-      "activitySha256": "df0b318f3542029918e7beb22a5fcc9ad9ecec09bb3c91e2d4208545cb8c641f"
+      "activitySha256": "5ef07cec06b3b8fac513d36e3f84268fe0831de9730a6345c9b3e78b3f6b170c"
     }
   }
 }
