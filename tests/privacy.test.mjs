@@ -4,28 +4,55 @@ import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { webcrypto } from "node:crypto";
 import { decode } from "../lib/pool/index.mjs";
-import { parseAmount, check, prepare, inspect } from "../lib/engine/index.mjs";
+import { parseAmount, check, prepare, inspect, ETH_ASSET, USDT_ASSET, USDC_ASSET } from "../lib/engine/index.mjs";
 import { plan } from "../lib/engine/advice.mjs";
 import { toJSON } from "../lib/format.mjs";
-test("worker loads 2 common data files and makes no network request when checking", async () => {
-  const calls = [],
-    messages = [],
-    self = { postMessage: (v) => messages.push(v) };
+
+// The fixture pool, as the WETH pool and as each stable pool: the worker checks
+// the hash and size of every file against its own manifest entry.
+const raw = readFileSync("tests/fixtures/pool.bin");
+const buffer = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
+function fixture() {
   const manifest = JSON.parse(readFileSync("tests/fixtures/manifest.json"));
   delete manifest.demo;
   manifest.chainId = 1;
-  manifest.token = "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2";
-  const raw = readFileSync("tests/fixtures/pool.bin");
-  const buffer = raw.buffer.slice(
-    raw.byteOffset,
-    raw.byteOffset + raw.byteLength,
-  );
+  manifest.token = ETH_ASSET.address;
+  const stable = (asset, file) => ({
+    version: manifest.version,
+    pool: `railgun-ethereum-${asset.symbol.toLowerCase()}`,
+    chainId: 1,
+    token: asset.address,
+    symbol: asset.symbol,
+    decimals: 6,
+    unitDecimals: 6,
+    file,
+    sha256: manifest.sha256,
+    size: manifest.size,
+    count: manifest.count,
+    dataTime: manifest.dataTime,
+    confirmations: 64,
+    windowStart: manifest.dataTime - 180 * 86400,
+    windowEnd: manifest.dataTime,
+    grouping: "none",
+    reshieldHistoryComplete: true,
+  });
+  manifest.pools = {
+    usdt: stable(USDT_ASSET, "railgun-usdt.bin"),
+    usdc: stable(USDC_ASSET, "railgun-usdc.bin"),
+  };
+  return manifest;
+}
+// Runs public/worker.mjs with a fetch that records every request.
+async function worker(manifest) {
+  const calls = [],
+    messages = [],
+    self = { postMessage: (v) => messages.push(v) };
   const fetch = async (url, options) => {
     calls.push({ url, options });
     return {
       ok: true,
       json: async () => manifest,
-      arrayBuffer: async () => buffer,
+      arrayBuffer: async () => buffer.slice(0),
     };
   };
   runInNewContext(
@@ -41,37 +68,134 @@ test("worker loads 2 common data files and makes no network request when checkin
       inspect,
       plan,
       toJSON,
-      Uint8Array,
-      Array,
+      ETH_ASSET,
+      USDT_ASSET,
+      USDC_ASSET,
       Date: class extends Date {
         static now() {
           return (manifest.dataTime + 1) * 1000;
         }
       },
-      Error,
     },
   );
   await self.onmessage({ data: { type: "load" } });
-  assert.equal(messages.at(-1).type, "ready");
-  assert.equal(calls.length, 2);
-  calls.length = 0;
-  await self.onmessage({
-    data: { type: "check", amount: "3.502749352", q1: "no", q2: "no", q3: "no", id: 1 },
+  const send = async (data) => {
+    await self.onmessage({ data });
+    return messages.at(-1);
+  };
+  return { calls, messages, send, urls: () => calls.map((c) => c.url).sort() };
+}
+// VAL-7: the only requests are the manifest and the allowed pool files, all at
+// load, whatever token is checked later.
+const ALLOWED = ["./data/manifest.json", "./data/railgun-eth.bin", "./data/railgun-usdc.bin", "./data/railgun-usdt.bin"];
+
+test("worker loads the manifest and every pool file at load, and makes no network request when checking", async () => {
+  const w = await worker(fixture());
+  assert.equal(w.messages.at(-1).type, "ready");
+  assert.deepEqual({ ...w.messages.at(-1).covered }, { weth: true, usdt: true, usdc: true });
+  assert.deepEqual(w.urls(), ALLOWED);
+  assert.ok(w.calls.every((c) => c.options.credentials === "omit"), "no request sends credentials");
+  w.calls.length = 0;
+  assert.equal((await w.send({ type: "check", amount: "3.502749352", q1: "no", q2: "no", q3: "no", id: 1 })).type, "result");
+  assert.equal((await w.send({ type: "plan", action: "shield", amount: "1.0731", constraint: "flexible", id: 2 })).type, "plan");
+  const unshield = await w.send({
+    type: "plan", action: "unshield", amount: "3.502749352", constraint: "flexible",
+    context: { addressReuse: false, pastTransfer: false }, balance: "5", id: 3,
   });
-  assert.equal(messages.at(-1).type, "result");
-  await self.onmessage({
-    data: { type: "plan", action: "shield", amount: "1.0731", constraint: "flexible", id: 2 },
-  });
-  assert.equal(messages.at(-1).type, "plan");
-  await self.onmessage({
-    data: {
-      type: "plan", action: "unshield", amount: "3.502749352", constraint: "flexible",
-      context: { addressReuse: false, pastTransfer: false }, balance: "5", id: 3,
+  assert.equal(unshield.type, "plan");
+  assert.equal(unshield.result.action, "unshield");
+  for (const token of ["usdt", "usdc"]) {
+    const reply = await w.send({ type: "plan", token, action: "unshield", amount: "120.5", constraint: "fixed", context: {}, id: 4 });
+    assert.equal(reply.type, "plan", `${token}: ${reply.message}`);
+    assert.equal(reply.token, token);
+    assert.equal(reply.result.assessment.asset.symbol, token.toUpperCase());
+  }
+  assert.equal(w.calls.length, 0);
+});
+
+test("worker never fetches a pool file name outside the allow-list", async () => {
+  const manifest = fixture();
+  manifest.pools.usdt.file = "../railgun-usdt.bin";
+  // A known file name under another pool's id is ignored too.
+  manifest.pools.usdc.file = "railgun-eth.bin";
+  manifest.pools.dai = { ...manifest.pools.usdc, file: "railgun-dai.bin" };
+  const w = await worker(manifest);
+  assert.equal(w.messages.at(-1).type, "ready");
+  assert.deepEqual({ ...w.messages.at(-1).covered }, { weth: true, usdt: false, usdc: false });
+  assert.deepEqual(w.urls(), ["./data/manifest.json", "./data/railgun-eth.bin"]);
+  const reply = await w.send({ type: "plan", token: "usdt", action: "shield", amount: "1", constraint: "fixed", id: 1 });
+  assert.equal(reply.type, "error");
+});
+
+test("a stable pool that is missing, incomplete or fails its checks is not covered, and WETH still loads", async () => {
+  for (const [name, change] of [
+    ["missing", (m) => delete m.pools.usdt],
+    ["short window", (m) => (m.pools.usdt.windowStart = m.dataTime - 90 * 86400)],
+    ["no reshield-history flag", (m) => delete m.pools.usdt.reshieldHistoryComplete],
+    ["unconfirmed", (m) => (m.pools.usdt.confirmations = 12)],
+    ["other token", (m) => (m.pools.usdt.token = USDC_ASSET.address)],
+    ["other decimals", (m) => (m.pools.usdt.decimals = 18)],
+    ["demo", (m) => (m.pools.usdt.demo = true)],
+    ["hash", (m) => (m.pools.usdt.sha256 = "0".repeat(64))],
+  ]) {
+    const manifest = fixture();
+    change(manifest);
+    const w = await worker(manifest);
+    assert.equal(w.messages.at(-1).type, "ready", name);
+    assert.deepEqual({ ...w.messages.at(-1).covered }, { weth: true, usdt: false, usdc: true }, name);
+    // A published pool is fetched even when it fails a check, so the requests
+    // do not depend on the checks either.
+    assert.deepEqual(w.urls(), name === "missing" ? ALLOWED.filter((u) => !u.includes("usdt")) : ALLOWED, name);
+  }
+});
+
+test("a WETH result is the same as before the stable pools, byte for byte", async () => {
+  const manifest = fixture(),
+    w = await worker(manifest),
+    now = manifest.dataTime + 1;
+  const deposits = decode(buffer.slice(0), manifest);
+  // The pool exactly as the WETH-only worker prepared it.
+  const pool = prepare(deposits, {
+    now,
+    snapshot: {
+      pool: "ethereum-weth",
+      chainId: 1,
+      token: manifest.token,
+      block: manifest.lastBlock,
+      time: manifest.dataTime,
+      windowStart: manifest.windowStart ?? manifest.dataTime - 180 * 86400,
+      grouping: manifest.grouping ?? "none",
+      reshieldHistoryComplete: manifest.metrics?.reshieldHistoryComplete,
     },
   });
-  assert.equal(messages.at(-1).type, "plan");
-  assert.equal(messages.at(-1).result.action, "unshield");
-  assert.equal(calls.length, 0);
+  for (const [id, message] of [
+    [1, { action: "unshield", amount: "3.502749352", constraint: "flexible", context: { addressReuse: false }, balance: "5" }],
+    [2, { action: "shield", amount: "1.0731", constraint: "flexible" }],
+  ]) {
+    const reply = await w.send({ type: "plan", ...message, id });
+    const expected = plan(pool, {
+      ...message,
+      amount: parseAmount(message.amount),
+      balance: message.balance ? parseAmount(message.balance) : null,
+    });
+    assert.equal(JSON.stringify(reply.result), JSON.stringify(toJSON(expected)));
+    assert.equal(reply.token, "weth");
+  }
+  const result = await w.send({ type: "check", amount: "3.502749352", q1: "no", q2: "no", q3: "no", id: 3 });
+  assert.equal(
+    JSON.stringify(result.result),
+    JSON.stringify(check(deposits, parseAmount("3.502749352"), "no", "no", "no", now)),
+  );
+});
+
+test("the worker parses a stable amount at 6 decimals and rejects a 7th", async () => {
+  const w = await worker(fixture());
+  const ok = await w.send({ type: "plan", token: "usdt", action: "shield", amount: "120.123456", constraint: "fixed", id: 1 });
+  assert.equal(ok.type, "plan", ok.message);
+  assert.equal(ok.result.assessment.amounts.shieldInput, "120123456");
+  const bad = await w.send({ type: "plan", token: "usdt", action: "shield", amount: "120.1234567", constraint: "fixed", id: 2 });
+  assert.equal(bad.type, "error");
+  assert.match(bad.message, /decimal point/);
 });
 test("client source has no persistence, telemetry or input URL writes", () => {
   const source = [

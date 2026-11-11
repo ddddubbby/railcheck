@@ -1,16 +1,22 @@
 // One flow for shield and unshield: assess, optionally adjust, review.
 // Amounts and answers stay in memory: no storage, no URL, no network after load.
-import { parseAmount, formatWei } from "./lib/engine/index.mjs";
+import { parseAmount, formatWei, ETH_ASSET, USDT_ASSET, USDC_ASSET } from "./lib/engine/index.mjs";
 
-// Token chips: the one source for the chip row. Adding a token, or changing the
-// second asset (USDC or USDT is still an open decision), is a one-line change
-// here. `covered: false` shows the dash and turns the form off; `soon` adds the
-// "Soon" tag. The first entry is the default.
+// Token chips: the one source for the chip row. Adding a token is a one-line
+// change here. `covered: false` shows the dash and turns the form off. A token
+// with `pool: true` starts as not covered and turns covered when the worker
+// reports its pool loaded, verified and complete (a full 180-day window). The
+// first entry is the default.
 export const TOKENS = [
-  { id: "weth", label: "WETH", covered: true },
-  { id: "usdc", label: "USDC", covered: false, soon: true },
+  { id: "weth", label: "WETH", asset: ETH_ASSET, covered: true },
+  { id: "usdt", label: "USDT", asset: USDT_ASSET, covered: false, pool: true },
+  { id: "usdc", label: "USDC", asset: USDC_ASSET, covered: false, pool: true },
   { id: "other", label: "Other", covered: false },
 ];
+// Per page load: which tokens are covered (stable pools after "ready") and the
+// shields in each pool file.
+const covered = Object.fromEntries(TOKENS.map((t) => [t.id, t.covered])),
+  counts = {};
 
 // The form stays hidden until this module runs. Without JavaScript, the noscript
 // message replaces it.
@@ -38,7 +44,11 @@ const LINKS = {
   restOfDeposit: { yes: true, no: false },
   swapGasPayer: { yes: "public-wallet", no: "broadcaster" },
 };
-const eth = (wei) => formatWei(BigInt(wei));
+// The asset of the form: the last token picked that has one. Amounts are typed,
+// parsed and shown in its decimals, with its word (ETH for WETH, else the symbol).
+let asset = ETH_ASSET;
+const unit = () => asset.unit ?? asset.symbol;
+const eth = (wei) => `${formatWei(BigInt(wei), undefined, asset)} ${unit()}`;
 const date = (t) =>
   new Date(t * 1000).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -69,10 +79,16 @@ function load() {
       $("data-date").textContent = "Data updated " + date(data.manifest.dataTime);
       // File rows, swap outputs included: lit ids are positions in the file.
       pool = data.manifest.count;
+      Object.assign(counts, data.counts);
+      for (const t of TOKENS) if (t.pool) covered[t.id] = !!data.covered?.[t.id];
+      chips(true);
+      coverage();
       notice();
     }
     if (data.type === "error" && data.id === undefined) return notice(data.message);
     if (data.id !== request) return;
+    // Never one token's result under another token's chip.
+    if (data.token && data.token !== token().id) return;
     if (data.type === "plan") {
       // Keep the scan on screen briefly so the result does not flash.
       // aria-busy stays true until render puts the result on the page.
@@ -94,38 +110,76 @@ function load() {
   worker.postMessage({ type: "load" });
 }
 
-// One radio per token. Built before the form shows, so nothing moves.
-function chips() {
+// One radio per token. Built before the form shows. When the pools load, the
+// chips are updated in place: the tick and the dash take the same room, so
+// nothing moves.
+function chips(update = false) {
+  if (update) {
+    for (const chip of $("token-chips").children) face(chip, TOKENS.find((t) => t.id === chip.querySelector("input").value));
+    return;
+  }
   $("token-chips").replaceChildren(
     ...TOKENS.map((token, i) => {
       const chip = el("label", undefined, "chip"),
-        input = el("input"),
-        face = el("span");
-      chip.dataset.covered = token.covered;
+        input = el("input");
       Object.assign(input, { type: "radio", name: "token", value: token.id });
       if (!i) input.setAttribute("checked", "");
-      if (!token.covered) {
-        input.setAttribute("aria-describedby", "token-not-covered");
-        const dash = el("span", undefined, "dash");
-        dash.setAttribute("aria-hidden", "true");
-        face.append(dash);
-      }
-      face.append(token.label);
-      if (token.soon) face.append(el("span", "Soon", "soon"));
-      chip.append(input, face);
+      chip.append(input, el("span"));
+      face(chip, token);
       return chip;
     }),
   );
+}
+function face(chip, token) {
+  const input = chip.querySelector("input"),
+    box = chip.querySelector("span"),
+    on = covered[token.id];
+  chip.dataset.covered = on;
+  if (on) input.removeAttribute("aria-describedby");
+  else
+    input.setAttribute("aria-describedby", token.pool ? "token-incomplete" : "token-not-covered");
+  box.replaceChildren();
+  if (!on) {
+    const dash = el("span", undefined, "dash");
+    dash.setAttribute("aria-hidden", "true");
+    box.append(dash);
+  }
+  box.append(token.label);
 }
 const token = () => TOKENS.find((t) => t.id === value("token")) || TOKENS[0];
 // Fail early: a token that is not covered turns the form off before any typing.
 // The typed amount stays, so switching back to a covered token goes on from it.
 function coverage() {
-  const off = !token().covered;
+  const t = token(),
+    off = !covered[t.id];
   form.dataset.covered = !off;
   $("amount").disabled = off;
   $("check-button").disabled = off;
   for (const step of form.querySelectorAll(".step")) step.toggleAttribute("inert", off);
+  if (t.asset && t.asset !== asset) {
+    asset = t.asset;
+    for (const span of form.querySelectorAll(".amount-wrap > span")) span.textContent = unit();
+    reparse();
+  }
+}
+// A new token has other decimals: the typed amounts are read again. An amount
+// the new token cannot take shows its error at once, without moving focus.
+function reparse() {
+  for (const id of ["amount", "balance"]) {
+    const input = $(id),
+      error = $(id + "-error"),
+      text = input.value.trim();
+    try {
+      if (text) parseAmount(text, asset);
+      error.hidden = true;
+      input.removeAttribute("aria-invalid");
+    } catch (e) {
+      error.textContent = e.message;
+      error.hidden = false;
+      input.setAttribute("aria-invalid", "true");
+    }
+  }
+  fee();
 }
 // The form follows the action: shield has no address questions.
 function sync() {
@@ -147,12 +201,12 @@ function sync() {
 function fee() {
   const hint = $("fee-hint");
   try {
-    const wei = parseAmount($("amount").value),
+    const wei = parseAmount($("amount").value, asset),
       after = wei - (wei * 25n) / 10000n;
     hint.textContent =
       action() === "shield"
-        ? `The pool records ${formatWei(after)} ETH after the 0.25% shield fee.`
-        : `The recipient gets ${formatWei(after)} ETH after the 0.25% unshield fee.`;
+        ? `The pool records ${eth(after)} after the 0.25% shield fee.`
+        : `The recipient gets ${eth(after)} after the 0.25% unshield fee.`;
     hint.hidden = false;
   } catch {
     hint.hidden = true;
@@ -166,7 +220,7 @@ function field(id, optional = false, emptyMessage = "Enter an amount.") {
   try {
     if (!(optional && !text)) {
       if (!text) throw Error(emptyMessage);
-      parseAmount(text);
+      parseAmount(text, asset);
     }
     error.hidden = true;
     input.removeAttribute("aria-invalid");
@@ -184,15 +238,15 @@ let quiet = false;
 function submit(event, options = {}) {
   event?.preventDefault();
   quiet = !!options.quiet;
-  if (!token().covered) return;
+  if (!covered[token().id]) return;
   const verb = action() === "shield" ? "shield" : "unshield",
     amount = field("amount", false, `Enter the amount that you will ${verb}.`);
   if (amount === null) return;
-  const message = { type: "plan", action: action(), amount, constraint: value("constraint") };
+  const message = { type: "plan", token: token().id, action: action(), amount, constraint: value("constraint") };
   if (message.action === "unshield") {
     const balance = field("balance", true);
     if (balance === null) return;
-    if (balance && parseAmount(balance) < parseAmount(amount)) {
+    if (balance && parseAmount(balance, asset) < parseAmount(amount, asset)) {
       const input = $("balance"),
         error = $("balance-error");
       error.textContent = "The balance is less than the amount.";
@@ -210,6 +264,8 @@ function submit(event, options = {}) {
     return notice("The pool data did not load. Check your connection, then try again.");
   request++;
   last = message;
+  // The crowd of the picked pool: lit ids are positions in its file.
+  pool = counts[message.token] ?? pool;
   $("check-button").setAttribute("aria-busy", "true");
   start = performance.now();
   panel.hidden = false;
@@ -400,7 +456,7 @@ function render({ result: r, sets, lit, count, manifest }) {
     else if (r.alternatives.length)
       for (const alt of r.alternatives) {
         const amount = a.action === "shield" ? alt.amounts.shieldInput : alt.amounts.unshieldAmount,
-          use = el("button", `Use ${eth(amount)} ETH · scores ${alt.score}`, "secondary");
+          use = el("button", `Use ${eth(amount)} · scores ${alt.score}`, "secondary");
         use.type = "button";
         use.onclick = () => choose(amount);
         parts.push(use);
@@ -409,11 +465,11 @@ function render({ result: r, sets, lit, count, manifest }) {
     else {
       // The range searched follows from "down to 70%": it waits in the fold.
       parts.push(el("p", "No Low amount found."));
-      notes.push(el("p", `No Low amount between ${eth(r.searched.from)} and ${eth(r.searched.to)} ETH.`));
+      notes.push(el("p", `No Low amount between ${formatWei(BigInt(r.searched.from), undefined, asset)} and ${eth(r.searched.to)}.`));
     }
   }
   if (a.action === "unshield" && r.remainingBalance !== null)
-    parts.push(el("p", `Balance left: ${eth(r.remainingBalance)} ETH.`, "hint"));
+    parts.push(el("p", `Balance left: ${eth(r.remainingBalance)}.`, "hint"));
   // The table comes first, so its explanation leads the fold.
   if (lastSets.length)
     notes.unshift(
@@ -444,8 +500,8 @@ function render({ result: r, sets, lit, count, manifest }) {
     el(
       "p",
       a.action === "shield"
-        ? `The pool records ${eth(a.amounts.poolCredit)} ETH.`
-        : `The recipient gets ${eth(a.amounts.recipientAmount)} ETH.`,
+        ? `The pool records ${eth(a.amounts.poolCredit)}.`
+        : `The recipient gets ${eth(a.amounts.recipientAmount)}.`,
     ),
   );
   if (a.action === "shield")
@@ -510,9 +566,13 @@ function matchTable(sets) {
     head = table.createTHead(),
     row = head.insertRow(),
     body = table.createTBody(),
-    sent = (nano) => {
-      const gross = (BigInt(nano) * 10n ** 9n * 10000n) / 9975n;
-      return formatWei(((gross + 500000000000n) / 1000000000000n) * 1000000000000n);
+    // A pool amount (nano-ETH for WETH, base units for USDT and USDC) before the
+    // shield fee, to 6 decimals.
+    sent = (stored) => {
+      const scale = 10n ** BigInt(asset.decimals - asset.unitDecimals),
+        round = 10n ** BigInt(Math.max(0, asset.decimals - 6)),
+        gross = (BigInt(stored) * scale * 10000n) / 9975n;
+      return eth(((gross + round / 2n) / round) * round);
     };
   head.className = "sr-only";
   for (const name of ["Matching shields sent", "Dates (UTC)"]) {
@@ -528,7 +588,7 @@ function matchTable(sets) {
     set.deposits.forEach((d, i) => {
       const leg = el("span", undefined, "match-leg");
       if (i) leg.append(el("span", "+ ", "match-plus"));
-      leg.append(`${sent(d.amount)} ETH`, kindTag(d.kind === "reshield" ? "swap-output" : "shield"));
+      leg.append(sent(d.amount), kindTag(d.kind === "reshield" ? "swap-output" : "shield"));
       amounts.append(leg);
       dates.append(el("span", date(d.time), "match-leg"));
     });
@@ -551,7 +611,7 @@ window.addEventListener("resize", () => {
 // Choosing an alternative updates the same result. A smaller unshield amount is
 // not the rest of a deposit, so a "yes" there becomes "no"; other answers stay.
 function choose(amount) {
-  $("amount").value = formatWei(BigInt(amount));
+  $("amount").value = formatWei(BigInt(amount), undefined, asset);
   if (action() === "unshield" && value("restOfDeposit") === "yes")
     form.querySelector("input[name=restOfDeposit][value=no]").checked = true;
   fee();

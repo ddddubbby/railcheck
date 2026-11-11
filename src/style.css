@@ -855,7 +855,8 @@ legend {
    so its width and the row do not move when the token changes. */
 .chip[data-covered="true"] > span::before {
   content: "";
-  width: 9px;
+  box-sizing: border-box;
+  width: 10px;
   height: 5px;
   border-left: 1.5px solid var(--signal);
   border-bottom: 1.5px solid var(--signal);
@@ -870,6 +871,9 @@ legend {
   border-color: var(--muted);
   background: rgba(255, 255, 255, 0.08);
 }
+/* The dash and the tick take the same 10px at any pixel ratio (the tick's
+   border is inside its box), so a chip keeps its width when its pool loads and
+   it turns covered. */
 .chip .dash {
   width: 10px;
   height: 2px;
@@ -878,16 +882,6 @@ legend {
 }
 .chip[data-covered="false"] input:checked + span .dash {
   background: var(--muted);
-}
-.soon {
-  padding: 2px 6px;
-  border: 1px solid var(--line);
-  border-radius: 2px;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 0.6875rem;
-  font-weight: 400;
-  line-height: 1.2;
 }
 .chain-tag {
   display: inline-flex;
@@ -906,8 +900,8 @@ legend {
   border-radius: 50%;
   background: var(--signal);
 }
-/* Phones: chips and the chain tag stay on one row down to 360px. Narrower, the
-   tag wraps to a second row, the same for every token. */
+/* Phones: the four chips stay on one row down to 360px. Below about 420px the
+   chain tag wraps to a second row, the same for every token and state. */
 @media (max-width: 479px) {
   .token-row,
   .chips {
@@ -922,13 +916,6 @@ legend {
   }
   .token-row {
     padding-top: 6px;
-  }
-  /* The "Soon" tag sits on the chip's top edge, as a badge. */
-  .soon {
-    position: absolute;
-    top: -9px;
-    right: 8px;
-    background: var(--bg);
   }
 }
 /* Not covered: the rest of the form dims and does not respond. */
