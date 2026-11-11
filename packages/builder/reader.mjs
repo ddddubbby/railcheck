@@ -103,10 +103,16 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
       for (const [t, amountWei] of row.notes)
         kept.push(tag({ block: row.block, amountWei, hash: row.hash, kind: "reshield" }, t));
     } else {
+      // notes: how many notes of the token the transaction shielded (a count, OD-2).
       const sums = new Map();
-      for (const [t, value] of row.notes) sums.set(t, (sums.get(t) ?? 0n) + value);
-      for (const [t, amountWei] of sums)
-        kept.push(tag({ block: row.block, amountWei, hash: row.hash, kind: "public" }, t));
+      for (const [t, value] of row.notes) {
+        const sum = sums.get(t) ?? { amountWei: 0n, notes: 0 };
+        sum.amountWei += value;
+        sum.notes += 1;
+        sums.set(t, sum);
+      }
+      for (const [t, { amountWei, notes }] of sums)
+        kept.push(tag({ block: row.block, amountWei, hash: row.hash, kind: "public", notes }, t));
     }
   }
   return {

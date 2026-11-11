@@ -1,52 +1,15 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { writeFileSync } from "node:fs";
 import { performance } from "node:perf_hooks";
-import { decode } from "../lib/pool/index.mjs";
 import { amountScore, check, parseAmount, NANO } from "../lib/engine/index.mjs";
-import { parseCsv } from "./lib/data.mjs";
-const manifest = JSON.parse(readFileSync("public/data/manifest.json"));
-const raw = readFileSync("public/data/railgun-eth.bin");
-if (
-  manifest.demo ||
-  manifest.chainId !== 1 ||
-  manifest.token !== "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2" ||
-  manifest.confirmations < 64
-)
-  throw Error("Live data provenance is missing.");
-if (
-  createHash("sha256").update(raw).digest("hex") !== manifest.sha256 ||
-  raw.length !== manifest.size
-)
-  throw Error("Pool hash or size differs from manifest.");
-const pool = decode(
-  raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength),
-  manifest,
-);
+import { validatePools } from "./lib/validate.mjs";
+// Every pool in the manifest: provenance, hash, size, decode, activity hash and
+// the CSV files that reproduce it (scripts/lib/validate.mjs).
+const { manifest, pools } = validatePools();
+const pool = pools.weth;
 const ageHours = (Date.now() / 1000 - manifest.dataTime) / 3600;
-// The pool is the two CSV files merged by time, public shields first at a tie.
-const kinded = (path, kind) =>
-  existsSync(path) ? parseCsv(readFileSync(path, "utf8")).map((d) => ({ ...d, kind })) : [];
-const rows = [
-  ...kinded("data/deposits.csv", "public"),
-  ...(manifest.version === 3 ? kinded("data/reshields.csv", "reshield") : []),
-];
-const recent = rows
-  .filter(
-    (d) =>
-      d.time >= manifest.dataTime - 180 * 86400 && d.time <= manifest.dataTime,
-  )
-  .sort((a, b) => a.time - b.time || (a.kind === "reshield") - (b.kind === "reshield"));
-if (
-  recent.length !== pool.length ||
-  recent.some(
-    (r, i) =>
-      Number((r.amountWei + 500000000n) / NANO) !== pool[i].amount ||
-      r.time !== pool[i].time ||
-      (manifest.version === 3 && r.kind !== pool[i].kind),
-  )
-)
-  throw Error("CSV does not reproduce the pool.");
-// Full-withdrawal checks sample public shields: reshields are not scored yet.
+// The scoring checks below use the WETH engine amounts, so they run on the
+// WETH pool only.
+// Full-withdrawal checks sample public shields, the deposits a withdrawal can match.
 const publicPool = pool.filter((d) => d.kind !== "reshield");
 let seed = 0x4558434b;
 const random = () =>
@@ -90,6 +53,12 @@ const report = {
   saferAmountPercent: risky ? (safer / risky) * 100 : 100,
   riskyFullWithdrawals: risky,
   amountCheckP95Ms: timing[379],
+  pools: Object.fromEntries(
+    Object.entries(pools).map(([id, deposits]) => [
+      id,
+      { count: deposits.length, sha256: id === "weth" ? manifest.sha256 : manifest.pools[id].sha256 },
+    ]),
+  ),
   machine: process.platform,
 };
 console.log(JSON.stringify(report, null, 2));

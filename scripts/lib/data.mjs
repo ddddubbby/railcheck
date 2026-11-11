@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { poolSize, NO_GROUP } from "../../lib/pool/index.mjs";
+import { TOKENS, toUnits } from "./tokens.mjs";
 const isReshield = (d) => d.kind === "reshield";
 export const WINDOW_SECONDS = 180 * 86400;
 export function parseCsv(text) {
@@ -42,6 +43,7 @@ export function encodePool(
     firstBlock,
     lastBlockHash,
     builtAt = new Date().toISOString(),
+    asset = TOKENS[0],
   },
 ) {
   // Public shields before reshields at the same time, so a reader that merges
@@ -62,10 +64,11 @@ export function encodePool(
   bytes.writeUInt32LE(version, 4);
   bytes.writeUInt32LE(n, 8);
   recent.forEach((d, i) => {
-    const nano = (d.amountWei + 500000000n) / 1000000000n;
-    if (nano > BigInt(Number.MAX_SAFE_INTEGER) || nano < 0n)
+    // Stored unit: 10^-unitDecimals tokens (nano-ETH for WETH, 1e-6 for USDT and USDC).
+    const units = toUnits(d.amountWei, asset);
+    if (units > BigInt(Number.MAX_SAFE_INTEGER) || units < 0n)
       throw Error("Deposit exceeds the EXCK v1 amount range.");
-    bytes.writeDoubleLE(Number(nano), 16 + i * 8);
+    bytes.writeDoubleLE(Number(units), 16 + i * 8);
     bytes.writeUInt32LE(d.time, 16 + n * 8 + i * 4);
     if (version >= 2) {
       const group = grouped && !isReshield(d) ? d.group : NO_GROUP;
@@ -77,10 +80,10 @@ export function encodePool(
   });
   const manifest = {
     version,
-    pool: "railgun-ethereum",
-    token: "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+    pool: asset.pool,
+    token: asset.contract,
     chainId: 1,
-    file: "railgun-eth.bin",
+    file: asset.file,
     sha256: createHash("sha256").update(bytes).digest("hex"),
     size: bytes.length,
     count: n,
@@ -95,8 +98,8 @@ export function encodePool(
     confirmations: 64,
     buildTime: builtAt,
     source: reshieldCount
-      ? "Ethereum mainnet RAILGUN Shield events, WETH only; reshields (transactions with Nullified events) are marked and not scored yet."
-      : "Ethereum mainnet RAILGUN Shield events, WETH only; excludes transactions with Nullified events.",
+      ? `Ethereum mainnet RAILGUN Shield events, ${asset.symbol} only; reshields (swap outputs: transactions with Nullified events) are marked and can raise a score, never lower it.`
+      : `Ethereum mainnet RAILGUN Shield events, ${asset.symbol} only; excludes transactions with Nullified events.`,
   };
   // The data contract: the window and the grouping rule travel with the pool.
   manifest.windowStart = dataTime - WINDOW_SECONDS;

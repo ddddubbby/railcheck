@@ -1,0 +1,240 @@
+{
+  "bootstrap": {
+    "manifest": {
+      "version": 3,
+      "pool": "railgun-ethereum",
+      "token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "chainId": 1,
+      "file": "railgun-eth.bin",
+      "sha256": "de5e8b88f7bdb96cf5a49aa954b2fa80d1e6e3d18f02b0dbc783f105db97fbd6",
+      "size": 1292,
+      "count": 75,
+      "publicCount": 56,
+      "reshieldCount": 19,
+      "firstDepositTime": 1774528064,
+      "lastDepositTime": 1789883804,
+      "dataTime": 1790000000,
+      "firstBlock": 24704000,
+      "lastBlock": 26000000,
+      "lastBlockHash": "0x000000000000000000000000000000000000000000000000000000060db88400",
+      "confirmations": 64,
+      "buildTime": "2026-09-21T14:26:40.000Z",
+      "source": "Ethereum mainnet RAILGUN Shield events, WETH only; reshields (transactions with Nullified events) are marked and not scored yet.",
+      "windowStart": 1774448000,
+      "windowEnd": 1790000000,
+      "grouping": "none",
+      "activity": {
+        "version": 1,
+        "chainId": 1,
+        "token": "WETH",
+        "fromTime": 1789740800,
+        "dataTime": 1790000000,
+        "lastBlock": 26000000,
+        "lastBlockHash": "0x000000000000000000000000000000000000000000000000000000060db88400",
+        "withdrawals": [
+          {
+            "time": 1789740800,
+            "amountWei": "701000000575877174"
+          },
+          {
+            "time": 1789756688,
+            "amountWei": "2482000000113846274"
+          },
+          {
+            "time": 1789772576,
+            "amountWei": "1934000000656011123"
+          },
+          {
+            "time": 1789788464,
+            "amountWei": "2563000000590541964"
+          },
+          {
+            "time": 1789804352,
+            "amountWei": "1950000000852056794"
+          },
+          {
+            "time": 1789820240,
+            "amountWei": "172000000407949486"
+          },
+          {
+            "time": 1789836128,
+            "amountWei": "1661000000307217922"
+          },
+          {
+            "time": 1789852016,
+            "amountWei": "1494000000291792107"
+          },
+          {
+            "time": 1789867904,
+            "amountWei": "1131000000970362305"
+          },
+          {
+            "time": 1789883792,
+            "amountWei": "2579000000554707156"
+          },
+          {
+            "time": 1789899680,
+            "amountWei": "2006000000158521805"
+          },
+          {
+            "time": 1789915568,
+            "amountWei": "781000000658746024"
+          },
+          {
+            "time": 1789931456,
+            "amountWei": "957000000119392343"
+          },
+          {
+            "time": 1789947344,
+            "amountWei": "193000000777874166"
+          },
+          {
+            "time": 1789963232,
+            "amountWei": "1112000000593833904"
+          },
+          {
+            "time": 1789979120,
+            "amountWei": "2091000000360471097"
+          },
+          {
+            "time": 1789995008,
+            "amountWei": "2498000000378370538"
+          }
+        ]
+      },
+      "metrics": {
+        "publicShieldsAdded": 56,
+        "reshieldsAdded": 19,
+        "reshieldsFromBlock": 24704000,
+        "reshieldHistoryComplete": true,
+        "unshieldsByToken3d": {
+          "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": 17,
+          "0xdac17f958d2ee523a2206206994597c13d831ec7": 17,
+          "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 16,
+          "0x6b175474e89094c44da98b954eedeac495271d0f": 16
+        }
+      },
+      "activitySha256": "955cbaaf6c9d3d8f4f0f5e1bedf2642c963a5f07298c09cd36a3a44fdfc56fcb"
+    },
+    "bin": "de5e8b88f7bdb96cf5a49aa954b2fa80d1e6e3d18f02b0dbc783f105db97fbd6",
+    "deposits": "d9afda59799dd87496a864845a9393faa6f46c91255493c0c3606f60f23fe32c",
+    "reshields": "9789d9184d7a37a21c272117b47dd91ed07dd48477ee8f6ed2eaab0a58ee6d12"
+  },
+  "incremental": {
+    "manifest": {
+      "version": 3,
+      "pool": "railgun-ethereum",
+      "token": "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
+      "chainId": 1,
+      "file": "railgun-eth.bin",
+      "sha256": "88036a8a94d852464b728c5237e21cbe40d4d1c3428de9e46fa1c980303a8080",
+      "size": 1308,
+      "count": 76,
+      "publicCount": 57,
+      "reshieldCount": 19,
+      "firstDepositTime": 1774860080,
+      "lastDepositTime": 1790071880,
+      "dataTime": 1790086400,
+      "firstBlock": 24704000,
+      "lastBlock": 26007200,
+      "lastBlockHash": "0x000000000000000000000000000000000000000000000000000000060e266100",
+      "confirmations": 64,
+      "buildTime": "2026-09-22T14:26:40.000Z",
+      "source": "Ethereum mainnet RAILGUN Shield events, WETH only; reshields (transactions with Nullified events) are marked and not scored yet.",
+      "windowStart": 1774534400,
+      "windowEnd": 1790086400,
+      "grouping": "none",
+      "activity": {
+        "version": 1,
+        "chainId": 1,
+        "token": "WETH",
+        "fromTime": 1789827200,
+        "dataTime": 1790086400,
+        "lastBlock": 26007200,
+        "lastBlockHash": "0x000000000000000000000000000000000000000000000000000000060e266100",
+        "withdrawals": [
+          {
+            "time": 1789836128,
+            "amountWei": "1661000000307217922"
+          },
+          {
+            "time": 1789852016,
+            "amountWei": "1494000000291792107"
+          },
+          {
+            "time": 1789867904,
+            "amountWei": "1131000000970362305"
+          },
+          {
+            "time": 1789883792,
+            "amountWei": "2579000000554707156"
+          },
+          {
+            "time": 1789899680,
+            "amountWei": "2006000000158521805"
+          },
+          {
+            "time": 1789915568,
+            "amountWei": "781000000658746024"
+          },
+          {
+            "time": 1789931456,
+            "amountWei": "957000000119392343"
+          },
+          {
+            "time": 1789947344,
+            "amountWei": "193000000777874166"
+          },
+          {
+            "time": 1789963232,
+            "amountWei": "1112000000593833904"
+          },
+          {
+            "time": 1789979120,
+            "amountWei": "2091000000360471097"
+          },
+          {
+            "time": 1789995008,
+            "amountWei": "2498000000378370538"
+          },
+          {
+            "time": 1790010896,
+            "amountWei": "1363000000691830398"
+          },
+          {
+            "time": 1790026784,
+            "amountWei": "1478000000887690354"
+          },
+          {
+            "time": 1790042672,
+            "amountWei": "953000000456659710"
+          },
+          {
+            "time": 1790058560,
+            "amountWei": "2186000000717145525"
+          },
+          {
+            "time": 1790074448,
+            "amountWei": "2295000000301580736"
+          }
+        ]
+      },
+      "metrics": {
+        "publicShieldsAdded": 1,
+        "reshieldsAdded": 1,
+        "reshieldsFromBlock": 24704000,
+        "reshieldHistoryComplete": true,
+        "unshieldsByToken3d": {
+          "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": 17,
+          "0x6b175474e89094c44da98b954eedeac495271d0f": 17,
+          "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2": 16,
+          "0xdac17f958d2ee523a2206206994597c13d831ec7": 16
+        }
+      },
+      "activitySha256": "da7b41ad496991d95b1f093d4790148d585bbd19aaa9820f514828ac071dd235"
+    },
+    "bin": "88036a8a94d852464b728c5237e21cbe40d4d1c3428de9e46fa1c980303a8080",
+    "deposits": "14404f044200e1c1a354cd2f363d7ed7b764e4fca24af5909e47a3f6f6d5799f",
+    "reshields": "f655214fc1bdcbe15af8bf1a99e15f03a163af1d52374d22eae2df8500336b3a"
+  }
+}
