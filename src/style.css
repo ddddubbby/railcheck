@@ -913,9 +913,7 @@ legend {
   }
   .chain-tag {
     gap: 6px;
-  }
-  .token-row {
-    padding-top: 6px;
+    min-height: 0;
   }
 }
 /* Not covered: the rest of the form dims and does not respond. */

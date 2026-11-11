@@ -12,12 +12,16 @@ const POOLS = [
 ];
 const WINDOW = 180 * 86400;
 const UNLOADED = "The pool data did not load. Check your connection, then try again.";
+// How long a stable pool may take to load. A pool that takes longer is left out
+// (its chip is not covered); it never holds up WETH, which is ready first.
+const STABLE_TIMEOUT_MS = 20000;
 let manifest;
 const pools = {};
 // The checks the WETH pool has always had: provenance, file name, and (after
 // the fetch) the hash and size. A stable entry must also describe its token as
 // the engine does, carry the reshield-history flag the pipeline writes only
-// after its safety checks (VAL-5), and cover a full 180-day window.
+// after its safety checks (VAL-5), cover a full 180-day window, and come from
+// the same run as the WETH pool (one block for all, as scripts/lib/validate.mjs).
 function valid({ id, file, asset }, entry) {
   if (
     !entry ||
@@ -37,11 +41,13 @@ function valid({ id, file, asset }, entry) {
     typeof entry.reshieldHistoryComplete === "boolean" &&
     Number.isSafeInteger(entry.windowStart) &&
     Number.isSafeInteger(entry.dataTime) &&
-    entry.windowStart <= entry.dataTime - WINDOW
+    entry.windowStart <= entry.dataTime - WINDOW &&
+    entry.dataTime === manifest.dataTime &&
+    entry.lastBlock === manifest.lastBlock
   );
 }
-async function fetchPool(entry) {
-  const r = await fetch("./data/" + entry.file, { credentials: "omit" });
+async function fetchPool(entry, signal) {
+  const r = await fetch("./data/" + entry.file, signal ? { credentials: "omit", signal } : { credentials: "omit" });
   if (!r.ok) throw Error();
   const buffer = await r.arrayBuffer();
   const hash = Array.from(
@@ -73,6 +79,21 @@ function prepared(p) {
     },
   }));
 }
+// A stable pool load that stops after STABLE_TIMEOUT_MS: the request is
+// aborted, and the load fails even if a fetch ignores the signal.
+function timed(load) {
+  const controller = new AbortController();
+  let timer;
+  return Promise.race([
+    load(controller.signal),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        controller.abort();
+        reject(Error("timeout"));
+      }, STABLE_TIMEOUT_MS);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 // The pool of a request: WETH when the message names none.
 function poolOf(id = "weth") {
   const p = pools[id];
@@ -90,31 +111,36 @@ self.onmessage = async ({ data }) => {
       manifest = await m.json();
       if (!valid(POOLS[0], manifest)) throw Error();
       // Every published pool is fetched now, whatever token is picked, so the
-      // requests do not show which token is checked. A stable pool that fails
-      // its checks is left out: its chip shows "not covered", not an error.
-      const results = await Promise.allSettled(
-        POOLS.map(async (p) => {
-          const { id } = p,
-            entry = id === "weth" ? manifest : manifest.pools?.[id];
-          // Any other file name in the manifest is ignored, never fetched.
-          if (!FILE.test(entry?.file) || entry.file !== p.file) return null;
-          const deposits = await fetchPool(entry);
-          return valid(p, entry) ? { entry, deposits } : null;
-        }),
-      );
-      if (results[0].status !== "fulfilled" || !results[0].value) throw Error();
-      const covered = {};
-      POOLS.forEach((p, i) => {
-        const r = results[i];
-        covered[p.id] = r.status === "fulfilled" && !!r.value;
-        if (covered[p.id]) pools[p.id] = { ...p, ...r.value };
+      // requests do not show which token is checked. All requests start here,
+      // together. A stable pool that fails its checks, or takes longer than
+      // STABLE_TIMEOUT_MS, is left out: its chip shows "not covered", not an error.
+      const loads = POOLS.map((p) => {
+        const { id } = p,
+          entry = id === "weth" ? manifest : manifest.pools?.[id];
+        // Any other file name in the manifest is ignored, never fetched.
+        if (!FILE.test(entry?.file) || entry.file !== p.file) return Promise.resolve(null);
+        const load = async (signal) => {
+          const deposits = await fetchPool(entry, signal);
+          return valid(p, entry) ? { ...p, entry, deposits } : null;
+        };
+        return id === "weth" ? load() : timed(load).catch(() => null);
       });
-      self.postMessage({
-        type: "ready",
-        manifest,
-        covered,
-        counts: Object.fromEntries(Object.entries(pools).map(([id, p]) => [id, p.entry.count])),
+      // WETH is ready as soon as its own pool is: the stable pools follow.
+      const weth = await loads[0];
+      if (!weth) throw Error();
+      pools.weth = weth;
+      self.postMessage({ type: "ready", manifest, covered: { weth: true }, counts: { weth: weth.entry.count } });
+      const stables = await Promise.all(loads.slice(1)),
+        covered = {},
+        counts = {};
+      POOLS.slice(1).forEach((p, i) => {
+        covered[p.id] = !!stables[i];
+        if (stables[i]) {
+          pools[p.id] = stables[i];
+          counts[p.id] = stables[i].entry.count;
+        }
       });
+      self.postMessage({ type: "pools", covered, counts });
     } else if (data.type === "plan") {
       const p = poolOf(data.token),
         pool = prepared(p),

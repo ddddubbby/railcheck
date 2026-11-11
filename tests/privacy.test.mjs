@@ -17,6 +17,7 @@ function fixture() {
   delete manifest.demo;
   manifest.chainId = 1;
   manifest.token = ETH_ASSET.address;
+  manifest.lastBlock = 24000000;
   const stable = (asset, file) => ({
     version: manifest.version,
     pool: `railgun-ethereum-${asset.symbol.toLowerCase()}`,
@@ -30,6 +31,7 @@ function fixture() {
     size: manifest.size,
     count: manifest.count,
     dataTime: manifest.dataTime,
+    lastBlock: manifest.lastBlock,
     confirmations: 64,
     windowStart: manifest.dataTime - 180 * 86400,
     windowEnd: manifest.dataTime,
@@ -42,13 +44,15 @@ function fixture() {
   };
   return manifest;
 }
-// Runs public/worker.mjs with a fetch that records every request.
-async function worker(manifest) {
+// Runs public/worker.mjs with a fetch that records every request. `hang(url)`:
+// that request never answers. `fast`: the worker's timers run in 5 ms.
+async function worker(manifest, { hang = () => false, fast = false } = {}) {
   const calls = [],
     messages = [],
     self = { postMessage: (v) => messages.push(v) };
   const fetch = async (url, options) => {
     calls.push({ url, options });
+    if (hang(url)) return new Promise(() => {});
     return {
       ok: true,
       json: async () => manifest,
@@ -71,6 +75,9 @@ async function worker(manifest) {
       ETH_ASSET,
       USDT_ASSET,
       USDC_ASSET,
+      AbortController,
+      setTimeout: (fn, ms) => setTimeout(fn, fast ? 5 : ms),
+      clearTimeout,
       Date: class extends Date {
         static now() {
           return (manifest.dataTime + 1) * 1000;
@@ -83,7 +90,12 @@ async function worker(manifest) {
     await self.onmessage({ data });
     return messages.at(-1);
   };
-  return { calls, messages, send, urls: () => calls.map((c) => c.url).sort() };
+  // WETH reports "ready" first; the stable pools follow in "pools".
+  const covered = () => ({
+    ...messages.find((m) => m.type === "ready")?.covered,
+    ...messages.find((m) => m.type === "pools")?.covered,
+  });
+  return { calls, messages, send, covered, urls: () => calls.map((c) => c.url).sort() };
 }
 // VAL-7: the only requests are the manifest and the allowed pool files, all at
 // load, whatever token is checked later.
@@ -91,8 +103,8 @@ const ALLOWED = ["./data/manifest.json", "./data/railgun-eth.bin", "./data/railg
 
 test("worker loads the manifest and every pool file at load, and makes no network request when checking", async () => {
   const w = await worker(fixture());
-  assert.equal(w.messages.at(-1).type, "ready");
-  assert.deepEqual({ ...w.messages.at(-1).covered }, { weth: true, usdt: true, usdc: true });
+  assert.deepEqual(w.messages.map((m) => m.type), ["ready", "pools"]);
+  assert.deepEqual(w.covered(), { weth: true, usdt: true, usdc: true });
   assert.deepEqual(w.urls(), ALLOWED);
   assert.ok(w.calls.every((c) => c.options.credentials === "omit"), "no request sends credentials");
   w.calls.length = 0;
@@ -120,12 +132,39 @@ test("worker never fetches a pool file name outside the allow-list", async () =>
   manifest.pools.usdc.file = "railgun-eth.bin";
   manifest.pools.dai = { ...manifest.pools.usdc, file: "railgun-dai.bin" };
   const w = await worker(manifest);
-  assert.equal(w.messages.at(-1).type, "ready");
-  assert.deepEqual({ ...w.messages.at(-1).covered }, { weth: true, usdt: false, usdc: false });
+  assert.equal(w.messages[0].type, "ready");
+  assert.deepEqual(w.covered(), { weth: true, usdt: false, usdc: false });
   assert.deepEqual(w.urls(), ["./data/manifest.json", "./data/railgun-eth.bin"]);
   const reply = await w.send({ type: "plan", token: "usdt", action: "shield", amount: "1", constraint: "fixed", id: 1 });
   assert.equal(reply.type, "error");
+  // An absolute URL or a query string is not an allowed file name either.
+  for (const file of [
+    "https://example.com/railgun-usdt.bin",
+    "//example.com/railgun-usdt.bin",
+    "railgun-usdt.bin?v=1",
+    "railgun-usdt.bin#x",
+  ]) {
+    const m = fixture();
+    m.pools.usdt.file = file;
+    const v = await worker(m);
+    assert.equal(v.covered().usdt, false, file);
+    assert.deepEqual(v.urls(), ALLOWED.filter((u) => !u.includes("usdt")), file);
+  }
 });
+
+test("a stalled stable pool does not hold up WETH, and its chip is not covered", async () => {
+  const w = await worker(fixture(), { hang: (url) => url.endsWith("railgun-usdt.bin"), fast: true });
+  // Every request still starts at load, the stalled one too.
+  assert.deepEqual(w.urls(), ALLOWED);
+  assert.equal(w.messages[0].type, "ready");
+  assert.deepEqual(w.covered(), { weth: true, usdt: false, usdc: true });
+  const stalled = w.calls.find((c) => c.url.endsWith("railgun-usdt.bin"));
+  assert.equal(stalled.options.signal.aborted, true, "the stalled request is aborted");
+  assert.equal(stalled.options.credentials, "omit");
+  const reply = await w.send({ type: "plan", action: "shield", amount: "1.0731", constraint: "flexible", id: 1 });
+  assert.equal(reply.type, "plan");
+});
+
 
 test("a stable pool that is missing, incomplete or fails its checks is not covered, and WETH still loads", async () => {
   for (const [name, change] of [
@@ -137,12 +176,15 @@ test("a stable pool that is missing, incomplete or fails its checks is not cover
     ["other decimals", (m) => (m.pools.usdt.decimals = 18)],
     ["demo", (m) => (m.pools.usdt.demo = true)],
     ["hash", (m) => (m.pools.usdt.sha256 = "0".repeat(64))],
+    // Not from the same run as the WETH pool (scripts/lib/validate.mjs).
+    ["other run: dataTime", (m) => (m.pools.usdt.dataTime += 600)],
+    ["other run: lastBlock", (m) => (m.pools.usdt.lastBlock -= 1)],
   ]) {
     const manifest = fixture();
     change(manifest);
     const w = await worker(manifest);
-    assert.equal(w.messages.at(-1).type, "ready", name);
-    assert.deepEqual({ ...w.messages.at(-1).covered }, { weth: true, usdt: false, usdc: true }, name);
+    assert.equal(w.messages[0].type, "ready", name);
+    assert.deepEqual(w.covered(), { weth: true, usdt: false, usdc: true }, name);
     // A published pool is fetched even when it fails a check, so the requests
     // do not depend on the checks either.
     assert.deepEqual(w.urls(), name === "missing" ? ALLOWED.filter((u) => !u.includes("usdt")) : ALLOWED, name);

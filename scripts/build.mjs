@@ -115,7 +115,7 @@ const source = sourceURL || "https://github.com/ddddubbby/railcheck";
 // Unpublished blocks in the Markdown sources stay out of every output.
 const flags = { mcp: process.env.PUBLISH_MCP === "1" };
 // The check page copy date. Change it only when the copy of / changes.
-const HOME_UPDATED = "2026-10-17";
+const HOME_UPDATED = "2026-11-11";
 const SITE = "https://railcheck.xyz";
 const org = {
   "@type": "Organization",
@@ -143,7 +143,7 @@ const app = {
   isPartOf: { "@id": `${SITE}/#site` },
   publisher: { "@id": `${SITE}/#org` },
   featureList: [
-    "Checks a planned shield or unshield amount against RAILGUN WETH shields on Ethereum from the last 180 days",
+    "Checks a planned shield or unshield amount against RAILGUN WETH, USDT or USDC shields on Ethereum from the last 180 days",
     "Looks for sets of 1, 2 or 3 shields that add up to an unshield amount",
     "Gives a risk score from 0 to 100 and a safer amount when one exists",
     "Runs in the browser with no wallet connection and no address input",
@@ -344,7 +344,7 @@ writeFileSync(
 
 > Local privacy advice for RAILGUN shields and unshields on Ethereum. railcheck tells a user if an amount can link a shield to an unshield. It runs on the device and never asks for an address.
 
-railcheck has two parts: a web check for users, and a wallet SDK (\`@railcheck/core\`, \`@railcheck/builder\`, \`@railcheck/kohaku\`). This preview covers RAILGUN WETH on Ethereum mainnet and Sepolia.
+railcheck has two parts: a web check for users, and a wallet SDK (\`@railcheck/core\`, \`@railcheck/builder\`, \`@railcheck/kohaku\`). The web check covers RAILGUN WETH, USDT and USDC on Ethereum mainnet. The wallet SDK preview covers WETH on Ethereum mainnet and Sepolia.
 
 ## Docs
 

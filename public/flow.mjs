@@ -80,10 +80,15 @@ function load() {
       // File rows, swap outputs included: lit ids are positions in the file.
       pool = data.manifest.count;
       Object.assign(counts, data.counts);
+      notice();
+    }
+    // The stable pools, after WETH: each is covered only when it loaded,
+    // verified and complete.
+    if (data.type === "pools") {
+      Object.assign(counts, data.counts);
       for (const t of TOKENS) if (t.pool) covered[t.id] = !!data.covered?.[t.id];
       chips(true);
       coverage();
-      notice();
     }
     if (data.type === "error" && data.id === undefined) return notice(data.message);
     if (data.id !== request) return;

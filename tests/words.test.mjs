@@ -138,10 +138,17 @@ const FIXTURE = "tests/fixtures/words-pool";
 // R3.4: the USDT and USDC pools, frozen on 11 Nov 2026. The frozen manifest has
 // no `pools`, so the default page covers WETH only; `openPage(STABLE_PAGE)`
 // adds the stable entries (stables.json) and moves the clock to their data.
+// A stable pool must come from the same run as WETH (dataTime and lastBlock),
+// so that page also gives the WETH entry the stable pools' block (SAME_RUN).
 for (const file of ["manifest.json", "railgun-eth.bin", "railgun-usdt.bin", "railgun-usdc.bin"])
   cpSync(join(FIXTURE, file), join(dir, "public/data", file));
 const STABLES = JSON.parse(readFileSync(join(FIXTURE, "stables.json"), "utf8"));
-const STABLE_PAGE = { now: STABLES.usdt.dataTime + 3600, patch: { pools: STABLES } };
+const SAME_RUN = {
+  dataTime: STABLES.usdt.dataTime,
+  lastBlock: STABLES.usdt.lastBlock,
+  lastBlockHash: STABLES.usdt.lastBlockHash,
+};
+const STABLE_PAGE = { now: STABLES.usdt.dataTime + 3600, patch: { ...SAME_RUN, pools: STABLES } };
 symlinkSync(resolve("node_modules"), join(dir, "node_modules"), "dir");
 const build = spawnSync(process.execPath, ["scripts/build.mjs"], {
   cwd: dir,
@@ -189,7 +196,7 @@ const wait = async (ok, what) => {
 async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = false, raf } = {}) {
   const page = parseHTML(html);
   const { document, Event } = page;
-  let flowWorker, lastPlan, held = null;
+  let flowWorker, lastPlan, held = null, stablesLoaded = false;
   const sent = [], // every message flow.mjs sent to the worker
     fetched = []; // every URL the worker fetched
   const workerSelf = {
@@ -197,7 +204,11 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
       if (data.type === "plan") lastPlan = data;
       // While held, worker replies wait in a queue until release().
       if (held) return held.push(data);
-      setTimeout(() => flowWorker.onmessage({ data }));
+      setTimeout(() => {
+        flowWorker.onmessage({ data });
+        // The stable pools report after WETH is ready.
+        if (data.type === "pools") stablesLoaded = true;
+      });
     },
   };
   Object.assign(globalThis, {
@@ -229,7 +240,7 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
   await import(`${pathToFileURL(join(dist, "worker.mjs"))}?page=${id}`);
   const flow = await import(`${pathToFileURL(join(dist, "flow.mjs"))}?page=${id}`);
   const $ = (x) => document.getElementById(x);
-  await wait(() => $("progress").hidden, "the pool data");
+  await wait(() => $("progress").hidden && stablesLoaded, "the pool data");
   const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
   const choose = (name, value) => {
     const inputs = [...document.querySelectorAll(`input[name=${name}]`)];
@@ -461,10 +472,11 @@ const noHistory = { metrics: { ...manifest.metrics, reshieldHistoryComplete: fal
     stable.close();
   }
 }
-// The unit is a value, like the amount next to it: a line that differs only in
-// ETH, USDT or USDC is one line of copy.
+// The unit after an amount is a value, like the amount: a line that differs
+// only in the ETH, USDT or USDC after a number is one line of copy. A USDT or
+// USDC anywhere else is copy and counts.
 const copyLines = [
-  ...new Set(states.flatMap((s) => s.lines.map((l) => words(l.replace(/\b(?:USDT|USDC)\b/g, "ETH")).join(" ")).filter(Boolean))),
+  ...new Set(states.flatMap((s) => s.lines.map((l) => words(l.replace(/(\d[\d.,]*\s*)(?:USDT|USDC)\b/g, "$1ETH")).join(" ")).filter(Boolean))),
 ].sort();
 const copyWords = copyLines.reduce((n, l) => n + l.split(" ").length, 0);
 const largest = states.reduce((a, b) => (b.words.length > a.words.length ? b : a));
@@ -765,7 +777,7 @@ test("R3.4: USDT and USDC are covered when their pools load complete; an incompl
   }
   // A USDT entry with a short window: published, fetched, but not covered.
   const short = { ...STABLES, usdt: { ...STABLES.usdt, windowStart: STABLES.usdt.dataTime - 30 * 86400 } };
-  const partial = await openPage({ ...STABLE_PAGE, patch: { pools: short } });
+  const partial = await openPage({ ...STABLE_PAGE, patch: { ...STABLE_PAGE.patch, pools: short } });
   try {
     assert.deepEqual([...partial.fetched].sort(), POOL_URLS);
     const chip = chipOf(partial, "usdt");
@@ -850,7 +862,7 @@ test("R3.4: a WETH result is unchanged with the stable pools published", async (
     { action: "shield", amount: "1.01", constraint: "flexible" },
   ]) {
     const seen = [];
-    for (const options of [{ now: STABLE_PAGE.now }, STABLE_PAGE]) {
+    for (const options of [{ now: STABLE_PAGE.now, patch: SAME_RUN }, STABLE_PAGE]) {
       const page = await openPage(options);
       try {
         const { result, plan } = await page.submit(s);
