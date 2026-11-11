@@ -82,7 +82,7 @@ const words = (text) => text.split(/\s+/).filter((t) => /\p{L}/u.test(t));
 // --- Visible text ------------------------------------------------------------
 const SKIP_TAGS = new Set(["TEMPLATE", "SCRIPT", "STYLE"]);
 const HIDDEN_CLASS = /(^|\s)(sr-only|visually-hidden)(\s|$)/;
-const DATA = [/\d[\d.,]*\s*ETH\b/g, /\b\d{1,2} (Jan|Feb|Mar|Apr|May|June?|July?|Aug|Sept?|Oct|Nov|Dec) \d{4}\b/g];
+const DATA = [/\d[\d.,]*\s*(?:ETH|USDT|USDC)\b/g,/\b\d{1,2} (Jan|Feb|Mar|Apr|May|June?|July?|Aug|Sept?|Oct|Nov|Dec) \d{4}\b/g];
 const isHidden = (el) =>
   SKIP_TAGS.has(el.tagName) ||
   el.hasAttribute("hidden") ||
@@ -135,8 +135,20 @@ for (const path of ["data", "src", "public", "lib", "packages", "scripts", "pack
 // Frozen pool: the daily data update rewrites public/data, which would move the
 // scenario outcomes and the caps. The page is built and checked on this copy.
 const FIXTURE = "tests/fixtures/words-pool";
-for (const file of ["manifest.json", "railgun-eth.bin"])
+// R3.4: the USDT and USDC pools, frozen on 11 Nov 2026. The frozen manifest has
+// no `pools`, so the default page covers WETH only; `openPage(STABLE_PAGE)`
+// adds the stable entries (stables.json) and moves the clock to their data.
+// A stable pool must come from the same run as WETH (dataTime and lastBlock),
+// so that page also gives the WETH entry the stable pools' block (SAME_RUN).
+for (const file of ["manifest.json", "railgun-eth.bin", "railgun-usdt.bin", "railgun-usdc.bin"])
   cpSync(join(FIXTURE, file), join(dir, "public/data", file));
+const STABLES = JSON.parse(readFileSync(join(FIXTURE, "stables.json"), "utf8"));
+const SAME_RUN = {
+  dataTime: STABLES.usdt.dataTime,
+  lastBlock: STABLES.usdt.lastBlock,
+  lastBlockHash: STABLES.usdt.lastBlockHash,
+};
+const STABLE_PAGE = { now: STABLES.usdt.dataTime + 3600, patch: { ...SAME_RUN, pools: STABLES } };
 symlinkSync(resolve("node_modules"), join(dir, "node_modules"), "dir");
 const build = spawnSync(process.execPath, ["scripts/build.mjs"], {
   cwd: dir,
@@ -184,14 +196,19 @@ const wait = async (ok, what) => {
 async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = false, raf } = {}) {
   const page = parseHTML(html);
   const { document, Event } = page;
-  let flowWorker, lastPlan, held = null;
-  const sent = []; // every message flow.mjs sent to the worker
+  let flowWorker, lastPlan, held = null, stablesLoaded = false;
+  const sent = [], // every message flow.mjs sent to the worker
+    fetched = []; // every URL the worker fetched
   const workerSelf = {
     postMessage(data) {
       if (data.type === "plan") lastPlan = data;
       // While held, worker replies wait in a queue until release().
       if (held) return held.push(data);
-      setTimeout(() => flowWorker.onmessage({ data }));
+      setTimeout(() => {
+        flowWorker.onmessage({ data });
+        // The stable pools report after WETH is ready.
+        if (data.type === "pools") stablesLoaded = true;
+      });
     },
   };
   Object.assign(globalThis, {
@@ -210,6 +227,7 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
       }
     },
     fetch: async (url) => {
+      fetched.push(String(url));
       const file = join(dist, "data", String(url).replace(/^\.\/data\//, ""));
       const body = url.endsWith("manifest.json")
         ? JSON.stringify({ ...JSON.parse(readFileSync(file, "utf8")), ...patch })
@@ -222,7 +240,7 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
   await import(`${pathToFileURL(join(dist, "worker.mjs"))}?page=${id}`);
   const flow = await import(`${pathToFileURL(join(dist, "flow.mjs"))}?page=${id}`);
   const $ = (x) => document.getElementById(x);
-  await wait(() => $("progress").hidden, "the pool data");
+  await wait(() => $("progress").hidden && stablesLoaded, "the pool data");
   const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
   const choose = (name, value) => {
     const inputs = [...document.querySelectorAll(`input[name=${name}]`)];
@@ -240,6 +258,7 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
     document,
     flow,
     sent,
+    fetched,
     plan: () => lastPlan,
     choose,
     type,
@@ -249,6 +268,7 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
       assert.equal($("result").getAttribute("aria-busy"), "false", "the form was not sent");
     },
     async submit(s) {
+      if (s.token) choose("token", s.token);
       choose("action", s.action);
       type("amount", s.amount);
       choose("constraint", s.constraint);
@@ -284,7 +304,7 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
 // The four toggles of the links panel, in order (UI-5).
 const LINKS = ["addressReuse", "pastTransfer", "restOfDeposit", "swapGasPayer"];
 const label = (s) =>
-  `${s.action} ${s.amount} ${s.constraint}${s.answers ? " " + s.answers.join("/") : ""}${s.balance ? " balance " + s.balance : ""}`;
+  `${s.token ? s.token + " " : ""}${s.action} ${s.amount} ${s.constraint}${s.answers ? " " + s.answers.join("/") : ""}${s.balance ? " balance " + s.balance : ""}`;
 
 // --- Scenarios ---------------------------------------------------------------
 // Each line reaches a first-level variant on the frozen pool; the coverage test
@@ -423,9 +443,40 @@ const noHistory = { metrics: { ...manifest.metrics, reshieldHistoryComplete: fal
   } finally {
     partial.close();
   }
+  // R3.4: USDT, with its own pool, 6 decimals and its symbol in the copy. The
+  // form and the results are under the same caps as WETH.
+  const stable = await openPage(STABLE_PAGE);
+  try {
+    const form = stable.$("flow-form");
+    stable.choose("token", "usdt");
+    for (const action of ["unshield", "shield"]) {
+      stable.choose("action", action);
+      stable.type("amount", "1000");
+      forms.push({ action, state: "usdt amount typed", words: count(form) });
+      stable.type("amount", "1000.1234567");
+      stable.submit_();
+      forms.push({ action, state: "error: usdt 7 decimals", words: count(form) });
+      for (const error of form.querySelectorAll(".error")) if (!error.hidden) errorLines.add(words(error.textContent).join(" "));
+    }
+    for (const s of [
+      { token: "usdt", action: "shield", amount: "1000", constraint: "fixed" },
+      { token: "usdt", action: "shield", amount: "1234.56", constraint: "flexible" },
+      { token: "usdt", action: "unshield", amount: "997.5", constraint: "fixed" },
+      { token: "usdt", action: "unshield", amount: "1000", constraint: "fixed", answers: NO },
+      { token: "usdt", action: "unshield", amount: "5000", constraint: "flexible", answers: NO, balance: "10000" },
+    ]) {
+      const { result, plan } = await stable.submit(s);
+      states.push(measured(label(s), result, plan, s.action));
+    }
+  } finally {
+    stable.close();
+  }
 }
+// The unit after an amount is a value, like the amount: a line that differs
+// only in the ETH, USDT or USDC after a number is one line of copy. A USDT or
+// USDC anywhere else is copy and counts.
 const copyLines = [
-  ...new Set(states.flatMap((s) => s.lines.map((l) => words(l).join(" ")).filter(Boolean))),
+  ...new Set(states.flatMap((s) => s.lines.map((l) => words(l.replace(/(\d[\d.,]*\s*)(?:USDT|USDC)\b/g, "$1ETH")).join(" ")).filter(Boolean))),
 ].sort();
 const copyWords = copyLines.reduce((n, l) => n + l.split(" ").length, 0);
 const largest = states.reduce((a, b) => (b.words.length > a.words.length ? b : a));
@@ -483,7 +534,7 @@ test("form words stay within the UI-R4 caps", () => {
         : state === "links open"
           ? LINKS_FORM_CAP
           : FORM_CAP;
-  assert.equal(forms.length, 14, "every form state was measured");
+  assert.equal(forms.length, 18, "every form state was measured");
   const errorWords = [...errorLines].reduce((n, l) => n + words(l).length, 0);
   assert.ok(errorLines.size >= 4, `four different errors were shown: ${[...errorLines].join(" | ")}`);
   assert.ok(
@@ -596,10 +647,11 @@ test("the token chips render from the config, WETH checked, with the Ethereum ta
     assert.deepEqual(inputs.map((i) => i.value), TOKENS.map((t) => t.id));
     assert.deepEqual(
       chips.map((c) => words(visibleLines(c).join(" ")).join(" ")),
-      TOKENS.map((t) => (t.soon ? `${t.label} Soon` : t.label)),
+      TOKENS.map((t) => t.label),
     );
-    assert.deepEqual(TOKENS.map((t) => t.label), ["WETH", "USDC", "Other"]);
-    assert.equal(TOKENS.find((t) => t.id === "usdc").soon, true, "USDC shows Soon before R3");
+    assert.deepEqual(TOKENS.map((t) => t.label), ["WETH", "USDT", "USDC", "Other"]);
+    assert.ok(!page.document.querySelector("#token-chips .soon"), "no chip shows Soon since R3.4");
+    // The frozen manifest has no stable pools: their chips stay not covered.
     // linkedom keeps the checked state in the attribute, which :checked reads.
     assert.deepEqual([...page.document.querySelectorAll("input[name=token]:checked")].map((i) => i.value), ["weth"]);
     for (const [i, t] of TOKENS.entries()) {
@@ -625,7 +677,7 @@ test("a token that is not covered turns the form off before typing, and WETH tur
   try {
     const form = page.$("flow-form");
     page.type("amount", "1.5");
-    for (const token of ["other", "usdc"]) {
+    for (const token of ["other", "usdc", "usdt"]) {
       page.choose("token", token);
       assert.equal(page.$("amount").disabled, true, `${token}: the amount field is disabled`);
       assert.equal(page.$("check-button").disabled, true, `${token}: the button is disabled`);
@@ -633,8 +685,10 @@ test("a token that is not covered turns the form off before typing, and WETH tur
       for (const step of form.querySelectorAll(".step")) assert.ok(step.hasAttribute("inert"), `${token}: the steps are inert`);
       const chip = form.querySelector(`input[name=token][value=${token}]`);
       assert.ok(chip.closest(".chip").querySelector(".dash"), `${token}: the chip shows the dash`);
-      assert.equal(chip.getAttribute("aria-describedby"), "token-not-covered");
-      assert.ok(page.$("token-not-covered").classList.contains("sr-only"), "the explanation is not visible text");
+      // A stable whose pool is not published, or not complete, says so.
+      const why = token === "other" ? "token-not-covered" : "token-incomplete";
+      assert.equal(chip.getAttribute("aria-describedby"), why);
+      assert.ok(page.$(why).classList.contains("sr-only"), "the explanation is not visible text");
       page.$("flow-form").dispatchEvent(new page.document.defaultView.Event("submit", { cancelable: true }));
       assert.equal(page.$("result").getAttribute("aria-busy"), "false", `${token}: nothing is sent`);
     }
@@ -681,6 +735,144 @@ test("a change during the scan drops the check in flight: no stale result, focus
     }
   } finally {
     page.close();
+  }
+});
+
+// --- Stable pools (R3.4) --------------------------------------------------------
+const POOL_URLS = ["./data/manifest.json", "./data/railgun-eth.bin", "./data/railgun-usdc.bin", "./data/railgun-usdt.bin"];
+
+test("R3.4: every pool is fetched at load, whatever chip is picked, and nothing after", async () => {
+  for (const pick of ["weth", "usdt", "usdc", "other"]) {
+    const page = await openPage(STABLE_PAGE);
+    try {
+      assert.deepEqual([...page.fetched].sort(), POOL_URLS, `${pick}: the load requests`);
+      if (pick !== "other") {
+        await page.submit({ token: pick, action: "unshield", amount: "1000", constraint: "fixed", answers: NO });
+        assert.equal(page.plan().token, pick);
+      } else page.choose("token", pick);
+      assert.deepEqual([...page.fetched].sort(), POOL_URLS, `${pick}: no request after load`);
+    } finally {
+      page.close();
+    }
+  }
+});
+
+test("R3.4: USDT and USDC are covered when their pools load complete; an incomplete one is not", async () => {
+  const chipOf = (page, id) => page.document.querySelector(`input[name=token][value=${id}]`).closest(".chip");
+  const page = await openPage(STABLE_PAGE);
+  try {
+    for (const id of ["usdt", "usdc"]) {
+      const chip = chipOf(page, id);
+      assert.equal(chip.dataset.covered, "true", `${id}: covered`);
+      assert.ok(!chip.querySelector(".dash"), `${id}: no dash`);
+      assert.ok(!chip.querySelector("input").hasAttribute("aria-describedby"), `${id}: no not-covered note`);
+      page.choose("token", id);
+      assert.equal(page.$("amount").disabled, false, `${id}: the form is on`);
+      assert.deepEqual([...page.$("flow-form").querySelectorAll(".amount-wrap > span")].map((s) => s.textContent), [id.toUpperCase(), id.toUpperCase()]);
+    }
+    page.choose("token", "weth");
+    assert.deepEqual([...page.$("flow-form").querySelectorAll(".amount-wrap > span")].map((s) => s.textContent), ["ETH", "ETH"]);
+  } finally {
+    page.close();
+  }
+  // A USDT entry with a short window: published, fetched, but not covered.
+  const short = { ...STABLES, usdt: { ...STABLES.usdt, windowStart: STABLES.usdt.dataTime - 30 * 86400 } };
+  const partial = await openPage({ ...STABLE_PAGE, patch: { ...STABLE_PAGE.patch, pools: short } });
+  try {
+    assert.deepEqual([...partial.fetched].sort(), POOL_URLS);
+    const chip = chipOf(partial, "usdt");
+    assert.equal(chip.dataset.covered, "false");
+    assert.ok(chip.querySelector(".dash[aria-hidden=true]"), "the dash marks it");
+    assert.equal(chip.querySelector("input").getAttribute("aria-describedby"), "token-incomplete");
+    assert.equal(chipOf(partial, "usdc").dataset.covered, "true", "USDC is not affected");
+    partial.type("amount", "1000");
+    partial.choose("token", "usdt");
+    assert.equal(partial.$("flow-form").dataset.covered, "false");
+    assert.equal(partial.$("amount").disabled, true);
+    partial.fire(partial.$("flow-form"), "submit");
+    assert.equal(partial.$("result").getAttribute("aria-busy"), "false", "nothing is sent");
+    assert.ok(partial.$("notice").hidden, "no error notice");
+  } finally {
+    partial.close();
+  }
+});
+
+test("R3.4: USDT amounts use 6 decimals; a 7th is rejected, and a token change re-reads the amount", async () => {
+  const page = await openPage(STABLE_PAGE);
+  try {
+    page.choose("token", "usdt");
+    page.type("amount", "1000.123456");
+    assert.equal(page.$("fee-hint").hidden, false);
+    assert.equal(page.$("fee-hint").textContent, "The recipient gets 997.623148 USDT after the 0.25% unshield fee.");
+    page.type("amount", "1000.1234567");
+    assert.equal(page.$("fee-hint").hidden, true);
+    page.submit_();
+    assert.equal(page.$("amount-error").hidden, false);
+    assert.match(page.$("amount-error").textContent, /decimal point/);
+    // Valid for WETH (18 decimals): the error goes. Back on USDT it shows at once.
+    page.choose("token", "weth");
+    assert.equal(page.$("amount-error").hidden, true);
+    assert.equal(page.$("fee-hint").hidden, false);
+    page.choose("token", "usdt");
+    assert.equal(page.$("amount-error").hidden, false);
+    assert.equal(page.$("amount").getAttribute("aria-invalid"), "true");
+    page.$("amount").value = "1000.123456";
+    page.fire(page.$("flow-form"), "submit");
+    await settled(page, "the USDT result");
+    const message = page.sent.findLast((m) => m.type === "plan");
+    assert.equal(message.token, "usdt");
+    assert.equal(message.amount, "1000.123456");
+  } finally {
+    page.close();
+  }
+});
+
+test("R3.4: a USDT result shows USDT amounts, and a token change never leaves it under another chip", async () => {
+  const page = await openPage(STABLE_PAGE);
+  try {
+    const { result } = await page.submit({ token: "usdt", action: "unshield", amount: "5000", constraint: "flexible", answers: NO, balance: "10000" });
+    const text = result.textContent;
+    assert.match(text, /Use 4987\.5 USDT · scores \d+/);
+    assert.match(text, /Balance left: 5000 USDT\./);
+    assert.doesNotMatch(text, /ETH/);
+    assert.ok([...result.querySelectorAll("#matches tbody .match-leg")].some((l) => / USDT/.test(l.textContent)), "the matches are in USDT");
+    // A result on screen, then another chip: it hides at once.
+    page.choose("token", "weth");
+    assert.ok(page.$("result").hidden);
+    // A USDT check in flight, then WETH: the late USDT reply is dropped.
+    page.choose("token", "usdt");
+    page.type("amount", "1000");
+    const worker = page.hold();
+    page.fire(page.$("flow-form"), "submit");
+    await wait(() => worker.replies() > 0, "the USDT reply");
+    page.choose("token", "weth");
+    worker.release();
+    await new Promise((r) => setTimeout(r, 50));
+    assert.ok(page.$("result").hidden, "no USDT result under the WETH chip");
+    assert.equal(page.$("result-copy").children.length, 0);
+  } finally {
+    page.close();
+  }
+});
+
+test("R3.4: a WETH result is unchanged with the stable pools published", async () => {
+  for (const s of [
+    { action: "unshield", amount: "1", constraint: "flexible", answers: NO, balance: "100" },
+    { action: "unshield", amount: "17.3", constraint: "flexible", balance: "100" },
+    { action: "shield", amount: "1.01", constraint: "flexible" },
+  ]) {
+    const seen = [];
+    for (const options of [{ now: STABLE_PAGE.now, patch: SAME_RUN }, STABLE_PAGE]) {
+      const page = await openPage(options);
+      try {
+        const { result, plan } = await page.submit(s);
+        seen.push({ html: result.innerHTML, plan: JSON.stringify(plan.result) });
+      } finally {
+        page.close();
+      }
+    }
+    assert.equal(seen[1].plan, seen[0].plan, `${label(s)}: the same result`);
+    assert.equal(seen[1].html, seen[0].html, `${label(s)}: the same page`);
   }
 });
 

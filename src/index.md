@@ -4,7 +4,7 @@ railcheck tells you if a RAILGUN shield or unshield amount can link back to you,
 
 ## What the check does
 
-An unusual amount can show which shield is yours. railcheck compares your amount with the RAILGUN WETH shields on Ethereum from the last 180 days. It gives a risk score from 0 to 100.
+An unusual amount can show which shield is yours. railcheck compares your amount with the RAILGUN WETH, USDT or USDC shields on Ethereum from the last 180 days. It gives a risk score from 0 to 100.
 
 ## Inputs
 

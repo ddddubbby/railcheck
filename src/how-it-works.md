@@ -13,18 +13,18 @@ Your amount and answers stay in this browser tab.
 
 - railcheck does not send them to a server, put them in the URL or save them on your device.
 - There is no wallet connection. There are no analytics and no third-party page resources.
-- Every visitor gets the same pool file. The check verifies the hash of the file before it uses the data.
+- Every visitor gets the same pool files. The page loads the WETH, USDT and USDC pools, whatever token you check, so the requests do not show which token you check. The check verifies the hash of each file before it uses the data.
 - The host can see your IP address when you load the page. A VPN or Tor can hide your IP address from the host. They do not remove all privacy risks.
 
 ## How the score is made {#method}
 
-railcheck compares your amount with the RAILGUN WETH shields on Ethereum from the last 180 days. You do not say which shield is yours.
+railcheck compares your amount with the RAILGUN shields of the same token on Ethereum from the last 180 days. It supports WETH, USDT and USDC. You do not say which shield is yours.
 
 ### For an unshield {#unshield}
 
 Enter the amount before the 0.25% unshield fee.
 
-1. railcheck looks for sets of 1, 2 or 3 shields that add up to your amount. It accepts a difference of up to 0.000005 ETH.
+1. railcheck looks for sets of 1, 2 or 3 shields that add up to your amount. For WETH it accepts a difference of up to 0.000005 ETH. For USDT and USDC the sum must be exact.
 2. Each matching set gets a weight. Smaller sets get a higher weight. The check also includes the probability that no set is exact.
 3. The strongest match sets the amount score. Many competing matches decrease it.
 4. Your answers under "Check links" can set a minimum score. The questions are optional:
@@ -65,7 +65,7 @@ A match applies only if the matched shield is yours.
 The pool file contains the amount and the time of each shield. It contains no addresses.
 
 - The data comes from Ethereum blocks with 64 confirmations or more.
-- It includes WETH only, swap outputs included.
+- It includes WETH, USDT and USDC, one pool per token, swap outputs included. A token is checked only when its pool covers the full 180 days.
 - Amounts are after the protocol fees.
 - The data is updated each day. It is a snapshot, not a live feed. The page shows the date of the data.
 
