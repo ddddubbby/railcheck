@@ -1,7 +1,7 @@
 ---
 title: How the railcheck privacy check works
 description: How railcheck scores a RAILGUN shield or unshield amount, what stays private, and what the check does not cover.
-updated: 2026-11-10
+updated: 2026-11-11
 ---
 # How the check works
 
@@ -34,6 +34,8 @@ Enter the amount before the 0.25% unshield fee.
      Example: you shielded 9.12 ETH, unshielded 3 ETH, and now unshield 6.12 ETH.
    - A public wallet paid the gas of the private swap whose output you unshield: at least 90.
 5. "?" (not sure) is the default, and it is unknown. railcheck does not use it as "no", and does not use it as a link. If the amount score is Low, the result is then incomplete, never clear. The swap gas answer counts only when a swap output sets the score.
+
+Swap outputs can raise a score but never lower it, because the check cannot tell whether a swap output is yours.
 
 If the amount can be smaller, railcheck tries common amounts from 70% to 100% of your amount, largest first. It shows the first amount with a score of 5 or less. It scores a maximum of 6 amounts.
 
@@ -78,7 +80,7 @@ Data that is not on the chain can make the real risk higher, for example timing,
 - The model assumes that a broadcaster sends the unshield.
 - railcheck asks about the remaining shielded amount. It does not check your other unshields.
 - A low amount score does not remove a link between addresses.
-- Swap outputs before 22 Oct 2026 are not in the data yet.
+- Public shields are one row per transaction. An unshield equal to one part of a public shield made of several notes is not matched.
 
 ## What the words mean {#words}
 
