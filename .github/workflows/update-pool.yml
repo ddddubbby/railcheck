@@ -14,6 +14,8 @@ jobs:
     # The first run after a new pool is added reads that pool's whole 180-day
     # window (bootstrap): about as much as the census, which took about 10
     # minutes on 10 Nov. The limit leaves room for slow public fallback RPCs.
+    # That read has a 30-minute budget: past it, or on any failure, the new
+    # pool is left out of the run and the published pools still update.
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +37,9 @@ jobs:
         id: snapshot
         shell: bash
         run: |
-          git add data/deposits.csv data/reshields.csv data/*-usdt.csv data/*-usdc.csv public/data/railgun-*.bin public/data/manifest.json
+          # The manifest and the files of every pool in it (WETH, USDT, USDC).
+          files=$(node scripts/snapshot-files.mjs)
+          git add -- $files
           if git diff --cached --quiet; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0

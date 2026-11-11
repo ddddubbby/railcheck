@@ -331,3 +331,131 @@ test("pool and CSV files are written before the manifest, and a failed write lea
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("a new pool whose bootstrap read fails is left out, and WETH is still published", async () => {
+  const dir = tempDir();
+  try {
+    await run(dir, HEAD1 - 300, { tokens: [TOKENS[0]] });
+    const before = manifestOf(dir);
+    // The RPC refuses every log read below WETH's own new blocks: only the
+    // stablecoin bootstrap needs those.
+    const chain = makeChain({ rawHead: HEAD1, logs });
+    const rpc = async (method, params) => {
+      const p = params?.[0];
+      if (method === "eth_getLogs" && p.topics[0].includes(SHIELD_TOPIC) && Number(p.fromBlock) <= before.lastBlock)
+        throw Error("limit exceeded");
+      return chain(method, params);
+    };
+    const warnings = [];
+    const manifest = await updatePools({
+      rpc, dir, now: () => nowOf(HEAD1), log: () => {}, warn: (m) => warnings.push(m),
+      readOptions: { minRange: 100000 },
+    });
+    assert.equal(manifest.pools, undefined);
+    assert.equal(manifestOf(dir).pools, undefined);
+    assert.equal(manifest.lastBlock, HEAD1 - 64);
+    assert.equal(manifest.sha256, golden.bootstrap.manifest.sha256);
+    assert.equal(warnings.length, 2);
+    assert.match(warnings[0], /^USDT pool left out of this run: .*limit exceeded/);
+    assert.match(warnings[1], /^USDC pool left out/);
+    for (const t of TOKENS.slice(1))
+      for (const p of [t.depositsCsv, t.reshieldsCsv, `public/data/${t.file}`])
+        assert.ok(!existsSync(join(dir, p)), p);
+    assert.deepEqual(Object.keys(validatePools(dir).pools), ["weth"]);
+    const { snapshotFiles } = await import("../scripts/snapshot-files.mjs");
+    assert.deepEqual(snapshotFiles(dir), [
+      "data/deposits.csv", "data/reshields.csv", "public/data/railgun-eth.bin", "public/data/manifest.json",
+    ]);
+
+    // Out of time: the bootstrap read stops at the budget, WETH still publishes.
+    const late = [];
+    const next = await updatePools({
+      rpc: makeChain({ rawHead: HEAD1 + 100, logs }), dir, now: () => nowOf(HEAD1 + 100),
+      log: () => {}, warn: (m) => late.push(m), bootstrapBudgetMs: -1,
+    });
+    assert.equal(next.pools, undefined);
+    assert.equal(next.lastBlock, HEAD1 + 36);
+    assert.match(late[0], /USDT pool left out.*time budget/);
+
+    // The next good run bootstraps both pools.
+    const good = await run(dir, HEAD2);
+    assert.deepEqual(Object.keys(good.pools), ["usdt", "usdc"]);
+    assert.deepEqual(snapshotFiles(dir), [
+      "data/deposits.csv", "data/reshields.csv", "public/data/railgun-eth.bin",
+      "data/deposits-usdt.csv", "data/reshields-usdt.csv", "public/data/railgun-usdt.bin",
+      "data/deposits-usdc.csv", "data/reshields-usdc.csv", "public/data/railgun-usdc.bin",
+      "public/data/manifest.json",
+    ]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a reorg under a published USDT pool stops the whole run and writes nothing", async () => {
+  const dir = tempDir();
+  try {
+    const published = await run(dir, HEAD1);
+    const files = Object.fromEntries(
+      ["public/data/manifest.json", "public/data/railgun-eth.bin", "public/data/railgun-usdt.bin", "data/deposits.csv"]
+        .map((p) => [p, read(dir, p)]),
+    );
+    const m = manifestOf(dir);
+    m.pools.usdt.lastBlockHash = hashOf(published.lastBlock, 9);
+    writeFileSync(join(dir, "public/data/manifest.json"), JSON.stringify(m));
+    files["public/data/manifest.json"] = read(dir, "public/data/manifest.json");
+    await assert.rejects(run(dir, HEAD2), /Confirmed chain history changed \(USDT\)/);
+    for (const [p, bytes] of Object.entries(files)) assert.deepEqual(read(dir, p), bytes, p);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("a missing reshields CSV makes that pool bootstrap, WETH included", async () => {
+  const dir = tempDir(), fresh = tempDir();
+  try {
+    await run(dir, HEAD1);
+    rmSync(join(dir, "data/reshields-usdt.csv"));
+    rmSync(join(dir, "data/reshields.csv"));
+    const calls = [];
+    const manifest = await run(dir, HEAD2, { calls });
+    const clean = await run(fresh, HEAD2);
+    assert.equal(manifest.pools.usdt.reshieldCount, clean.pools.usdt.reshieldCount);
+    assert.equal(manifest.pools.usdt.sha256, clean.pools.usdt.sha256);
+    assert.equal(manifest.pools.usdt.reshieldHistoryComplete, true);
+    assert.equal(manifest.reshieldCount, clean.reshieldCount);
+    assert.equal(manifest.sha256, clean.sha256);
+    // USDC kept its coverage, but the full window was read once for the others.
+    assert.deepEqual(mergeRanges(shieldReads(calls)), [[clean.pools.usdt.firstBlock, clean.lastBlock]]);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(fresh, { recursive: true, force: true });
+  }
+});
+
+test("a re-run after a run stopped between renames does not count rows twice", async () => {
+  const dir = tempDir(), clean = tempDir();
+  try {
+    await run(dir, HEAD1);
+    const oldManifest = read(dir, "public/data/manifest.json");
+    await run(dir, HEAD2);
+    // The CSV and pool files were renamed, the manifest was not.
+    writeFileSync(join(dir, "public/data/manifest.json"), oldManifest);
+    const again = await run(dir, HEAD2);
+    await run(clean, HEAD1);
+    const expected = await run(clean, HEAD2);
+    for (const id of ["weth", "usdt", "usdc"])
+      assert.equal(poolEntry(again, id).sha256, poolEntry(expected, id).sha256, id);
+    for (const t of TOKENS)
+      for (const p of [t.depositsCsv, t.reshieldsCsv]) assert.deepEqual(read(dir, p), read(clean, p), p);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+    rmSync(clean, { recursive: true, force: true });
+  }
+});
+
+test("subtractRanges leaves the parts not yet read", async () => {
+  const { subtractRanges } = await import("../scripts/lib/update.mjs");
+  assert.deepEqual(subtractRanges([[1, 100]], [[20, 30], [50, 60]]), [[1, 19], [31, 49], [61, 100]]);
+  assert.deepEqual(subtractRanges([[1, 10]], [[1, 10]]), []);
+  assert.deepEqual(subtractRanges([[5, 10]], []), [[5, 10]]);
+});

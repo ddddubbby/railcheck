@@ -47,7 +47,7 @@ npm run dev
 
 Open <http://127.0.0.1:4173>.
 
-`npm run data:update` updates the WETH, USDT and USDC pools at one block, with 64 confirmations, in one log read. It needs an RPC in `RPC_URL`. A pool with no data yet reads its whole 180-day window on its first run. The page uses the WETH pool only.
+`npm run data:update` updates the WETH, USDT and USDC pools at one block, with 64 confirmations, in one log read. It needs an RPC in `RPC_URL`. A pool with no data yet reads its whole 180-day window on its first run; if that fails, the pool is left out of the run and the others are still published. The page uses the WETH pool only.
 
 ## License
 

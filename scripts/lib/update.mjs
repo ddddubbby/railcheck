@@ -12,6 +12,7 @@ import { blockAtTime, readDeposits, CONFIRMATIONS } from "./reader.mjs";
 import { parseCsv, writeCsv, encodePool, WINDOW_SECONDS } from "./data.mjs";
 import { withdrawalSnapshots } from "./activity.mjs";
 import { TOKENS, poolEntry, ENTRY_FIELDS } from "./tokens.mjs";
+import { checkPool } from "./validate.mjs";
 
 const MANIFEST = "public/data/manifest.json";
 const byBlock = (a, b) => a.block - b.block || a.time - b.time;
@@ -31,6 +32,21 @@ export function mergeRanges(ranges) {
   return merged;
 }
 
+// The parts of sorted, merged `ranges` that are not in sorted, merged `minus`.
+export function subtractRanges(ranges, minus) {
+  const out = [];
+  for (const [start, end] of ranges) {
+    let from = start;
+    for (const [s, e] of minus) {
+      if (e < from || s > end) continue;
+      if (s > from) out.push([from, s - 1]);
+      from = Math.max(from, e + 1);
+    }
+    if (from <= end) out.push([from, end]);
+  }
+  return out;
+}
+
 // Public shield transactions with more than one note of one token (OD-2), per
 // token id. A count only: no address, hash or block leaves this function.
 export function countMultiNoteShields(rows, tokens = TOKENS) {
@@ -45,9 +61,10 @@ export function countMultiNoteShields(rows, tokens = TOKENS) {
 /**
  * The daily update of every pool in `tokens` (WETH first: it is the top level
  * of the manifest; the others go to `manifest.pools`). One log read per block
- * range serves every pool (DATA-9). A pool with no manifest entry or no
- * deposit CSV reads its whole 180-day window (bootstrap); later runs read only
- * the new blocks. All files are written first and the manifest last.
+ * range serves every pool (DATA-9). A pool with no manifest entry or a missing
+ * CSV reads its whole 180-day window (bootstrap); later runs read only the new
+ * blocks. A new pool whose bootstrap fails is left out of the run; the others
+ * are still published. All files are written first and the manifest last.
  */
 export async function updatePools({
   rpc,
@@ -55,7 +72,10 @@ export async function updatePools({
   tokens = TOKENS,
   now = () => Date.now(),
   log = console.log,
+  warn = log,
   readOptions = {},
+  // How long the read of new pools' windows may take before they are left out.
+  bootstrapBudgetMs = 30 * 60 * 1000,
 }) {
   if (tokens[0]?.id !== "weth") throw Error("The WETH pool must come first.");
   const path = (p) => join(dir, p);
@@ -84,16 +104,21 @@ export async function updatePools({
   };
 
   // Per pool: the stored rows, the previous coverage and the ranges to read.
+  // A pool with no previous coverage bootstraps: it reads its whole window.
+  // A bootstrapping pool other than WETH is optional for this run: if its
+  // read or its checks fail, it is left out and the published pools still
+  // update. Safety checks of published pools stop the whole run.
   const pools = [];
   for (const t of tokens) {
     const readCsv = (p) => (existsSync(path(p)) ? parseCsv(readFileSync(path(p), "utf8")) : []);
     let previous = poolEntry(previousManifest, t.id) ?? null;
     if (previous && (previous.chainId !== 1 || previous.token !== t.contract)) previous = null;
     // Reshields are kept in their own CSV (same columns) and written to the
-    // pool with kind "reshield" (EXCK v3).
+    // pool with kind "reshield" (EXCK v3). Both CSV files must be there for an
+    // incremental run; without either, the pool bootstraps.
+    if (!existsSync(path(t.depositsCsv)) || !existsSync(path(t.reshieldsCsv))) previous = null;
     let rows = readCsv(t.depositsCsv),
       reshields = readCsv(t.reshieldsCsv);
-    if (!existsSync(path(t.depositsCsv))) previous = null;
     if (previous && previous.lastBlock > head)
       throw Error(
         `${t.symbol} data coverage moved backwards. Rebuild from Ethereum with a clean CSV and manifest.`,
@@ -115,17 +140,57 @@ export async function updatePools({
     } else {
       if (firstBlock < previous.firstBlock) ranges.push([firstBlock, previous.firstBlock - 1]);
       if (previous.lastBlock < head) ranges.push([previous.lastBlock + 1, head]);
+      // Rows inside the ranges about to be read are not covered by the
+      // published manifest (a run that stopped between file renames): drop
+      // them, so a re-run cannot count them twice.
+      const unread = (d) => !ranges.some(([s, e]) => d.block >= s && d.block <= e);
+      rows = rows.filter(unread);
+      reshields = reshields.filter(unread);
     }
-    pools.push({ t, previous, rows, reshields, ranges, added: 0, foundReshields: 0 });
+    const optional = !previous && t.id !== tokens[0].id;
+    pools.push({ t, previous, optional, rows, reshields, ranges, added: 0, foundReshields: 0 });
   }
+  const skip = (p, error) => {
+    p.skipped = true;
+    warn(
+      `${p.t.symbol} pool left out of this run: its first full-window build failed (${error.message}). The other pools are published; the next run tries again.`,
+    );
+  };
 
   // DATA-9: one read of each block range for every pool, folded per token.
+  // The ranges the published pools need are read first; the rest of a
+  // bootstrap window is read after, under a time budget, so a failure there
+  // only leaves out the new pools.
   const read = [];
-  for (const [start, end] of mergeRanges(pools.flatMap((p) => p.ranges))) {
+  const required = mergeRanges(pools.filter((p) => !p.optional).flatMap((p) => p.ranges));
+  for (const [start, end] of required) {
     const result = await readDeposits(rpc, start, end, log, { ...readOptions, token: null });
     read.push(...result.deposits);
   }
-  for (const p of pools) {
+  const optional = pools.filter((p) => p.optional);
+  if (optional.length) {
+    const deadline = now() + bootstrapBudgetMs;
+    const budgeted = async (method, params) => {
+      if (now() > deadline) throw Error("bootstrap time budget exceeded");
+      return rpc(method, params);
+    };
+    const extra = [];
+    try {
+      for (const [start, end] of subtractRanges(
+        mergeRanges(optional.flatMap((p) => p.ranges)),
+        required,
+      )) {
+        const result = await readDeposits(budgeted, start, end, log, { ...readOptions, token: null });
+        extra.push(...result.deposits);
+      }
+      read.push(...extra);
+    } catch (error) {
+      for (const p of optional) skip(p, error);
+    }
+  }
+  read.sort((a, b) => a.block - b.block);
+
+  const build = (p) => {
     const inRange = (b) => p.ranges.some(([s, e]) => b >= s && b <= e);
     for (const d of read) {
       if (d.token !== p.t.contract || !inRange(d.block)) continue;
@@ -155,6 +220,16 @@ export async function updatePools({
       },
     );
     Object.assign(p, { bytes, manifest });
+  };
+  for (const p of pools) {
+    if (p.skipped) continue;
+    if (!p.optional) build(p);
+    else
+      try {
+        build(p);
+      } catch (error) {
+        skip(p, error);
+      }
   }
 
   const { snapshots, unshieldsByToken } = await withdrawalSnapshots(
@@ -184,31 +259,51 @@ export async function updatePools({
     multiNoteShields: countMultiNoteShields(read, tokens),
   };
   manifest.activitySha256 = sha256(JSON.stringify(manifest.activity));
-  if (others.length) {
-    manifest.pools = {};
-    for (const p of others) {
-      // A bootstrapped pool read its whole window, reshields included; later
-      // runs read every new block, so a complete history stays complete.
-      const reshieldHistoryComplete = p.previous ? p.previous.reshieldHistoryComplete === true : true;
-      const activity = snapshots[p.t.id];
-      const full = {
-        ...p.manifest,
-        symbol: p.t.symbol,
-        decimals: p.t.decimals,
-        unitDecimals: p.t.unitDecimals,
-        reshieldHistoryComplete,
-        activity,
-        activitySha256: sha256(JSON.stringify(activity)),
-      };
-      manifest.pools[p.t.id] = Object.fromEntries(ENTRY_FIELDS.map((k) => [k, full[k]]));
-    }
+  const entries = {};
+  for (const p of others) {
+    if (p.skipped) continue;
+    // A bootstrapped pool read its whole window, reshields included; later
+    // runs read every new block, so a complete history stays complete.
+    const reshieldHistoryComplete = p.previous ? p.previous.reshieldHistoryComplete === true : true;
+    const activity = snapshots[p.t.id];
+    const full = {
+      ...p.manifest,
+      symbol: p.t.symbol,
+      decimals: p.t.decimals,
+      unitDecimals: p.t.unitDecimals,
+      reshieldHistoryComplete,
+      activity,
+      activitySha256: sha256(JSON.stringify(activity)),
+    };
+    entries[p.t.id] = Object.fromEntries(ENTRY_FIELDS.map((k) => [k, full[k]]));
   }
+  // The checks of scripts/validate-data.mjs, before anything is written. A
+  // bootstrapping pool that fails them is left out; any other pool stops the run.
+  for (const p of pools) {
+    if (p.skipped) continue;
+    const check = () =>
+      checkPool(p.t, p === weth ? manifest : entries[p.t.id], manifest, {
+        raw: p.bytes,
+        depositsText: writeCsv(p.rows),
+        reshieldsText: writeCsv(p.reshields),
+      });
+    if (!p.optional) check();
+    else
+      try {
+        check();
+      } catch (error) {
+        delete entries[p.t.id];
+        skip(p, error);
+      }
+  }
+  if (Object.keys(entries).length) manifest.pools = entries;
 
   mkdirSync(path("public/data"), { recursive: true });
   mkdirSync(path("data"), { recursive: true });
   // Write the manifest last. A deployment never uses a partially written pool snapshot.
+  const published = pools.filter((p) => !p.skipped);
   const updates = [
-    ...pools.flatMap((p) => [
+    ...published.flatMap((p) => [
       [p.t.depositsCsv, writeCsv(p.rows)],
       [p.t.reshieldsCsv, writeCsv(p.reshields)],
       [`public/data/${p.t.file}`, p.bytes],
@@ -216,7 +311,7 @@ export async function updatePools({
     [MANIFEST, JSON.stringify(manifest, null, 2) + "\n"],
   ];
   writeAll(updates.map(([p, value]) => [path(p), value]));
-  for (const p of pools)
+  for (const p of published)
     log(
       `${p.t.symbol}: ${p.manifest.publicCount} public shields and ${p.manifest.reshieldCount} reshields through block ${head}${p.previous ? "" : " (full window read)"}. Added ${p.added} public shields and ${p.foundReshields} reshields.`,
     );

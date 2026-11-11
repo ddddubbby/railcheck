@@ -11,6 +11,18 @@ const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 // returns the decoded deposits. `entry` is the manifest top level for WETH and
 // `manifest.pools[id]` for the others.
 export function validatePool(dir, t, entry, top) {
+  const text = (path) =>
+    existsSync(join(dir, path)) ? readFileSync(join(dir, path), "utf8") : null;
+  return checkPool(t, entry, top, {
+    raw: readFileSync(join(dir, "public/data", entry.file)),
+    depositsText: text(t.depositsCsv),
+    reshieldsText: text(t.reshieldsCsv),
+  });
+}
+
+// The same checks on the bytes and CSV texts in memory (null: no CSV file),
+// so the daily update can check a pool before it writes anything.
+export function checkPool(t, entry, top, { raw, depositsText, reshieldsText }) {
   const fail = (message) => {
     throw Error(`${t.symbol} pool: ${message}`);
   };
@@ -37,7 +49,6 @@ export function validatePool(dir, t, entry, top) {
     entry.lastBlockHash !== top.lastBlockHash
   )
     fail("the pool block differs from the WETH pool block.");
-  const raw = readFileSync(join(dir, "public/data", entry.file));
   if (sha256(raw) !== entry.sha256 || raw.length !== entry.size)
     fail("hash or size differs from manifest.");
   const pool = decode(raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength), entry);
@@ -50,13 +61,11 @@ export function validatePool(dir, t, entry, top) {
   )
     fail("activity snapshot differs from its hash or pool.");
   // The pool is the two CSV files merged by time, public shields first at a tie.
-  const kinded = (path, kind) =>
-    existsSync(join(dir, path))
-      ? parseCsv(readFileSync(join(dir, path), "utf8")).map((d) => ({ ...d, kind }))
-      : [];
+  const kinded = (text, kind) =>
+    text == null ? [] : parseCsv(text).map((d) => ({ ...d, kind }));
   const rows = [
-    ...kinded(t.depositsCsv, "public"),
-    ...(entry.version === 3 ? kinded(t.reshieldsCsv, "reshield") : []),
+    ...kinded(depositsText, "public"),
+    ...(entry.version === 3 ? kinded(reshieldsText, "reshield") : []),
   ];
   const recent = rows
     .filter((d) => d.time >= entry.dataTime - WINDOW_SECONDS && d.time <= entry.dataTime)

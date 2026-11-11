@@ -38,7 +38,9 @@ jobs:
         id: snapshot
         shell: bash
         run: |
-          git add data/deposits.csv data/reshields.csv public/data/railgun-eth.bin public/data/manifest.json
+          # The manifest and the files of every pool in it (WETH, USDT, USDC).
+          files=$(node scripts/snapshot-files.mjs)
+          git add -- $files
           if git diff --cached --quiet; then
             echo 'changed=false' >> "$GITHUB_OUTPUT"
             exit 0
