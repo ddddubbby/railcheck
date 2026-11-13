@@ -1,6 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { prepare, score, assess, plan, assetOf, ETH_ASSET, AMOUNT_FIELDS } from "../lib/index.mjs";
+import { readFileSync } from "node:fs";
+import {
+  prepare,
+  score,
+  assess,
+  plan,
+  assetOf,
+  decode,
+  ETH_ASSET,
+  USDT_ASSET,
+  USDC_ASSET,
+  AMOUNT_FIELDS,
+} from "../lib/index.mjs";
+import { CHAINS } from "@railcheck/builder";
 // ENG-8: a made-up 6-decimal asset. Not a supported asset: it only shows that the
 // engine takes its amount constants from the asset, not from ETH literals.
 const TEST_USD = {
@@ -76,4 +89,33 @@ test("an asset without an amount field is refused; ETH_ASSET has every field", (
     assess(prepare([], { now }), { action: "shield", amount: 10n ** 18n }).asset,
     { chainId, address, symbol, decimals },
   );
+});
+// Three assets share chain 1: the chain alone does not tell their pools apart.
+test("prepare refuses a pool whose token is not the asset's", () => {
+  const entry = JSON.parse(readFileSync("public/data/manifest.json", "utf8")).pools.usdt,
+    bytes = readFileSync(`public/data/${entry.file}`);
+  const deposits = decode(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), entry),
+    at = entry.dataTime + 1,
+    snapshot = { pool: "ethereum-usdt", chainId: 1, token: entry.token, time: entry.dataTime };
+  assert.equal(entry.token, USDT_ASSET.address);
+  // No asset means WETH, not the USDT pool.
+  assert.throws(() => prepare(deposits, { now: at, snapshot }), /pool token and the asset are different/);
+  assert.throws(
+    () => prepare(deposits, { now: at, snapshot, asset: USDC_ASSET }),
+    /pool token and the asset are different/,
+  );
+  assert.equal(prepare(deposits, { now: at, snapshot, asset: USDT_ASSET }).asset.symbol, "USDT");
+  // A snapshot from another chain keeps the chain message.
+  assert.throws(() => prepare([], { now, snapshot: { chainId: 5, token: USDT_ASSET.address } }), /different chains/);
+});
+test("prepare accepts a matching token in any letter case, and a snapshot without a token", () => {
+  const sepolia = { chainId: 11155111, address: CHAINS.sepolia.token, symbol: "WETH", decimals: 18 };
+  for (const asset of [ETH_ASSET, USDT_ASSET, USDC_ASSET, sepolia]) {
+    const snapshot = { chainId: asset.chainId, token: asset.address };
+    assert.equal(prepare([], { now, snapshot, asset }).asset.address, asset.address);
+    const mixed = "0x" + asset.address.slice(2).toUpperCase();
+    assert.equal(prepare([], { now, snapshot: { ...snapshot, token: mixed }, asset }).asset.symbol, asset.symbol);
+  }
+  assert.equal(prepare([], { now, snapshot: { chainId: 1 }, asset: USDT_ASSET }).asset.symbol, "USDT");
+  assert.equal(prepare([], { now, snapshot: { chainId: 1 } }).asset.symbol, "WETH");
 });

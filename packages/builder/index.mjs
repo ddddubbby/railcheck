@@ -24,6 +24,9 @@ export const CHAINS = {
 };
 
 const WINDOW = 180 * 86400;
+// The version of the stored state. A store without it (an earlier preview, which
+// left out swap outputs) is rebuilt from the full window one time.
+export const STORE_VERSION = 2;
 const hex = (n) => `0x${n.toString(16)}`;
 
 /** A store that keeps the state in memory. Wallets pass their own { get, set }. */
@@ -103,6 +106,10 @@ export async function buildPool({
 
   let state = await store.get();
   if (state && (state.chainId !== c.chainId || state.token !== c.token)) state = null;
+  if (state && state.version !== STORE_VERSION) {
+    onProgress("The stored pool is from an older version. Rebuilding.");
+    state = null;
+  }
   if (state) {
     // A changed hash at the last read block means a reorganisation: rebuild.
     const anchor = await rpc("eth_getBlockByNumber", [hex(state.lastBlock), false]);
@@ -140,6 +147,7 @@ export async function buildPool({
   }
   rows = rows.filter((r) => r.time >= cutoff);
   await store.set({
+    version: STORE_VERSION,
     chainId: c.chainId,
     token: c.token,
     lastBlock: head,
@@ -176,6 +184,9 @@ export async function buildPool({
       time: dataTime,
       windowStart: cutoff,
       grouping: "tx-sender",
+      // Every build reads swap outputs for the whole window: a stored state
+      // of another version is rebuilt above.
+      reshieldHistoryComplete: true,
     },
   };
 }

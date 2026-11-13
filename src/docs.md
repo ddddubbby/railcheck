@@ -49,7 +49,7 @@ const { deposits, snapshot, asset } = await buildPool({
 const pool = prepare(deposits, { snapshot, asset });
 ```
 
-**Important:** Always give `snapshot` and `asset` to `prepare`. Without them, the engine cannot make sure that the data is recent and on the correct chain.
+**Important:** Always give `snapshot` and `asset` to `prepare`. Without them, the engine cannot make sure that the data is recent and for the correct chain and token.
 
 #### Where the builder runs
 
@@ -71,7 +71,7 @@ On the device, start the build when the app starts. Do not start it when the use
 | `chain` | `"mainnet"` or `"sepolia"` | No | `"mainnet"` | The network and its RAILGUN contract and WETH address. |
 | `rpc` | `(method, params) => Promise` | One of `rpc` or `urls` | — | Your JSON-RPC function. Add `rpc.batch(calls)` for batches. `makeRpc` gives both. |
 | `urls` | `string[]` | One of `rpc` or `urls` | — | RPC addresses. The builder makes the `rpc` function from them. |
-| `store` | `{ get, set }` | No | in memory | Keeps the state between runs. The state contains the sender addresses. Keep it on the device or on your server. |
+| `store` | `{ get, set }` | No | in memory | Keeps the state between runs. The state contains the sender addresses. Keep it on the device or on your server. A state from an older builder version is rebuilt one time. |
 | `concurrency` | number | No | `4` | The number of requests at the same time. A free RPC can refuse more. |
 | `rangeSize` | number, blocks | No | `200000` | The first block range for `eth_getLogs`. The builder decreases it if the RPC refuses it. |
 | `batchSize` | number | No | `100` | Sender lookups in one JSON-RPC batch. `1` sends single calls. |
