@@ -16,6 +16,9 @@ import {
   toStored,
   NANO,
   afterUnshieldFee,
+  ETH_ASSET,
+  USDT_ASSET,
+  USDC_ASSET,
 } from "../lib/engine/index.mjs";
 import { decode } from "../lib/pool/index.mjs";
 import { crowded } from "../lib/engine/advice.mjs";
@@ -72,6 +75,20 @@ test("amount parsing and fees preserve 18 decimals", () => {
   assert.throws(() => parseAmount("   "), { message: "Enter an amount." });
   for (const v of ["", "0", "-1", "1e3", "1,2", "NaN", "1.1234567890123456789"])
     assert.throws(() => parseAmount(v));
+});
+test("a too-precise or non-numeric amount names the asset's decimals", () => {
+  assert.throws(() => parseAmount("1.1234567", USDT_ASSET), {
+    message: "Use numbers, up to 6 decimals, for example 2.4137.",
+  });
+  assert.throws(() => parseAmount("1.1234567", USDC_ASSET), {
+    message: "Use numbers, up to 6 decimals, for example 2.4137.",
+  });
+  assert.throws(() => parseAmount("1.1234567890123456789", ETH_ASSET), {
+    message: "Use numbers, up to 18 decimals, for example 2.4137.",
+  });
+  assert.throws(() => parseAmount("abc", USDT_ASSET), {
+    message: "Use numbers, up to 6 decimals, for example 2.4137.",
+  });
 });
 test("20,000 synthetic exact pairs and triples have no misses", () => {
   const a = Array.from({ length: 32 }, () => Math.floor(rand() * 1e9) + 1).sort(

@@ -237,7 +237,7 @@ test("the worker parses a stable amount at 6 decimals and rejects a 7th", async 
   assert.equal(ok.result.assessment.amounts.shieldInput, "120123456");
   const bad = await w.send({ type: "plan", token: "usdt", action: "shield", amount: "120.1234567", constraint: "fixed", id: 2 });
   assert.equal(bad.type, "error");
-  assert.match(bad.message, /decimal point/);
+  assert.match(bad.message, /decimals/);
 });
 test("client source has no persistence, telemetry or input URL writes", () => {
   const source = [

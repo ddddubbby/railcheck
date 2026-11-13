@@ -848,7 +848,7 @@ test("R3.4: USDT amounts use 6 decimals; a 7th is rejected, and a token change r
     page.type("amount", "1000.1234567");
     page.submit_();
     assert.equal(page.$("amount-error").hidden, false);
-    assert.match(page.$("amount-error").textContent, /decimal point/);
+    assert.match(page.$("amount-error").textContent, /up to 6 decimals/);
     // Valid for WETH (18 decimals): the error goes. Back on USDT it shows at once.
     page.choose("token", "weth");
     assert.equal(page.$("amount-error").hidden, true);
