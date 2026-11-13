@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { prepare, plan, toStored } from "@railcheck/core";
-import { buildPool, memoryStore } from "@railcheck/builder";
+import { prepare, plan, assess, toStored } from "@railcheck/core";
+import { buildPool, memoryStore, CHAINS } from "@railcheck/builder";
 
 const fixture = JSON.parse(readFileSync("tests/fixtures/ethereum-logs.json", "utf8"));
 const hex = (n) => `0x${n.toString(16)}`;
@@ -217,6 +217,80 @@ test("builder stops soon when the RPC refuses every log request", async () => {
   };
   await assert.rejects(buildPool({ rpc }), /rate limit/);
   assert.ok(c.ranges.length < 60, `${c.ranges.length} log calls`);
+});
+
+// The fake chain plus one swap output (Nullified + Shield in one transaction).
+async function withReshield() {
+  const { NULLIFIED_TOPIC } = await import("@railcheck/builder/reader");
+  const c = chain(),
+    tx = "0xdd".padEnd(66, "0"),
+    block = hex(26131600);
+  const extra = [
+    { ...logs[0], topics: [NULLIFIED_TOPIC], transactionHash: tx, blockNumber: block, logIndex: "0x0" },
+    { ...logs[0], transactionHash: tx, blockNumber: block, logIndex: "0x1" },
+  ];
+  const inner = c.rpc;
+  c.rpc = async (method, params) => {
+    if (method !== "eth_getLogs") return inner(method, params);
+    const found = await inner(method, params),
+      from = Number(params[0].fromBlock),
+      to = Number(params[0].toBlock);
+    return found.concat(extra.filter((l) => Number(l.blockNumber) >= from && Number(l.blockNumber) <= to));
+  };
+  return c;
+}
+const sender = async (hashes) => hashes.map(() => "0x" + "5".repeat(40));
+
+test("builder rebuilds a store of an older version, with the swap outputs of the whole window", async () => {
+  const { STORE_VERSION } = await import("@railcheck/builder");
+  const c = await withReshield();
+  // The shape of the earlier preview: no version, no kind, no swap outputs.
+  const head = c.head - 64;
+  const old = {
+    chainId: 1,
+    token: CHAINS.mainnet.token,
+    lastBlock: head,
+    lastBlockHash: `0x${c.fork}${head}`,
+    rows: [{ block: 26131570, time: 12 * 26131570, amountWei: "1000000000000000000", sender: "0x" + "1".repeat(40) }],
+  };
+  const store = memoryStore(old),
+    progress = [];
+  c.head += 10;
+  const built = await buildPool({ rpc: c.rpc, store, senders: sender, onProgress: (m) => progress.push(m) });
+  assert.ok(progress.some((m) => /older version/.test(m)));
+  assert.ok(c.ranges[0][0] < 26131000, "reads the whole window again");
+  assert.deepEqual(built.deposits.map((d) => d.kind).sort(), ["public", "public", "reshield"]);
+  const saved = await store.get();
+  assert.equal(saved.version, STORE_VERSION);
+  assert.ok(saved.rows.every((r) => r.kind === "public" || r.kind === "reshield"));
+  assert.equal(built.snapshot.reshieldHistoryComplete, true);
+});
+
+test("builder updates a store of the current version from the next block, and its pool has complete coverage", async () => {
+  const c = await withReshield(),
+    store = memoryStore();
+  const first = await buildPool({ rpc: c.rpc, store, senders: sender });
+  assert.equal(first.snapshot.reshieldHistoryComplete, true);
+  c.head = 26131800;
+  c.ranges = [];
+  const progress = [];
+  const next = await buildPool({ rpc: c.rpc, store, senders: sender, onProgress: (m) => progress.push(m) });
+  assert.deepEqual(c.ranges, [[26131700 - 63, 26131800 - 64]]);
+  assert.ok(!progress.some((m) => /Rebuilding/.test(m)));
+  assert.deepEqual(next.deposits.map((d) => d.kind).sort(), ["public", "public", "public", "reshield"]);
+  assert.equal(next.snapshot.reshieldHistoryComplete, true);
+  // After a reorganisation the snapshot still says complete: the window is read again.
+  c.fork = "b";
+  const again = await buildPool({ rpc: c.rpc, store, senders: sender });
+  assert.equal(again.snapshot.reshieldHistoryComplete, true);
+  assert.equal(again.deposits.length, next.deposits.length);
+
+  const pool = prepare(next.deposits, { now: next.snapshot.time + 1, snapshot: next.snapshot, asset: next.asset });
+  const no = { addressReuse: false, pastTransfer: false, restOfDeposit: false };
+  for (const action of ["shield", "unshield"]) {
+    const { coverage } = assess(pool, { action, amount: 10n ** 18n, context: no });
+    assert.deepEqual(coverage, { state: "complete", missing: [] });
+  }
 });
 
 test("prepare refuses a snapshot from another chain than the asset", async () => {

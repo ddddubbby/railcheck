@@ -24,7 +24,7 @@ const { deposits, snapshot, asset } = await buildPool({
 const pool = prepare(deposits, { snapshot, asset });
 ```
 
-The store contains the sender addresses. Keep it on the device or on your server. The result contains no addresses.
+The store contains the sender addresses. Keep it on the device or on your server. The result contains no addresses. A store from an older builder version is rebuilt one time, from the full 180 days.
 
 All options, where to run the builder, and timings: [railcheck.xyz/docs](https://railcheck.xyz/docs/#build-the-pool).
 
