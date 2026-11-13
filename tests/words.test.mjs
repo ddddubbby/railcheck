@@ -8,8 +8,7 @@
 // 10 Nov 2026), with the clock set to the fixture's dataTime.
 //
 // Form: the visible text of <form id="flow-form"> after the runtime sync(), with
-// an amount typed so the fee hint shows. Unshield (the default) and shield each
-// have a cap.
+// and without an amount typed. Unshield (the default) and shield each have a cap.
 //
 // Result: the test submits a matrix of real scenarios (shield and unshield;
 // clear, attention, incomplete and not-checked; with and without balance;
@@ -43,20 +42,23 @@ import { parseHTML } from "linkedom";
 // down: no pull request can raise them. The form caps never go above 122 (the
 // 28 Oct 2026 design). Targets: 60 words for the form and 25 for the result
 // first level.
-// Each form cap is the largest of its states: empty amount, amount typed (fee
-// hint), "fixed" picked, a token that is not covered (unshield), and, for
+// Each form cap is the largest of its states: empty amount, amount typed,
+// "fixed" picked, a token that is not covered (unshield), and, for
 // shield, the error states too. The open links panel has its own cap.
 // R1.5: the token chips (WETH, USDC, Soon, Other, Ethereum) came in, and the
 // action hint and the q3 example left the form: 115 to 105.
 // R1.6: the link questions moved into the closed "Check links" panel and are
 // optional: 105 to 53.
-const FORM_CAP = 53; // unshield (the default): amount typed, with the fee hint
-const SHIELD_FORM_CAP = 40; // shield: amount typed, with the fee hint
+// UI-R5: the fee hint and the balance hint left the form (the result already
+// shows the recipient amount and the balance left): 53 to 38, shield 40 to 39,
+// errors 60 to 45, links open 104 to 89.
+const FORM_CAP = 38; // unshield (the default)
+const SHIELD_FORM_CAP = 39; // shield, its error states included
 // Unshield with an error showing. The "Select an answer." errors left with R1.6:
 // 114 to 60. It may only go down.
-const FORM_ERROR_CAP = 60;
+const FORM_ERROR_CAP = 45;
 // Unshield with the links panel open: its four questions and toggles (UI-5).
-const LINKS_FORM_CAP = 104;
+const LINKS_FORM_CAP = 89;
 // The sum of the distinct form error messages, so any one that grows is caught.
 const ERROR_COPY_CAP = 28;
 // R1.7: the three state pips came in (three words), one verdict line replaced the
@@ -191,19 +193,26 @@ const wait = async (ok, what) => {
 /**
  * Opens the built page with its scripts. `now` is the clock in seconds. `motion`
  * turns reduced motion off; `raf` replaces requestAnimationFrame and
- * cancelAnimationFrame.
+ * cancelAnimationFrame. `holdPools` holds the worker's "pools" message from the
+ * start: the page opens once WETH is ready, and `pools.release()` delivers it.
  */
-async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = false, raf } = {}) {
+async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = false, raf, holdPools = false } = {}) {
   const page = parseHTML(html);
   const { document, Event } = page;
   let flowWorker, lastPlan, held = null, stablesLoaded = false;
+  // Replies held from the start, and which ones (null: every reply).
+  let only = null;
+  if (holdPools) {
+    held = [];
+    only = (data) => data.type === "pools";
+  }
   const sent = [], // every message flow.mjs sent to the worker
     fetched = []; // every URL the worker fetched
   const workerSelf = {
     postMessage(data) {
       if (data.type === "plan") lastPlan = data;
       // While held, worker replies wait in a queue until release().
-      if (held) return held.push(data);
+      if (held && (!only || only(data))) return held.push(data);
       setTimeout(() => {
         flowWorker.onmessage({ data });
         // The stable pools report after WETH is ready.
@@ -240,7 +249,7 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
   await import(`${pathToFileURL(join(dist, "worker.mjs"))}?page=${id}`);
   const flow = await import(`${pathToFileURL(join(dist, "flow.mjs"))}?page=${id}`);
   const $ = (x) => document.getElementById(x);
-  await wait(() => $("progress").hidden && stablesLoaded, "the pool data");
+  await wait(() => $("progress").hidden && (stablesLoaded || held?.length > 0), "the pool data");
   const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
   const choose = (name, value) => {
     const inputs = [...document.querySelectorAll(`input[name=${name}]`)];
@@ -287,6 +296,7 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
     /** Holds the worker replies; release() delivers them. */
     hold() {
       held = [];
+      only = null;
       return {
         replies: () => held.length,
         release() {
@@ -295,6 +305,16 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
           for (const data of queue) flowWorker.onmessage({ data });
         },
       };
+    },
+    /** The "pools" message held by `holdPools`. */
+    pools: holdPools && {
+      replies: () => held?.length ?? 0,
+      release() {
+        const queue = held;
+        held = only = null;
+        stablesLoaded = true;
+        for (const data of queue) flowWorker.onmessage({ data });
+      },
     },
     close() {
       Date.now = realNow;
@@ -627,13 +647,31 @@ const formSource = html.slice(html.indexOf('<form id="flow-form"'), html.indexOf
 const paragraphs = [...formSource.matchAll(/<p\b([^>]*)>/g)]
   .map((m) => m[1])
   .filter((attrs) => !/class="[^"]*\berror\b/.test(attrs));
-test(
-  "no paragraph in the form except errors (UI-R5)",
-  { todo: paragraphs.length ? `${paragraphs.length} hint paragraphs remain in the form` : false },
-  () => {
-    assert.deepEqual(paragraphs, []);
-  },
-);
+test("no paragraph in the form except errors (UI-R5)", async () => {
+  assert.ok(formSource.includes('class="error"'), "the error paragraphs are in the source checked");
+  assert.deepEqual(paragraphs, [], "the built form has no paragraph but p.error");
+  // At runtime too, with an amount typed and the balance shown, in each state.
+  const page = await openPage(STABLE_PAGE);
+  try {
+    const form = page.$("flow-form");
+    for (const token of ["weth", "usdt"])
+      for (const action of ["unshield", "shield"]) {
+        page.choose("token", token);
+        page.choose("action", action);
+        page.type("amount", "1000");
+        const extra = [...form.querySelectorAll("p")].filter((p) => !p.classList.contains("error"));
+        assert.deepEqual(extra.map((p) => p.outerHTML), [], `${token} ${action}`);
+      }
+    // Every aria-describedby in the form names an element on the page.
+    for (const input of form.querySelectorAll("[aria-describedby]"))
+      for (const id of input.getAttribute("aria-describedby").split(/\s+/))
+        assert.ok(page.$(id), `${input.id || input.name}: #${id} exists`);
+    assert.equal(page.$("amount").getAttribute("aria-describedby"), "amount-error");
+    assert.equal(page.$("balance").getAttribute("aria-describedby"), "balance-error");
+  } finally {
+    page.close();
+  }
+});
 
 // --- Token chips (UI-1, UI-R1) -------------------------------------------------
 test("the token chips render from the config, WETH checked, with the Ethereum tag", async () => {
@@ -801,18 +839,13 @@ test("R3.4: USDT amounts use 6 decimals; a 7th is rejected, and a token change r
   const page = await openPage(STABLE_PAGE);
   try {
     page.choose("token", "usdt");
-    page.type("amount", "1000.123456");
-    assert.equal(page.$("fee-hint").hidden, false);
-    assert.equal(page.$("fee-hint").textContent, "The recipient gets 997.623148 USDT after the 0.25% unshield fee.");
     page.type("amount", "1000.1234567");
-    assert.equal(page.$("fee-hint").hidden, true);
     page.submit_();
     assert.equal(page.$("amount-error").hidden, false);
     assert.match(page.$("amount-error").textContent, /decimal point/);
     // Valid for WETH (18 decimals): the error goes. Back on USDT it shows at once.
     page.choose("token", "weth");
     assert.equal(page.$("amount-error").hidden, true);
-    assert.equal(page.$("fee-hint").hidden, false);
     page.choose("token", "usdt");
     assert.equal(page.$("amount-error").hidden, false);
     assert.equal(page.$("amount").getAttribute("aria-invalid"), "true");
@@ -822,6 +855,11 @@ test("R3.4: USDT amounts use 6 decimals; a 7th is rejected, and a token change r
     const message = page.sent.findLast((m) => m.type === "plan");
     assert.equal(message.token, "usdt");
     assert.equal(message.amount, "1000.123456");
+    // The amount after the fee, once a form hint, is in the result fold.
+    assert.ok(
+      [...page.$("result-copy").querySelectorAll("details p")].some((p) => p.textContent === "The recipient gets 997.623148 USDT."),
+      "the recipient amount after the fee",
+    );
   } finally {
     page.close();
   }
@@ -873,6 +911,107 @@ test("R3.4: a WETH result is unchanged with the stable pools published", async (
     }
     assert.equal(seen[1].plan, seen[0].plan, `${label(s)}: the same result`);
     assert.equal(seen[1].html, seen[0].html, `${label(s)}: the same page`);
+  }
+});
+
+test("R3.4: USDT picked and typed before the pools arrive: the form waits off, then turns on in place", async () => {
+  const page = await openPage({ ...STABLE_PAGE, holdPools: true });
+  try {
+    const form = page.$("flow-form"),
+      before = page.sent.length;
+    assert.equal(page.pools.replies(), 1, "the pools message is held");
+    page.choose("token", "usdt");
+    page.type("amount", "1000.123456");
+    // Not covered yet: off, and nothing goes to the worker.
+    assert.equal(form.dataset.covered, "false");
+    assert.equal(page.$("amount").disabled, true);
+    assert.equal(page.$("check-button").disabled, true);
+    for (const step of form.querySelectorAll(".step")) assert.ok(step.hasAttribute("inert"));
+    page.fire(form, "submit");
+    assert.equal(page.$("result").getAttribute("aria-busy"), "false", "nothing is sent");
+    assert.ok(page.$("result").hidden);
+    assert.equal(page.sent.length, before, "no message to the worker");
+    assert.ok(page.$("notice").hidden, "no notice");
+    assert.ok(page.$("amount-error").hidden, "no error for a 6-decimal amount");
+    // The pools arrive: the form turns on in place, the amount kept, in USDT.
+    page.pools.release();
+    assert.deepEqual([...page.document.querySelectorAll("input[name=token]:checked")].map((i) => i.value), ["usdt"], "USDT stays picked");
+    assert.equal(form.dataset.covered, "true");
+    assert.equal(page.$("amount").disabled, false);
+    assert.equal(page.$("check-button").disabled, false);
+    assert.ok(![...form.querySelectorAll(".step")].some((s) => s.hasAttribute("inert")));
+    assert.equal(page.$("amount").value, "1000.123456", "the typed amount stays");
+    assert.ok(page.$("amount-error").hidden);
+    assert.ok(page.$("notice").hidden);
+    assert.deepEqual([...form.querySelectorAll(".amount-wrap > span")].map((s) => s.textContent), ["USDT", "USDT"]);
+    // 6 decimals: a 7th is still refused, then the 6-decimal amount is sent.
+    page.type("amount", "1000.1234567");
+    page.submit_();
+    assert.equal(page.$("amount-error").hidden, false);
+    page.type("amount", "1000.123456");
+    page.fire(form, "submit");
+    await settled(page, "the USDT result");
+    const message = page.sent.findLast((m) => m.type === "plan");
+    assert.equal(message.token, "usdt");
+    assert.equal(message.amount, "1000.123456");
+  } finally {
+    page.close();
+  }
+});
+
+test("R3.4: a late pools message never changes a WETH result on screen", async () => {
+  const page = await openPage({ ...STABLE_PAGE, holdPools: true });
+  try {
+    let focused = 0;
+    page.$("result-heading").focus = () => focused++;
+    const { result } = await page.submit({ action: "unshield", amount: "1", constraint: "flexible", answers: NO, balance: "100" });
+    const state = () => ({
+        html: result.innerHTML,
+        hidden: result.hidden,
+        busy: result.getAttribute("aria-busy"),
+        said: page.$("announcement").textContent,
+      }),
+      shown = state(),
+      sent = page.sent.length;
+    assert.equal(page.pools.replies(), 1, "the pools message is still held");
+    focused = 0;
+    page.pools.release();
+    await new Promise((r) => setTimeout(r, 50));
+    assert.deepEqual(state(), shown, "the same result");
+    assert.equal(page.sent.length, sent, "no new check");
+    assert.equal(focused, 0, "focus does not move");
+    assert.ok(page.$("notice").hidden);
+    assert.equal(page.document.querySelector("input[name=token][value=usdt]").closest(".chip").dataset.covered, "true", "the chips update");
+  } finally {
+    page.close();
+  }
+});
+
+test("a stable chip says its pool is loading until the pools message, then why it is not covered", async () => {
+  const describedBy = (page, id) => page.document.querySelector(`input[name=token][value=${id}]`).getAttribute("aria-describedby");
+  // Complete pools: loading, then covered.
+  const page = await openPage({ ...STABLE_PAGE, holdPools: true });
+  try {
+    assert.match(page.$("token-loading").textContent, /still loading/);
+    assert.doesNotMatch(page.$("token-loading").textContent, /did not load|not complete/);
+    assert.ok(page.$("token-loading").classList.contains("sr-only"), "not visible text");
+    for (const id of ["usdt", "usdc"]) assert.equal(describedBy(page, id), "token-loading", `${id}: loading`);
+    assert.equal(describedBy(page, "other"), "token-not-covered", "Other is never loading");
+    assert.equal(describedBy(page, "weth"), null);
+    page.pools.release();
+    for (const id of ["usdt", "usdc"]) assert.equal(describedBy(page, id), null, `${id}: covered`);
+  } finally {
+    page.close();
+  }
+  // No stable pools in the manifest: loading, then not complete.
+  const none = await openPage({ holdPools: true });
+  try {
+    assert.equal(describedBy(none, "usdt"), "token-loading");
+    none.pools.release();
+    assert.equal(describedBy(none, "usdt"), "token-incomplete");
+    assert.match(none.$("token-incomplete").textContent, /did not load or is not complete/);
+  } finally {
+    none.close();
   }
 });
 

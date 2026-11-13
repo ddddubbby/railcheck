@@ -166,6 +166,7 @@
               <span class="chain-tag"><span class="sr-only">Chain: </span>Ethereum</span>
             </div>
             <span class="sr-only" id="token-not-covered">Not covered. railcheck checks WETH, USDT and USDC on Ethereum only.</span>
+            <span class="sr-only" id="token-loading">Not covered yet. Its pool data is still loading.</span>
             <span class="sr-only" id="token-incomplete">Not covered now. Its pool data did not load or is not complete.</span>
           </fieldset>
           <div class="step" data-step="1">
@@ -186,11 +187,10 @@
                 inputmode="decimal"
                 autocomplete="off"
                 spellcheck="false"
-                aria-describedby="fee-hint amount-error"
+                aria-describedby="amount-error"
                 placeholder="0.00"
               /><span>ETH</span>
             </div>
-            <p class="hint" id="fee-hint" hidden></p>
             <p class="error" id="amount-error" hidden></p>
             <fieldset class="group constraint">
               <legend id="constraint-legend">Can the amount be smaller?</legend>
@@ -228,11 +228,10 @@
                 inputmode="decimal"
                 autocomplete="off"
                 spellcheck="false"
-                aria-describedby="balance-hint balance-error"
+                aria-describedby="balance-error"
                 placeholder="0.00"
               /><span>ETH</span>
             </div>
-            <p class="hint" id="balance-hint">Shows what stays in your private balance.</p>
             <p class="error" id="balance-error" hidden></p>
           </div>
           <button class="primary" id="check-button" type="submit">Check amount</button>
