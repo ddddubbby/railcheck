@@ -195,8 +195,9 @@ const wait = async (ok, what) => {
  * turns reduced motion off; `raf` replaces requestAnimationFrame and
  * cancelAnimationFrame. `holdPools` holds the worker's "pools" message from the
  * start: the page opens once WETH is ready, and `pools.release()` delivers it.
+ * `failed` opens the page once the load has failed (a notice shows) instead.
  */
-async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = false, raf, holdPools = false } = {}) {
+async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = false, raf, holdPools = false, failed = false } = {}) {
   const page = parseHTML(html);
   const { document, Event } = page;
   let flowWorker, lastPlan, held = null, stablesLoaded = false;
@@ -249,7 +250,8 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
   await import(`${pathToFileURL(join(dist, "worker.mjs"))}?page=${id}`);
   const flow = await import(`${pathToFileURL(join(dist, "flow.mjs"))}?page=${id}`);
   const $ = (x) => document.getElementById(x);
-  await wait(() => $("progress").hidden && (stablesLoaded || held?.length > 0), "the pool data");
+  if (failed) await wait(() => !$("notice").hidden, "the load error");
+  else await wait(() => $("progress").hidden && (stablesLoaded || held?.length > 0), "the pool data");
   const fire = (el, type) => el.dispatchEvent(new Event(type, { bubbles: true, cancelable: true }));
   const choose = (name, value) => {
     const inputs = [...document.querySelectorAll(`input[name=${name}]`)];
@@ -305,6 +307,10 @@ async function openPage({ now = manifest.dataTime + 3600, patch = {}, motion = f
           for (const data of queue) flowWorker.onmessage({ data });
         },
       };
+    },
+    /** The worker script fails, as a browser reports it (worker.onerror). */
+    crash() {
+      flowWorker.onerror(new Event("error"));
     },
     /** The "pools" message held by `holdPools`. */
     pools: holdPools && {
@@ -1012,6 +1018,28 @@ test("a stable chip says its pool is loading until the pools message, then why i
     assert.match(none.$("token-incomplete").textContent, /did not load or is not complete/);
   } finally {
     none.close();
+  }
+});
+
+test("a stable chip stops saying loading when the load fails: an error message or a worker crash", async () => {
+  const describedBy = (page, id) => page.document.querySelector(`input[name=token][value=${id}]`).getAttribute("aria-describedby");
+  // The worker reports the load error: the WETH pool file is not one it fetches.
+  const error = await openPage({ ...STABLE_PAGE, patch: { ...STABLE_PAGE.patch, file: "other.bin" }, failed: true });
+  try {
+    assert.match(error.$("notice").textContent, /did not load/);
+    for (const id of ["usdt", "usdc"]) assert.equal(describedBy(error, id), "token-incomplete", `error message: ${id}`);
+  } finally {
+    error.close();
+  }
+  // The worker script itself fails before the pools message.
+  const crash = await openPage({ ...STABLE_PAGE, holdPools: true });
+  try {
+    assert.equal(describedBy(crash, "usdt"), "token-loading");
+    crash.crash();
+    assert.match(crash.$("notice").textContent, /did not load/);
+    for (const id of ["usdt", "usdc"]) assert.equal(describedBy(crash, id), "token-incomplete", `worker crash: ${id}`);
+  } finally {
+    crash.close();
   }
 });
 

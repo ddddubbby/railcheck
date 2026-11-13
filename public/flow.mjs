@@ -118,8 +118,11 @@ function load() {
       notice(data.message);
     }
   };
-  worker.onerror = () =>
+  worker.onerror = () => {
+    settled = true;
+    chips(true);
     notice("The pool data did not load. Check your connection, then try again.");
+  };
   worker.postMessage({ type: "load" });
 }
 
