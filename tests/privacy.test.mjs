@@ -45,11 +45,21 @@ function fixture() {
   return manifest;
 }
 // Runs public/worker.mjs with a fetch that records every request. `hang(url)`:
-// that request never answers. `fast`: the worker's timers run in 5 ms.
-async function worker(manifest, { hang = () => false, fast = false } = {}) {
+// that request never answers. `manual`: the worker's timers never run on their
+// own; each is kept in `timers` with its delay and the request it guards, and
+// `fire(timer)` runs it. The load is then not awaited: `message(type)` waits for
+// a message, and `loading` settles when the load does.
+async function worker(manifest, { hang = () => false, manual = false } = {}) {
   const calls = [],
     messages = [],
-    self = { postMessage: (v) => messages.push(v) };
+    timers = [],
+    waiting = [],
+    self = {
+      postMessage: (v) => {
+        messages.push(v);
+        waiting.splice(0).forEach((wake) => wake());
+      },
+    };
   const fetch = async (url, options) => {
     calls.push({ url, options });
     if (hang(url)) return new Promise(() => {});
@@ -76,8 +86,16 @@ async function worker(manifest, { hang = () => false, fast = false } = {}) {
       USDT_ASSET,
       USDC_ASSET,
       AbortController,
-      setTimeout: (fn, ms) => setTimeout(fn, fast ? 5 : ms),
-      clearTimeout,
+      // A stable pool's fetch starts just before its timer, so the last
+      // request is the one the timer guards.
+      setTimeout: manual
+        ? (fn, ms) => {
+            const timer = { fn, ms, url: calls.at(-1)?.url, cleared: false };
+            timers.push(timer);
+            return timer;
+          }
+        : setTimeout,
+      clearTimeout: manual ? (timer) => timer && (timer.cleared = true) : clearTimeout,
       Date: class extends Date {
         static now() {
           return (manifest.dataTime + 1) * 1000;
@@ -85,7 +103,17 @@ async function worker(manifest, { hang = () => false, fast = false } = {}) {
       },
     },
   );
-  await self.onmessage({ data: { type: "load" } });
+  const loading = self.onmessage({ data: { type: "load" } });
+  if (!manual) await loading;
+  const fire = (timer) => {
+    assert.equal(timer.cleared, false, "the timer is still pending");
+    timer.cleared = true;
+    timer.fn();
+  };
+  const message = async (type) => {
+    while (!messages.some((m) => m.type === type)) await new Promise((wake) => waiting.push(wake));
+    return messages.find((m) => m.type === type);
+  };
   const send = async (data) => {
     await self.onmessage({ data });
     return messages.at(-1);
@@ -95,7 +123,17 @@ async function worker(manifest, { hang = () => false, fast = false } = {}) {
     ...messages.find((m) => m.type === "ready")?.covered,
     ...messages.find((m) => m.type === "pools")?.covered,
   });
-  return { calls, messages, send, covered, urls: () => calls.map((c) => c.url).sort() };
+  return {
+    calls,
+    messages,
+    send,
+    covered,
+    urls: () => calls.map((c) => c.url).sort(),
+    timers,
+    fire,
+    message,
+    loading,
+  };
 }
 // VAL-7: the only requests are the manifest and the allowed pool files, all at
 // load, whatever token is checked later.
@@ -153,13 +191,28 @@ test("worker never fetches a pool file name outside the allow-list", async () =>
 });
 
 test("a stalled stable pool does not hold up WETH, and its chip is not covered", async () => {
-  const w = await worker(fixture(), { hang: (url) => url.endsWith("railgun-usdt.bin"), fast: true });
+  // The test runs the timeout itself, so the healthy pool can never race it.
+  const w = await worker(fixture(), { hang: (url) => url.endsWith("railgun-usdt.bin"), manual: true });
+  // WETH is ready while the stalled request is still open and no timer has run.
+  await w.message("ready");
+  assert.deepEqual(w.messages.map((m) => m.type), ["ready"]);
   // Every request still starts at load, the stalled one too.
   assert.deepEqual(w.urls(), ALLOWED);
-  assert.equal(w.messages[0].type, "ready");
-  assert.deepEqual(w.covered(), { weth: true, usdt: false, usdc: true });
   const stalled = w.calls.find((c) => c.url.endsWith("railgun-usdt.bin"));
+  assert.equal(stalled.options.signal.aborted, false, "not aborted before the timeout");
+  // One 20 s timeout per stable pool.
+  assert.deepEqual(
+    w.timers.map((t) => [t.url, t.ms]),
+    [
+      ["./data/railgun-usdt.bin", 20000],
+      ["./data/railgun-usdc.bin", 20000],
+    ],
+  );
+  w.fire(w.timers[0]);
+  await w.loading;
+  assert.deepEqual(w.covered(), { weth: true, usdt: false, usdc: true });
   assert.equal(stalled.options.signal.aborted, true, "the stalled request is aborted");
+  assert.equal(w.timers[1].cleared, true, "the healthy pool's timer is cleared, never run");
   assert.equal(stalled.options.credentials, "omit");
   const reply = await w.send({ type: "plan", action: "shield", amount: "1.0731", constraint: "flexible", id: 1 });
   assert.equal(reply.type, "plan");
