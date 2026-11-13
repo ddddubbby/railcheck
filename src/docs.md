@@ -1,7 +1,7 @@
 ---
 title: railcheck for wallets: RAILGUN privacy advice SDK
 description: Add local privacy advice to your RAILGUN wallet. Build the pool from your own RPC. No data goes to railcheck. MIT license.
-updated: 2026-11-10
+updated: 2026-11-13
 ---
 # Add privacy advice to your RAILGUN wallet
 
@@ -15,7 +15,7 @@ railcheck tells a user if an amount can link a shield to an unshield. The user g
 - **It is free.** The license is MIT. You can use, change and fork the code.
 - **It works in a real flow.** On 17 October 2026, a wallet built its own pool, got advice, and sent a shield and an unshield on Sepolia. Both transactions are confirmed.
 
-This preview covers RAILGUN WETH on Ethereum mainnet and on Sepolia.
+This preview covers RAILGUN WETH, USDT and USDC on Ethereum mainnet, and RAILGUN WETH on Sepolia.
 
 ## Add the check to your wallet {#integrate}
 
@@ -49,6 +49,21 @@ const { deposits, snapshot, asset } = await buildPool({
 const pool = prepare(deposits, { snapshot, asset });
 ```
 
+For more than one token, use `buildPools`. It reads the shield events one time for all the tokens, and gives one pool for each token.
+
+```js
+import { buildPools, makeRpc } from "@railcheck/builder";
+import { prepare } from "@railcheck/core";
+
+const built = await buildPools({
+  chain: "mainnet",
+  tokens: ["weth", "usdt", "usdc"],
+  rpc: makeRpc({ urls: [YOUR_RPC_URL] }),
+  store,
+});
+const pools = Object.values(built).map(({ deposits, snapshot, asset }) => prepare(deposits, { snapshot, asset }));
+```
+
 **Important:** Always give `snapshot` and `asset` to `prepare`. Without them, the engine cannot make sure that the data is recent and for the correct chain and token.
 
 #### Where the builder runs
@@ -68,17 +83,23 @@ On the device, start the build when the app starts. Do not start it when the use
 
 | Option | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| `chain` | `"mainnet"` or `"sepolia"` | No | `"mainnet"` | The network and its RAILGUN contract and WETH address. |
+| `chain` | `"mainnet"` or `"sepolia"` | No | `"mainnet"` | The network and its RAILGUN contract. Mainnet has WETH, USDT and USDC. Sepolia has WETH only. |
+| `token` | `"weth"`, `"usdt"` or `"usdc"` | No | `"weth"` | `buildPool` only. The token of the pool. |
+| `tokens` | string[] | No | `["weth"]` | `buildPools` only. The tokens of the pools. A token that the chain does not have gives an error. |
 | `rpc` | `(method, params) => Promise` | One of `rpc` or `urls` | — | Your JSON-RPC function. Add `rpc.batch(calls)` for batches. `makeRpc` gives both. |
 | `urls` | `string[]` | One of `rpc` or `urls` | — | RPC addresses. The builder makes the `rpc` function from them. |
-| `store` | `{ get, set }` | No | in memory | Keeps the state between runs. The state contains the sender addresses. Keep it on the device or on your server. A state from an older builder version is rebuilt one time. |
+| `store` | `{ get, set }` | No | in memory | Keeps the state between runs. The state contains the sender addresses. Keep it on the device or on your server. A state from an older builder version, or for other tokens, is rebuilt one time from the full 180 days. |
 | `concurrency` | number | No | `4` | The number of requests at the same time. A free RPC can refuse more. |
 | `rangeSize` | number, blocks | No | `200000` | The first block range for `eth_getLogs`. The builder decreases it if the RPC refuses it. |
 | `batchSize` | number | No | `100` | Sender lookups in one JSON-RPC batch. `1` sends single calls. |
 | `senders` | `(hashes) => Promise<string[]>` | No | RPC lookup | Gives the sender of each transaction, in order. Use it to get senders from your own indexer. |
 | `onProgress` | `(message) => void` | No | none | Receives progress messages. |
 
-`buildPool` gives `{ deposits, snapshot, asset }`.
+`buildPool` gives `{ deposits, snapshot, asset }`. `buildPools` gives one of these for each token, by token: `{ weth: { deposits, snapshot, asset }, usdt: { ... } }`. `asset` is `{ chainId, address, symbol, decimals }`. It is valid JSON, and `prepare` adds the amount settings of the token. A server can send each pool to the app as JSON.
+
+Use one store for one set of tokens. If the tokens change, the next run reads the full 180 days again, one time.
+
+Sender lookups go to your RPC for the shield transactions of the tokens that you choose. So the RPC can see which tokens the wallet builds pools for. It does not see the amounts or the addresses of the user.
 
 **Note:** The first run needs `eth_getLogs` for 180 days. Many free RPCs refuse this on mainnet. Use a paid RPC.
 
@@ -101,14 +122,23 @@ const advice = plan(pool, {
 | Option | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
 | `action` | `"shield"` or `"unshield"` | Yes | — | The transaction that the user plans. |
-| `amount` | `bigint`, wei | Yes | — | Shield: the amount that leaves the public wallet. Unshield: the amount that leaves the private balance, before the 0.25% fee and after the broadcaster cost. |
+| `amount` | `bigint`, base units | Yes | — | Shield: the amount that leaves the public wallet. Unshield: the amount that leaves the private balance, before the 0.25% fee and after the broadcaster cost. |
 | `constraint` | `"fixed"` or `"flexible"` | No | `"fixed"` | `"fixed"` gives no other amount. `"flexible"` gives alternatives. |
 | `context` | object | No | `{}` | The four answers. Unshield only. See the next table. |
-| `balance` | `bigint`, wei | No | `null` | The private balance. Unshield only. It gives `remainingBalance`. |
+| `balance` | `bigint`, base units | No | `null` | The private balance of the token. Unshield only. It gives `remainingBalance`. |
 | `budget` | number | No | `6` | The maximum number of unshield amounts to score. |
 | `maxAgeHours` | number | No | `48` | Older pool data gives `not-checked`. |
 
-`parseAmount("1.0731")` changes an ETH string to wei. `formatWei(wei)` changes it back.
+Amounts are base units of the token: wei for WETH, and 0.000001 token for USDT and USDC. `parseAmount(value, asset)` changes a string to base units. `formatWei(amount, places, asset)` changes it back. Without `asset`, both use WETH.
+
+```js
+import { parseAmount, formatWei, USDT_ASSET } from "@railcheck/core";
+
+parseAmount("1250.5", USDT_ASSET); // 1250500000n
+formatWei(1250500000n, 2, USDT_ASSET); // "1250.5"
+```
+
+`ASSETS` lists the supported assets: `ETH_ASSET` (WETH), `USDT_ASSET` and `USDC_ASSET`. Give `prepare` the asset of the pool.
 
 #### Context
 
@@ -131,27 +161,31 @@ The function `guard()` wraps a Kohaku-style plugin. It gets advice before the pl
 import { guard } from "@railcheck/kohaku";
 
 const safe = guard(plugin, {
-  pool,
+  pools, // from Step 1: one pool for each token
   constraint: "fixed",
   getContext: async (assetAmount, to) => ({ addressReuse: to === shieldAddress }),
+  balance: async (assetAmount) => privateBalanceOf(assetAmount.asset), // or null
   onAdvice: async (advice) => null, // Show the advice. Return a new amount, or null.
 });
 
-await safe.prepareUnshield({ asset: { __type: "erc20", contract: WETH }, amount }, to);
+await safe.prepareUnshield({ asset: { __type: "erc20", contract: USDT }, amount }, to);
 ```
+
+For each call, the adapter uses the pool of the asset. Native ETH uses the WETH pool. `poolFor(pools, asset)` gives that pool, or `null`.
 
 #### `guard` options
 
 | Option | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| `pool` | prepared pool | Yes | — | The result of `prepare`. |
-| `onAdvice` | `(advice) => Promise<bigint or null>` | Yes | — | Shows the advice. Gives a new amount in wei, or `null` to keep the amount. |
+| `pool` | prepared pool | One of `pool` or `pools` | — | The result of `prepare`. |
+| `pools` | prepared pool[] | One of `pool` or `pools` | — | One pool for each asset. Two pools for the same asset give an error. |
+| `onAdvice` | `(advice) => Promise<bigint or null>` | Yes | — | Shows the advice. Gives a new amount in base units, or `null` to keep the amount. |
 | `getContext` | `(assetAmount, to) => Promise<object>` | No | none | Gives the context answers for an unshield. |
 | `constraint` | `"fixed"` or `"flexible"` | No | `"fixed"` | As in `plan`. |
-| `balance` | `bigint`, wei | No | `null` | As in `plan`. |
+| `balance` | `bigint`, or `(assetAmount) => bigint or null` | No | `null` | As in `plan`. The balance is for each token, so a function gets the asset and amount of the call. It can be async. |
 | `budget` | number | No | `6` | As in `plan`. |
 
-The plugin prepares the transaction one time, with the amount from `onAdvice`. The adapter does not change the other plugin functions. An asset that the pool does not cover gives `not-checked`. It does not stop the call.
+The plugin prepares the transaction one time, with the amount from `onAdvice`. The adapter does not change the other plugin functions. An asset that no pool covers gives `not-checked`. It does not stop the call. `adviseShield` and `adviseUnshield` give the advice without a wrapper. They take a pool or a list of pools.
 
 ## What the result contains {#reference}
 
@@ -186,7 +220,7 @@ The plugin prepares the transaction one time, with the amount from `onAdvice`. T
 }
 ```
 
-Amounts are `bigint` values in wei. `toJSON(advice)` changes them to strings.
+Amounts are `bigint` values in base units of the asset. `toJSON(advice)` changes them to strings.
 
 ### Result fields
 
@@ -197,7 +231,7 @@ Amounts are `bigint` values in wei. `toJSON(advice)` changes them to strings.
 | `constraint` | string | `"fixed"` or `"flexible"`. |
 | `assessment` | object | The assessment of the requested amount. |
 | `alternatives` | object[] | Assessments of other amounts. Each one has a Low score. Empty when `constraint` is `"fixed"`. |
-| `searched` | object or `null` | The range that the search tried: `from`, `to` (wei), `candidates` (number) and `limited` (`true` if the budget stopped the search). |
+| `searched` | object or `null` | The range that the search tried: `from`, `to` (base units), `candidates` (number) and `limited` (`true` if the budget stopped the search). |
 | `remainingBalance` | `bigint` or `null` | Unshield only. `balance` minus `amount`. `null` when no balance is given or the balance is less than the amount. |
 
 ### Assessment fields
@@ -208,7 +242,7 @@ Amounts are `bigint` values in wei. `toJSON(advice)` changes them to strings.
 | `score` | number, 0–100 | The final score. |
 | `band` | string | `Low` (0–5), `Medium` (6–20), `High` (21–50) or `Critical` (51–100). |
 | `modelScore` | number, 0–100 | Unshield only. The amount score before the answers. |
-| `amounts` | object, wei | Shield: `shieldInput`, `poolCredit`. Unshield: `unshieldAmount`, `recipientAmount`. |
+| `amounts` | object, base units | Shield: `shieldInput`, `poolCredit`. Unshield: `unshieldAmount`, `recipientAmount`. |
 | `deposits` | number | Shield only. Shields in the pool with the same pool amount. |
 | `senders` | number or `null` | Shield only. Different transaction senders for those shields. `null` when the pool has no sender groups. It is not a count of people. |
 | `findings` | object[] | Problems, most important first. Each has a `code`. |
@@ -243,7 +277,7 @@ Format 2 adds `amountExposure`, `addressLinks` and `coverage`. The format 1 fiel
 | `unknown-context` | One or more questions have no answer. The field `checks` gives these questions. |
 | `stale-data` | `not-checked`: the pool data is older than `maxAgeHours`. |
 | `incomplete-window` | `not-checked`: the pool data does not cover 180 days. |
-| `unsupported-asset` | `not-checked`: the pool does not cover this asset (Kohaku adapter). |
+| `unsupported-asset` | `not-checked`: no pool covers this asset (Kohaku adapter). |
 
 ### Note codes
 

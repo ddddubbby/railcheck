@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { prepare, parseAmount } from "@railcheck/core";
-import { guard, adviseShield, adviseUnshield, pickContext, CONTEXT_FIELDS } from "@railcheck/kohaku";
+import { readFileSync } from "node:fs";
+import { prepare, parseAmount, decode, ETH_ASSET, USDT_ASSET, USDC_ASSET } from "@railcheck/core";
+import { guard, adviseShield, adviseUnshield, poolFor, pickContext, CONTEXT_FIELDS } from "@railcheck/kohaku";
 const now = 1_800_000_000;
 const deposits = [
   ...Array.from({ length: 30 }, (_, i) => ({ id: i, amount: 997_500_000, time: now - 1000 - i })),
@@ -152,4 +153,111 @@ test("adapter advice is result v2 and keeps the v1 fields", () => {
   }
   assert.ok("modelScore" in unshield.assessment);
   assert.ok("remainingBalance" in unshield);
+});
+
+// Several pools: one per asset, and each call uses the pool of its asset.
+const stable = (asset) =>
+  prepare(
+    Array.from({ length: 40 }, (_, i) => ({ id: i, amount: 100_000_000 + i * 1_234_567, time: now - 1000 - i })),
+    { now, asset },
+  );
+const usdtPool = stable(USDT_ASSET),
+  usdcPool = stable(USDC_ASSET),
+  pools = [pool, usdtPool, usdcPool];
+const erc20 = (contract, amount) => ({ asset: { __type: "erc20", contract }, amount });
+const OTHER = "0x0000000000000000000000000000000000000001";
+test("pools: each call gets advice from the pool of its asset", async () => {
+  assert.equal(poolFor(pools, { __type: "native" }), pool);
+  assert.equal(poolFor(pools, { __type: "erc20", contract: "0x" + ETH_ASSET.address.slice(2).toUpperCase() }), pool);
+  assert.equal(poolFor(pools, { __type: "erc20", contract: USDT_ASSET.address }), usdtPool);
+  assert.equal(poolFor(pools, { __type: "erc20", contract: USDC_ASSET.address }), usdcPool);
+  assert.equal(poolFor(pools, { __type: "erc20", contract: OTHER }), null);
+  assert.equal(poolFor(pool, { __type: "native" }), pool);
+
+  const calls = [],
+    seen = [];
+  const plugin = {
+    prepareShield: async (a, to) => (calls.push(["shield", a.amount, to]), { __type: "publicOperation" }),
+    prepareUnshield: async (a, to) => (calls.push(["unshield", a.amount, to]), { __type: "privateOperation" }),
+  };
+  const safe = guard(plugin, { pools, getContext: async () => all, onAdvice: async (advice) => (seen.push(advice), null) });
+  await safe.prepareUnshield(eth("1"), "0xabc");
+  await safe.prepareUnshield(erc20(ETH_ASSET.address, parseAmount("1")), "0xabc");
+  await safe.prepareUnshield(erc20(USDT_ASSET.address, 101_234_567n), "0xabc");
+  await safe.prepareShield(erc20(USDC_ASSET.address, 250_000_000n), "0zkabc");
+  const other = erc20(OTHER, 9n);
+  await safe.prepareUnshield(other, "0xabc");
+  await safe.prepareShield(other, "0zkabc");
+  // One onAdvice call per prepare, and the plugin gets the original amounts.
+  assert.equal(seen.length, 6);
+  assert.deepEqual(seen.map((a) => a.assessment.asset?.symbol ?? null), ["WETH", "WETH", "USDT", "USDC", null, null]);
+  assert.deepEqual(seen.slice(4).map((a) => a.assessment.status), ["not-checked", "not-checked"]);
+  assert.deepEqual(calls.slice(4), [["unshield", 9n, "0xabc"], ["shield", 9n, "0zkabc"]]);
+  // A USDT amount that only one deposit of the USDT pool has.
+  assert.equal(seen[2].assessment.status, "attention");
+  // adviseShield and adviseUnshield take a list too.
+  assert.equal(adviseUnshield(pools, erc20(USDC_ASSET.address, 101_234_567n)).assessment.asset.symbol, "USDC");
+  assert.equal(adviseShield(pools, eth("0.95")).assessment.asset.symbol, "WETH");
+  assert.equal(adviseShield(pools, other).assessment.status, "not-checked");
+});
+test("pools: pool and pools together, or two pools of one asset, throw when the guard is made", () => {
+  const onAdvice = async () => null;
+  assert.throws(() => guard(stub(), { pool, pools, onAdvice }), /pool or pools, not both/);
+  assert.throws(() => guard(stub(), { pools: [usdtPool, stable(USDT_ASSET)], onAdvice }), /Two pools cover the same asset \(USDT\)/);
+  // A Sepolia WETH pool also covers native ETH.
+  const sepolia = prepare([], {
+    now,
+    asset: { chainId: 11155111, address: "0xfff9976782d46cc05630d1f6ebab18b2324d6b14", symbol: "WETH", decimals: 18 },
+  });
+  assert.throws(() => guard(stub(), { pools: [pool, sepolia], onAdvice }), /same asset \(WETH\)/);
+  assert.throws(() => guard(stub(), { pools: [], onAdvice }), /prepared pool/);
+  assert.throws(() => guard(stub(), { onAdvice }), /prepared pool/);
+  assert.throws(() => adviseShield([usdtPool, usdtPool], eth("1")), /same asset/);
+});
+test("balance: a function gets the asset amount of each unshield", async () => {
+  const asked = [],
+    seen = [];
+  const safe = guard(stub(), {
+    pools,
+    balance: async (assetAmount) => (asked.push(assetAmount), assetAmount.asset.__type === "native" ? parseAmount("5") : null),
+    onAdvice: async (advice) => (seen.push(advice), null),
+  });
+  const usdt = erc20(USDT_ASSET.address, 101_234_567n);
+  await safe.prepareUnshield(eth("1"), "0xabc");
+  await safe.prepareUnshield(usdt, "0xabc");
+  assert.deepEqual(asked, [eth("1"), usdt]);
+  assert.deepEqual(seen.map((a) => a.remainingBalance), [parseAmount("4"), null]);
+  // A bigint balance works as before.
+  let advice;
+  await guard(stub(), { pool, balance: parseAmount("3"), onAdvice: async (a) => ((advice = a), null) }).prepareUnshield(eth("1"), "0xabc");
+  assert.equal(advice.remainingBalance, parseAmount("2"));
+});
+test("end to end: the published USDT and USDC pools, prepared from their identity, give advice through guard", async () => {
+  const manifest = JSON.parse(readFileSync("public/data/manifest.json", "utf8"));
+  const load = (entry, asset) => {
+    const bytes = readFileSync(`public/data/${entry.file}`);
+    const deposits = decode(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), entry);
+    const snapshot = { pool: entry.pool, chainId: entry.chainId, token: entry.token, block: entry.lastBlock, time: entry.dataTime };
+    const { chainId, address, symbol, decimals } = asset;
+    return prepare(deposits, { now: entry.dataTime + 1, snapshot, asset: { chainId, address, symbol, decimals } });
+  };
+  const real = [load(manifest, ETH_ASSET), load(manifest.pools.usdt, USDT_ASSET), load(manifest.pools.usdc, USDC_ASSET)];
+  assert.equal(real[1].asset.saferStep, 10000n);
+  assert.equal(real[2].asset.tolerance, 0);
+  const seen = [];
+  const safe = guard(stub(), {
+    pools: real,
+    constraint: "flexible",
+    getContext: async () => all,
+    onAdvice: async (advice) => (seen.push(advice), null),
+  });
+  await safe.prepareUnshield(eth("1.234567"), "0xabc");
+  await safe.prepareUnshield(erc20(USDT_ASSET.address, parseAmount("1234.567891", USDT_ASSET)), "0xabc");
+  await safe.prepareUnshield(erc20(USDC_ASSET.address, parseAmount("100", USDC_ASSET)), "0xabc");
+  assert.deepEqual(seen.map((a) => a.assessment.asset.symbol), ["WETH", "USDT", "USDC"]);
+  for (const advice of seen) {
+    assert.notEqual(advice.assessment.status, "not-checked");
+    assert.equal(typeof advice.assessment.score, "number");
+    for (const alt of advice.alternatives) assert.equal(alt.band, "Low");
+  }
 });

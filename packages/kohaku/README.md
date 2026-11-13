@@ -8,7 +8,7 @@ railcheck advice for wallets on the [Kohaku](https://github.com/ethereum/kohaku)
 npm install @railcheck/kohaku @railcheck/core
 ```
 
-You need a pool from `prepare` in [`@railcheck/core`](../../lib/).
+You need pools from `prepare` in [`@railcheck/core`](../../lib/): WETH, USDT and USDC on Ethereum mainnet, or WETH on Sepolia.
 
 ## Example
 
@@ -16,18 +16,23 @@ You need a pool from `prepare` in [`@railcheck/core`](../../lib/).
 import { guard } from "@railcheck/kohaku";
 
 const safe = guard(plugin, {
-  pool,
+  pools: [wethPool, usdtPool, usdcPool], // or pool: one pool
   constraint: "fixed",
   getContext: async (assetAmount, to) => ({ addressReuse: to === shieldAddress }),
+  balance: async (assetAmount) => null, // The private balance of this asset, or null.
   onAdvice: async (advice) => null, // Show the advice. Return a new amount, or null.
 });
 
-await safe.prepareUnshield({ asset: { __type: "erc20", contract: WETH }, amount }, to);
+await safe.prepareUnshield({ asset: { __type: "erc20", contract: USDT }, amount }, to);
 ```
 
 - The plugin prepares the transaction one time, with the amount from `onAdvice`.
-- `adviseShield` and `adviseUnshield` give the advice without a wrapper.
-- An asset that the pool does not cover gives `not-checked`. It never blocks `prepareShield` or `prepareUnshield`: the plugin gets the original amount.
+- Each call uses the pool of its asset. Native ETH uses the WETH pool. `poolFor(pools, asset)` gives that pool, or `null`.
+- Give `pool` or `pools`, not both. Two pools for the same asset give an error.
+- `balance` is a `bigint`, or a function that gets the asset amount of the call and gives a `bigint` or `null`. It can be async.
+- Amounts are base units of the asset: wei for WETH, and 0.000001 token for USDT and USDC.
+- `adviseShield` and `adviseUnshield` give the advice without a wrapper. They take a pool or a list of pools.
+- An asset that no pool covers gives `not-checked`. It never blocks `prepareShield` or `prepareUnshield`: the plugin gets the original amount.
 - One asset for each call. `prepare*Multi` calls pass through with no advice.
 - Compatibility with the official `@kohaku-eth/railgun` plugin is a target. It is not tested.
 

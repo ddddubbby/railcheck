@@ -1,6 +1,6 @@
 # @railcheck/core (preview)
 
-The railcheck advice engine for RAILGUN shields and unshields. It runs on the device. It makes no network calls and never asks for an address.
+The railcheck advice engine for RAILGUN shields and unshields. It runs on the device. It makes no network calls and never asks for an address. It covers WETH, USDT and USDC on Ethereum mainnet, and WETH on Sepolia.
 
 ## Install
 
@@ -29,6 +29,16 @@ const advice = plan(pool, {
 });
 console.log(toJSON(advice).assessment.status); // clear, incomplete, attention or not-checked
 ```
+
+Amounts are `bigint` values in base units of the asset: wei for WETH, and 0.000001 token for USDT and USDC. `parseAmount(value, asset)` and `formatWei(amount, places, asset)` take the asset. Without it, they use WETH.
+
+```js
+import { parseAmount, USDT_ASSET } from "@railcheck/core";
+
+parseAmount("1250.5", USDT_ASSET); // 1250500000n
+```
+
+`ASSETS` lists the supported assets: `ETH_ASSET` (WETH), `USDT_ASSET` and `USDC_ASSET`. `prepare` also takes the asset as `{ chainId, address, symbol, decimals }` (as the builder gives it), and adds the amount settings of a supported asset.
 
 All options, result fields and rules for wallets: [railcheck.xyz/docs](https://railcheck.xyz/docs/).
 
