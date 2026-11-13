@@ -29,6 +29,9 @@ const $ = (id) => document.getElementById(id),
   reduced = matchMedia("(prefers-reduced-motion: reduce)");
 let worker,
   ready = false,
+  // The "pools" message (or a load error) has come: until then a stable chip
+  // says its pool is still loading.
+  settled = false,
   request = 0,
   last = null,
   pool = 0,
@@ -87,10 +90,15 @@ function load() {
     if (data.type === "pools") {
       Object.assign(counts, data.counts);
       for (const t of TOKENS) if (t.pool) covered[t.id] = !!data.covered?.[t.id];
+      settled = true;
       chips(true);
       coverage();
     }
-    if (data.type === "error" && data.id === undefined) return notice(data.message);
+    if (data.type === "error" && data.id === undefined) {
+      settled = true;
+      chips(true);
+      return notice(data.message);
+    }
     if (data.id !== request) return;
     // Never one token's result under another token's chip.
     if (data.token && data.token !== token().id) return;
@@ -110,8 +118,11 @@ function load() {
       notice(data.message);
     }
   };
-  worker.onerror = () =>
+  worker.onerror = () => {
+    settled = true;
+    chips(true);
     notice("The pool data did not load. Check your connection, then try again.");
+  };
   worker.postMessage({ type: "load" });
 }
 
@@ -142,7 +153,7 @@ function face(chip, token) {
   chip.dataset.covered = on;
   if (on) input.removeAttribute("aria-describedby");
   else
-    input.setAttribute("aria-describedby", token.pool ? "token-incomplete" : "token-not-covered");
+    input.setAttribute("aria-describedby", !token.pool ? "token-not-covered" : settled ? "token-incomplete" : "token-loading");
   box.replaceChildren();
   if (!on) {
     const dash = el("span", undefined, "dash");
@@ -184,7 +195,6 @@ function reparse() {
       input.setAttribute("aria-invalid", "true");
     }
   }
-  fee();
 }
 // The form follows the action: shield has no address questions.
 function sync() {
@@ -200,21 +210,6 @@ function sync() {
   for (const id of ["amount", "balance"]) {
     $(id + "-error").hidden = true;
     $(id).removeAttribute("aria-invalid");
-  }
-  fee();
-}
-function fee() {
-  const hint = $("fee-hint");
-  try {
-    const wei = parseAmount($("amount").value, asset),
-      after = wei - (wei * 25n) / 10000n;
-    hint.textContent =
-      action() === "shield"
-        ? `The pool records ${eth(after)} after the 0.25% shield fee.`
-        : `The recipient gets ${eth(after)} after the 0.25% unshield fee.`;
-    hint.hidden = false;
-  } catch {
-    hint.hidden = true;
   }
 }
 // Reads an amount field: its text, "" when optional and empty, or null when invalid.
@@ -619,7 +614,6 @@ function choose(amount) {
   $("amount").value = formatWei(BigInt(amount), undefined, asset);
   if (action() === "unshield" && value("restOfDeposit") === "yes")
     form.querySelector("input[name=restOfDeposit][value=no]").checked = true;
-  fee();
   submit();
 }
 // A changed input makes the old result stale, and the check in flight too: its
@@ -634,7 +628,6 @@ function drop() {
 form.addEventListener("input", (e) => {
   // A link toggle also fires "change", which re-runs the check: leave it to that.
   if (Object.hasOwn(LINKS, e.target.name)) return;
-  if (e.target.id === "amount") fee();
   const error = $(e.target.id + "-error");
   if (error) {
     error.hidden = true;
