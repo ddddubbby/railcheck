@@ -212,6 +212,6 @@ test("withdrawal reader splits ranges, uses real block timestamps, and rejects o
   ]);
   await assert.rejects(
     readWithdrawals(async () => [log], 3, 4),
-    /outside/,
+    /RPC returned a log from block 2, outside the requested range 3–4\./,
   );
 });
