@@ -433,10 +433,15 @@ test("an RPC behind the store that lacks the stored block serves the stored pool
   const first = await buildPools({ rpc: c.rpc, store, tokens: ALL });
   const saved = await store.get();
   assert.equal(saved.lastBlockTime, 12 * 26131636);
-  // Another node, 50 blocks behind, that has no block above its own head.
-  c.head = 26131650;
-  const behind = async (method, params) =>
-    method === "eth_getBlockByNumber" && Number(params[0]) > c.head ? null : c.rpc(method, params);
+  // Another node, 100 blocks behind, that has no block above its own head: the
+  // stored block (26131636) is above it, so the anchor lookup gives null.
+  c.head = 26131600;
+  const asked = [];
+  const behind = async (method, params) => {
+    const n = Number(params[0]);
+    if (method === "eth_getBlockByNumber") asked.push([n, n > c.head]);
+    return method === "eth_getBlockByNumber" && n > c.head ? null : c.rpc(method, params);
+  };
   c.ranges = [];
   const progress = [];
   const served = await buildPools({ rpc: behind, store, tokens: ALL, onProgress: (m) => progress.push(m) });
@@ -447,6 +452,27 @@ test("an RPC behind the store that lacks the stored block serves the stored pool
   assert.equal(store.writes, 1, "no store write");
   assert.equal(await store.get(), saved);
   assert.ok(!progress.some((m) => /Rebuilding/.test(m)));
+  assert.ok(asked.some(([n, missing]) => n === 26131636 && missing), "the stored block lookup gave null");
+});
+test("a version-3 store without lastBlockTime is rebuilt one time from the full window", async () => {
+  const c = chain(),
+    store = counted();
+  await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  const { lastBlockTime, ...rest } = await store.get();
+  await store.set(rest);
+  c.head = 26131800;
+  c.ranges = [];
+  const progress = [];
+  const again = await buildPools({ rpc: c.rpc, store, tokens: ALL, onProgress: (m) => progress.push(m) });
+  assert.ok(progress.some((m) => /older version/.test(m)));
+  assert.ok(c.ranges[0][0] < 26131000, "reads the whole window again");
+  assert.equal((await store.get()).lastBlockTime, 12 * 26131736);
+  assert.equal(again.weth.deposits.length, 3);
+  assert.equal(again.usdt.deposits.length, 4);
+  // The next run reads new blocks only.
+  c.ranges = [];
+  await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  assert.deepEqual(c.ranges, []);
 });
 test("a changed hash at the stored block still rebuilds, also from an RPC behind the store", async () => {
   for (const head of [26131800, 26131650]) {
