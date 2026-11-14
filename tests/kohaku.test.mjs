@@ -261,3 +261,16 @@ test("end to end: the published USDT and USDC pools, prepared from their identit
     for (const alt of advice.alternatives) assert.equal(alt.band, "Low");
   }
 });
+test("context: null from getContext is unknown, never no; a bad value throws", async () => {
+  const unsure = await unshieldWith({ addressReuse: null });
+  assert.equal(unsure.status, "incomplete");
+  assert.deepEqual(unsure.unknown, ["addressReuse", "pastTransfer", "restOfDeposit"]);
+  assert.deepEqual(unsure.addressLinks.unknown, ["addressReuse", "pastTransfer"]);
+  const one = await unshieldWith({ ...all, addressReuse: null });
+  assert.equal(one.status, "incomplete");
+  assert.deepEqual(one.unknown, ["addressReuse"]);
+  assert.equal(one.addressLinks.state, "unknown");
+  assert.equal((await unshieldWith(all)).status, "clear");
+  for (const bad of ["no", 0, 1])
+    await assert.rejects(unshieldWith({ ...all, restOfDeposit: bad }), /restOfDeposit must be true, false, or left out\./);
+});

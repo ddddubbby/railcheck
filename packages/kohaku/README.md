@@ -41,7 +41,7 @@ await safe.prepareUnshield({ asset: { __type: "erc20", contract: USDT }, amount 
 
 ## Context
 
-`getContext(assetAmount, to)` runs before each unshield. It can return these fields. A field that is not returned is unknown, never "no". Other keys are dropped.
+`getContext(assetAmount, to)` runs before each unshield. It can return these fields. A field that is `undefined`, `null` or not returned is unknown, never "no". Any other value than those in the table throws. Other keys are dropped.
 
 | Field | Values |
 | --- | --- |

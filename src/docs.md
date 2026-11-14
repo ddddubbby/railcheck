@@ -157,12 +157,12 @@ The context applies to an unshield only. Pass the answers that the wallet knows,
 
 | Key | Type | Question |
 | --- | --- | --- |
-| `addressReuse` | `boolean` or `undefined` | Is the recipient address the same as the address that shielded? |
-| `pastTransfer` | `boolean` or `undefined` | Did the recipient address send to, or receive from, the address that shielded? |
-| `restOfDeposit` | `boolean` or `undefined` | Does this unshield remove the remaining part of a shield that the user partly unshielded before? |
+| `addressReuse` | `boolean`, `null` or `undefined` | Is the recipient address the same as the address that shielded? |
+| `pastTransfer` | `boolean`, `null` or `undefined` | Did the recipient address send to, or receive from, the address that shielded? |
+| `restOfDeposit` | `boolean`, `null` or `undefined` | Does this unshield remove the remaining part of a shield that the user partly unshielded before? |
 | `swapGasPayer` | `"broadcaster"`, `"public-wallet"`, `null` or `undefined` | Who paid the gas for the private swap that made this amount? `"public-wallet"` links the swap to that wallet. `null` is unknown. Any other value throws. |
 
-`undefined` means "not sure". railcheck does not treat it as "no", and does not treat it as a link.
+`undefined`, `null` or leaving a field out all mean "not sure". railcheck does not treat "not sure" as "no", and does not treat it as a link. Any other value throws.
 
 ### Step 3: Use the Kohaku adapter {#kohaku-adapter}
 
@@ -324,9 +324,9 @@ type Finding = {
 };
 
 type Context = {
-  addressReuse?: boolean; // undefined: not sure
-  pastTransfer?: boolean;
-  restOfDeposit?: boolean;
+  addressReuse?: boolean | null; // undefined or null: not sure
+  pastTransfer?: boolean | null;
+  restOfDeposit?: boolean | null;
   swapGasPayer?: "broadcaster" | "public-wallet" | null; // undefined or null: not sure
 };
 
