@@ -115,7 +115,7 @@ const source = sourceURL || "https://github.com/ddddubbby/railcheck";
 // Unpublished blocks in the Markdown sources stay out of every output.
 const flags = { mcp: process.env.PUBLISH_MCP === "1" };
 // The check page copy date. Change it only when the copy of / changes.
-const HOME_UPDATED = "2026-11-11";
+const HOME_UPDATED = "2026-11-14";
 const SITE = "https://railcheck.xyz";
 const org = {
   "@type": "Organization",

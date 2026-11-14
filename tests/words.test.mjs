@@ -47,18 +47,20 @@ import { parseHTML } from "linkedom";
 // shield, the error states too. The open links panel has its own cap.
 // R1.5: the token chips (WETH, USDC, Soon, Other, Ethereum) came in, and the
 // action hint and the q3 example left the form: 115 to 105.
-// R1.6: the link questions moved into the closed "Check links" panel and are
+// R1.6: the link questions moved into the closed "Check links" panel (now "Link questions") and are
 // optional: 105 to 53.
 // UI-R5: the fee hint and the balance hint left the form (the result already
 // shows the recipient amount and the balance left): 53 to 38, shield 40 to 39,
 // errors 60 to 45, links open 104 to 89.
+// Page copy: shorter shield toggle and link questions: shield 39 to 38, links
+// open 89 to 85.
 const FORM_CAP = 38; // unshield (the default)
-const SHIELD_FORM_CAP = 39; // shield, its error states included
+const SHIELD_FORM_CAP = 38; // shield, its error states included
 // Unshield with an error showing. The "Select an answer." errors left with R1.6:
 // 114 to 60. It may only go down.
 const FORM_ERROR_CAP = 45;
 // Unshield with the links panel open: its four questions and toggles (UI-5).
-const LINKS_FORM_CAP = 89;
+const LINKS_FORM_CAP = 85;
 // The sum of the distinct form error messages, so any one that grows is caught.
 const ERROR_COPY_CAP = 28;
 // R1.7: the three state pips came in (three words), one verdict line replaced the
@@ -68,12 +70,12 @@ const ERROR_COPY_CAP = 28;
 // the largest result (17.3 ETH, ten matching shield lines) has 33 words.
 const RESULT_CAP = 25;
 // The same largest state with every kind tag counted, one per matching shield
-// line (strict). Measured at R1.7; it may only go down too.
-const RESULT_STRICT_CAP = 33;
+// line (strict). Measured at R1.7; it may only go down too. Page copy: 33 to 32.
+const RESULT_STRICT_CAP = 32;
 // R1.6: the link headlines share "That links them, whatever the amount.", and
 // the incomplete headline reuses "Some answers are not sure.": 153 to 148.
-// R1.7: 148 to 114.
-const RESULT_COPY_CAP = 114;
+// R1.7: 148 to 114. Page copy: shorter attention verdicts, 114 to 113.
+const RESULT_COPY_CAP = 113;
 // UI-3: the verdict is one line of 10 words or fewer.
 const VERDICT_CAP = 10;
 const FORM_TARGET = 60;
@@ -876,7 +878,7 @@ test("R3.4: a USDT result shows USDT amounts, and a token change never leaves it
   try {
     const { result } = await page.submit({ token: "usdt", action: "unshield", amount: "5000", constraint: "flexible", answers: NO, balance: "10000" });
     const text = result.textContent;
-    assert.match(text, /Use 4987\.5 USDT · scores \d+/);
+    assert.match(text, /Use 4987\.5 USDT \(score \d+\)/);
     assert.match(text, /Balance left: 5000 USDT\./);
     assert.doesNotMatch(text, /ETH/);
     assert.ok([...result.querySelectorAll("#matches tbody .match-leg")].some((l) => / USDT/.test(l.textContent)), "the matches are in USDT");
@@ -1074,7 +1076,8 @@ test("UI-R2: the check runs with only token and amount, and the result is incomp
     assert.match(css, /--medium:\s*#e8c36a/, "Medium is the amber token");
     // The Links pip carries "not sure" now (R1.7): no sentence repeats it (UI-R3).
     assert.equal(page.document.querySelector(".pip[data-pip=links]").dataset.state, "unknown");
-    assert.doesNotMatch(page.$("result-copy").textContent, /not sure|No issue found/);
+    assert.doesNotMatch(page.$("result-copy").textContent, /not sure|No issues in/);
+    assert.equal(page.$("result-copy").querySelector(".verdict").textContent, "Common amount, but not fully checked.");
   } finally {
     page.close();
   }
@@ -1160,7 +1163,7 @@ test("the links panel: closed by default, after the amount, keyboard reachable, 
     assert.ok(!links.hasAttribute("open"), "closed by default");
     assert.equal(summary.tagName, "SUMMARY", "a native disclosure: Tab reaches it, Enter and Space open it");
     assert.equal(summary.id, "links-toggle");
-    assert.equal(summary.textContent.trim(), "Check links");
+    assert.equal(summary.textContent.trim(), "Link questions");
     assert.ok(!summary.hasAttribute("tabindex"));
     const order = [...page.$("flow-form").querySelectorAll("*")],
       at = (el) => order.indexOf(el);
