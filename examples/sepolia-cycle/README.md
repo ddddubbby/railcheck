@@ -5,6 +5,12 @@ A real RAILGUN wallet flow with the official SDK. It runs on Sepolia (test funds
 - **Flow demo** (`src/flow-demo.mjs`): builds the pool with `@railcheck/builder`, gets advice through the `@railcheck/kohaku` adapter before `prepareShield` and `prepareUnshield`, then simulates and sends the transactions.
 - **Cycle** (`src/cycle.mjs`): shield, scan, unshield proof and unshield, with no railcheck advice.
 
+## Verified run
+
+On 17 October 2026, a wallet built its own pool, got advice, and sent a shield and an unshield on Sepolia. Both transactions are confirmed.
+
+## Result file
+
 A run writes its result to `RESULT.md`. Git ignores this file, because it contains your wallet address and transaction hashes.
 
 ## Versions

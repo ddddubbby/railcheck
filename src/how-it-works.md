@@ -37,7 +37,7 @@ Enter the amount before the 0.25% unshield fee.
 
 Swap outputs can raise a score but never lower it, because the check cannot tell whether a swap output is yours.
 
-If the amount can be smaller, railcheck tries common amounts from 70% to 100% of your amount, largest first. It shows the first amount with a score of 5 or less. It scores a maximum of 6 amounts.
+If the amount can be smaller, railcheck tries common amounts from 70% to 100% of your amount, largest first. It shows the first amount with a score of 5 or less. It scores up to 6 amounts.
 
 ### For a shield {#shield}
 
@@ -55,8 +55,8 @@ The score goes from 0 to 100. The strongest signal sets it.
 | --- | --- | --- |
 | 0–5 | Low | No strong amount match. |
 | 6–20 | Medium | The amount points to a shield. |
-| 21–50 | High | The amount gives a stronger link. |
-| 51–100 | Critical | The amount or your answers give a strong signal. |
+| 21–50 | High | The amount points more strongly to a shield. |
+| 51–100 | Critical | The amount or your answers are a strong signal. |
 
 A match applies only if the matched shield is yours.
 
@@ -90,12 +90,13 @@ Data that is not on the chain can make the real risk higher, for example timing,
 - **Broadcaster:** a third party that sends an unshield transaction, so that your public address does not pay the gas.
 - **Private balance:** the tokens that you hold in RAILGUN.
 - **Swap output:** the shield at the end of a private swap. Its amount is public, so an unshield can match it.
+- **In the SDK and the data:** the SDK calls shields "deposits" (as in `deposits` and `restOfDeposit`), and the data calls swap outputs "reshields".
 
 ## Disclaimer {#disclaimer}
 
 railcheck is an independent community project. It is not made by, affiliated with, or endorsed by [RAILGUN](https://railgun.org/) or its contributors.
 
-It gives information only. It is not financial, legal or tax advice. It never holds, moves or has access to funds, and does not submit transactions.
+It provides information only. It is not financial, legal or tax advice. It never holds, moves or has access to funds, and does not submit transactions.
 
 The software is provided “as is” under the MIT license, without warranty. The contributors accept no liability for decisions or losses that follow from using it. A score can be wrong, and a Low score does not guarantee privacy.
 
