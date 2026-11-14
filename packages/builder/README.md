@@ -40,6 +40,10 @@ Each pool is `{ deposits, snapshot, asset }`. It is valid JSON, so a server can 
 
 The store contains the sender addresses. Keep it on the device or on your server. The result contains no addresses. A store from an older builder version, or for another set of tokens, is rebuilt one time, from the full 180 days.
 
+A custom `chain` object for a chain or token that the SDK does not know (for example, a local fork) must have `chain.asset`. Without it, `buildPool` gives an error.
+
+The first run for WETH takes approximately 10–60 seconds. More tokens take longer, because the builder looks up the senders of more shields.
+
 Sender lookups go to your RPC for the shield transactions of the tokens that you choose. So the RPC can see which tokens the wallet builds pools for. It does not see the amounts or the addresses of the user.
 
 All options, where to run the builder, and timings: [railcheck.xyz/docs](https://railcheck.xyz/docs/#build-the-pool).

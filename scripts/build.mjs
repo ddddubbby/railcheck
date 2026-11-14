@@ -173,7 +173,7 @@ const TEXT_PAGES = [
     file: "src/docs.md",
     path: "/docs/",
     tools: {
-      version: "Preview 0.1.0",
+      version: "Preview",
       issues: "https://github.com/ddddubbby/railcheck/issues",
     },
     jsonld: (meta) => [

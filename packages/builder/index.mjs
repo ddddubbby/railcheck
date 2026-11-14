@@ -190,7 +190,7 @@ async function build(
 
   let state = await store.get();
   if (state && state.chainId !== c.chainId) state = null;
-  if (state && state.version !== STORE_VERSION) {
+  if (state && (state.version !== STORE_VERSION || !Number.isSafeInteger(state.lastBlockTime))) {
     onProgress("The stored pool is from an older version. Rebuilding.");
     state = null;
   }
@@ -199,18 +199,21 @@ async function build(
     onProgress("The tokens changed since the last build. Rebuilding from the full window.");
     state = null;
   }
+  let behind = false;
   if (state) {
-    // A changed hash at the last read block means a reorganisation: rebuild.
     const anchor = await rpc("eth_getBlockByNumber", [hex(state.lastBlock), false]);
-    if (anchor?.hash !== state.lastBlockHash) {
+    if (state.lastBlock > head && (anchor == null || anchor.hash === state.lastBlockHash)) {
+      // The RPC is behind the store (another node, for example), and may not have
+      // the stored block yet. Serve the stored pool as it is: no log read and no
+      // store write, so rows are never read twice and the stored block never
+      // moves back.
+      behind = true;
+      head = state.lastBlock;
+      top = { hash: state.lastBlockHash, timestamp: state.lastBlockTime };
+    } else if (anchor?.hash !== state.lastBlockHash) {
+      // A changed hash at the last read block means a reorganisation: rebuild.
       onProgress("The chain changed since the last build. Rebuilding.");
       state = null;
-    } else if (state.lastBlock > head) {
-      // The RPC is behind the store (another node, for example). Keep the stored
-      // block: reading back to it again would add its rows twice.
-      head = state.lastBlock;
-      top = anchor;
-      if (!Number.isSafeInteger(Number(top?.timestamp))) throw Error("Missing block timestamp.");
     }
   }
   const dataTime = Number(top.timestamp);
@@ -248,14 +251,16 @@ async function build(
     onProgress(`Read ${fresh.length} new deposits.`);
   }
   rows = rows.filter((r) => r.time >= cutoff);
-  await store.set({
-    version: STORE_VERSION,
-    chainId: c.chainId,
-    tokens: tokenSet,
-    lastBlock: head,
-    lastBlockHash: top.hash,
-    rows,
-  });
+  if (!behind)
+    await store.set({
+      version: STORE_VERSION,
+      chainId: c.chainId,
+      tokens: tokenSet,
+      lastBlock: head,
+      lastBlockHash: top.hash,
+      lastBlockTime: dataTime,
+      rows,
+    });
 
   // One pool per token, each with its own sender groups. Amounts are in the
   // asset's pool units: nano-ETH for WETH, base units for USDT and USDC.

@@ -71,7 +71,7 @@ const pools = Object.values(built).map(({ deposits, snapshot, asset }) => prepar
 | | On the device | On your server |
 | --- | --- | --- |
 | Procedure | The app runs `buildPool` and keeps the state in its own storage. | Your server runs `buildPool` at a fixed interval and sends `{ deposits, snapshot, asset }` to the app. |
-| Time for the user | The first run takes approximately 10–60 seconds. Each update takes approximately 2 seconds. | The user does not wait. |
+| Time for the user | For WETH, the first run takes approximately 10–60 seconds. Each update takes approximately 2 seconds. More tokens take longer, because the builder looks up the senders of more shields. | The user does not wait. |
 | Data that moves | None | The pool only: amounts, times and group numbers. No addresses. |
 | Use it for | A wallet with no backend | A wallet with a backend |
 
@@ -79,11 +79,11 @@ With the two options, the advice runs in the app. The amount and the answers of 
 
 On the device, start the build when the app starts. Do not start it when the user opens the send screen.
 
-#### `buildPool` options
+#### `buildPool` and `buildPools` options
 
 | Option | Type | Required | Default | Meaning |
 | --- | --- | --- | --- | --- |
-| `chain` | `"mainnet"` or `"sepolia"` | No | `"mainnet"` | The network and its RAILGUN contract. Mainnet has WETH, USDT and USDC. Sepolia has WETH only. |
+| `chain` | `"mainnet"`, `"sepolia"` or object | No | `"mainnet"` | The network and its RAILGUN contract. Mainnet has WETH, USDT and USDC. Sepolia has WETH only. A custom chain object for a chain or token that the SDK does not know (for example, a local fork) must have `chain.asset`. Without it, `buildPool` gives an error. |
 | `token` | `"weth"`, `"usdt"` or `"usdc"` | No | `"weth"` | `buildPool` only. The token of the pool. |
 | `tokens` | string[] | No | `["weth"]` | `buildPools` only. The tokens of the pools. A token that the chain does not have gives an error. |
 | `rpc` | `(method, params) => Promise` | One of `rpc` or `urls` | — | Your JSON-RPC function. Add `rpc.batch(calls)` for batches. `makeRpc` gives both. |

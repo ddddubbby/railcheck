@@ -149,7 +149,7 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     assert.match(docs, /<button type="button" class="copy-page" data-src="\/docs.md" hidden>/);
     assert.match(docs, /<script type="module" src="\/docs.mjs"><\/script>/);
     assert.match(docs, /href="\/docs.md">View as Markdown<\/a>/);
-    assert.match(docs, /Preview 0\.1\.0 · Updated <time datetime="\d{4}-\d{2}-\d{2}">/);
+    assert.match(docs, /Preview · Updated <time datetime="\d{4}-\d{2}-\d{2}">/);
     const docsMd = readFileSync(join(directory, "dist/docs.md"), "utf8");
     assert.match(docsMd, /^## What the result contains$/m);
     // Unpublished sections stay out of every output.

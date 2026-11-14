@@ -319,7 +319,7 @@ test("buildPools reads the logs one time for three tokens, with amounts in each 
 
   // The store holds the rows of every token, and the next run reads new blocks only.
   const saved = await store.get();
-  assert.deepEqual(Object.keys(saved), ["version", "chainId", "tokens", "lastBlock", "lastBlockHash", "rows"]);
+  assert.deepEqual(Object.keys(saved), ["version", "chainId", "tokens", "lastBlock", "lastBlockHash", "lastBlockTime", "rows"]);
   assert.equal(saved.version, STORE_VERSION);
   assert.deepEqual(saved.tokens, [WETH, USDC, USDT].sort());
   assert.deepEqual(saved.rows.map((r) => r.token), [WETH, USDT, USDC, WETH, USDT, USDC, USDT]);
@@ -417,4 +417,51 @@ test("an RPC behind the store never adds rows twice and never moves the stored b
   assert.deepEqual(next, await buildPools({ rpc: (() => { const f = chain(); f.head = 26131800; return f.rpc; })(), tokens: ALL }));
   assert.equal(next.weth.deposits.length, 3);
   assert.equal(next.usdt.deposits.length, 4);
+});
+
+// A store that counts its writes.
+const counted = () => {
+  const store = memoryStore();
+  store.writes = 0;
+  const set = store.set;
+  store.set = async (state) => (store.writes++, set(state));
+  return store;
+};
+test("an RPC behind the store that lacks the stored block serves the stored pool, with no read and no write", async () => {
+  const c = chain(),
+    store = counted();
+  const first = await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  const saved = await store.get();
+  assert.equal(saved.lastBlockTime, 12 * 26131636);
+  // Another node, 50 blocks behind, that has no block above its own head.
+  c.head = 26131650;
+  const behind = async (method, params) =>
+    method === "eth_getBlockByNumber" && Number(params[0]) > c.head ? null : c.rpc(method, params);
+  c.ranges = [];
+  const progress = [];
+  const served = await buildPools({ rpc: behind, store, tokens: ALL, onProgress: (m) => progress.push(m) });
+  assert.deepEqual(served, first);
+  assert.equal(served.usdt.snapshot.block, 26131636);
+  assert.equal(served.usdt.snapshot.time, 12 * 26131636);
+  assert.deepEqual(c.ranges, [], "no log read");
+  assert.equal(store.writes, 1, "no store write");
+  assert.equal(await store.get(), saved);
+  assert.ok(!progress.some((m) => /Rebuilding/.test(m)));
+});
+test("a changed hash at the stored block still rebuilds, also from an RPC behind the store", async () => {
+  for (const head of [26131800, 26131650]) {
+    const c = chain(),
+      store = counted();
+    await buildPools({ rpc: c.rpc, store, tokens: ALL });
+    c.fork = "b";
+    c.head = head;
+    c.ranges = [];
+    const progress = [];
+    const again = await buildPools({ rpc: c.rpc, store, tokens: ALL, onProgress: (m) => progress.push(m) });
+    assert.ok(progress.some((m) => /chain changed/.test(m)), `head ${head}`);
+    assert.ok(c.ranges[0][0] < 26131000, "reads the whole window again");
+    assert.equal(store.writes, 2);
+    assert.equal(again.weth.snapshot.block, head - 64);
+    assert.equal((await store.get()).lastBlockHash, `0xb${head - 64}`);
+  }
 });
