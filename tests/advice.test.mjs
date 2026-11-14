@@ -290,3 +290,38 @@ test("swap gas payer: an invalid value is rejected", () => {
         String(swapGasPayer),
       );
 });
+// A null answer is "not sure", as undefined. It is never "no".
+test("context: null is unknown, as undefined, never no", () => {
+  const amount = eth("0.9975");
+  assert.equal(assess(pool, { action: "unshield", amount, context: no }).status, "clear");
+  const keep = ({ status, unknown, addressLinks, coverage, findings, score }) =>
+    ({ status, unknown, addressLinks, coverage, findings, score });
+  for (const q of ["addressReuse", "pastTransfer", "restOfDeposit"]) {
+    const withNull = assess(pool, { action: "unshield", amount, context: { ...no, [q]: null } }),
+      withUndefined = assess(pool, { action: "unshield", amount, context: { ...no, [q]: undefined } }),
+      withNo = assess(pool, { action: "unshield", amount, context: no });
+    assert.deepEqual(keep(withNull), keep(withUndefined), q);
+    assert.notDeepEqual(keep(withNull), keep(withNo), q);
+    assert.equal(withNull.status, "incomplete", q);
+    assert.deepEqual(withNull.unknown, [q]);
+    const planned = plan(pool, { action: "unshield", amount, constraint: "flexible", context: { ...no, [q]: null } });
+    assert.deepEqual(keep(planned.assessment), keep(withUndefined), q);
+  }
+  const allNull = assess(pool, {
+    action: "unshield", amount, context: { addressReuse: null, pastTransfer: null, restOfDeposit: null },
+  });
+  assert.deepEqual(allNull.unknown, ["addressReuse", "pastTransfer", "restOfDeposit"]);
+  assert.equal(allNull.addressLinks.state, "unknown");
+  assert.deepEqual(allNull.coverage, { state: "limited", missing: ["rest-of-deposit"] });
+});
+test("context: an answer that is not true, false, null or undefined is rejected", () => {
+  for (const q of ["addressReuse", "pastTransfer", "restOfDeposit"])
+    for (const bad of ["no", "yes", "", "false", 0, 1, {}])
+      for (const run of [assess, plan])
+        for (const action of ["unshield", "shield"])
+          assert.throws(
+            () => run(pool, { action, amount: eth("0.9975"), context: { ...no, [q]: bad } }),
+            { message: `${q} must be true, false, or left out.` },
+            `${q} ${JSON.stringify(bad)}`,
+          );
+});
