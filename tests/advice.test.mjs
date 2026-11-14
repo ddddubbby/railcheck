@@ -314,6 +314,21 @@ test("context: null is unknown, as undefined, never no", () => {
   assert.equal(allNull.addressLinks.state, "unknown");
   assert.deepEqual(allNull.coverage, { state: "limited", missing: ["rest-of-deposit"] });
 });
+test("context: answers from getters or a prototype count as in a plain object", () => {
+  const plain = { addressReuse: true, pastTransfer: false, restOfDeposit: null, swapGasPayer: "public-wallet" };
+  class Answers {
+    get addressReuse() { return true; }
+    get pastTransfer() { return false; }
+    get restOfDeposit() { return null; }
+    get swapGasPayer() { return "public-wallet"; }
+  }
+  const run = (context) => plan(pool, { action: "unshield", amount: eth("0.9975"), constraint: "flexible", context });
+  const expected = run(plain);
+  assert.equal(expected.assessment.score, 100);
+  assert.deepEqual(expected.assessment.addressLinks.reasons, ["address-reuse", "swap-gas-payer"]);
+  assert.deepEqual(expected.assessment.unknown, ["restOfDeposit"]);
+  for (const context of [new Answers(), Object.create(plain)]) assert.deepEqual(run(context), expected);
+});
 test("context: an answer that is not true, false, null or undefined is rejected", () => {
   for (const q of ["addressReuse", "pastTransfer", "restOfDeposit"])
     for (const bad of ["no", "yes", "", "false", 0, 1, {}])

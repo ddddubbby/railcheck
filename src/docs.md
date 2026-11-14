@@ -151,7 +151,7 @@ The context applies to an unshield only. Give the answers that the wallet knows.
 | `restOfDeposit` | `boolean` or `undefined` | Does this unshield remove the remaining part of a shield that the user partly unshielded before? |
 | `swapGasPayer` | `"broadcaster"`, `"public-wallet"` or `undefined` | Who paid the gas for the private swap that made this amount? `"public-wallet"` links the swap to that wallet. |
 
-The value `undefined`, the value `null` and a missing answer all mean "not sure". railcheck does not use it as "no". railcheck does not use it as a link. For the three `boolean` answers, any other value throws an error.
+The value `undefined`, the value `null` and a missing answer all mean "not sure". railcheck does not use "not sure" as "no". railcheck does not use "not sure" as a link. For the three `boolean` answers, any other value throws an error.
 
 ### Step 3: Use the Kohaku adapter {#kohaku-adapter}
 
