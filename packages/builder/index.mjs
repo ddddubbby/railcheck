@@ -102,7 +102,9 @@ function chainOf(chain) {
   let asset;
   if (chain.asset) {
     if (String(chain.asset.address).toLowerCase() !== token || chain.asset.chainId !== chain.chainId)
-      throw Error("The chain asset is not the chain's token. Pass the asset of that token.");
+      throw Error(
+        `The chain asset (${chain.asset.address} on chain ${chain.asset.chainId}) is not the chain's token (${token} on chain ${chain.chainId}). Pass the asset of that token.`,
+      );
     // A known asset returns its identity, so the pool survives JSON; any other
     // asset returns as given, and must have its amount fields.
     const match = knownAsset(chain.chainId, token);
@@ -182,7 +184,7 @@ async function build(
   rpc ??= makeRpc({ urls });
   senders ??= rpcSenders(rpc, { batchSize, concurrency });
   const chainId = Number(await rpc("eth_chainId", []));
-  if (chainId !== c.chainId) throw Error("The RPC serves another chain.");
+  if (chainId !== c.chainId) throw Error(`The RPC serves chain ${chainId}, not chain ${c.chainId}.`);
 
   let head = Number(await rpc("eth_blockNumber", [])) - c.confirmations;
   let top = await rpc("eth_getBlockByNumber", [hex(head), false]);

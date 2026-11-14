@@ -36,6 +36,13 @@ test("malformed event offsets and missing transaction identifiers fail closed", 
   assert.throws(() => decodeShield("0x"));
   const log = fixture.logs.find((l) => l.topics[0] === SHIELD_TOPIC);
   assert.throws(() => foldShieldLogs([{ ...log, transactionHash: undefined }]));
+  // A log from another contract names that address, cut to 42 characters.
+  const other = "0x" + "ab".repeat(20);
+  assert.throws(
+    () => foldShieldLogs([{ ...log, address: other + "f".repeat(5000) }]),
+    (error) =>
+      error.message === `RPC returned a log from another contract (${other}, not ${RAILGUN_PROXY}).`,
+  );
   const words = log.data.slice(2).match(/.{64}/g);
   words[2] = "1".padStart(64, "0");
   assert.throws(() => decodeShield("0x" + words.join("")));
@@ -212,6 +219,6 @@ test("withdrawal reader splits ranges, uses real block timestamps, and rejects o
   ]);
   await assert.rejects(
     readWithdrawals(async () => [log], 3, 4),
-    /outside/,
+    /RPC returned a log from block 2, outside the requested range 3–4\./,
   );
 });

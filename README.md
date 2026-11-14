@@ -21,7 +21,7 @@ The web check covers RAILGUN WETH, USDT and USDC on Ethereum mainnet. The wallet
 
 Your amount and answers stay on your device. The check has no server, no analytics and no wallet connection. For the method, the data and the limits, see [How it works](https://railcheck.xyz/how-it-works/).
 
-A score is the output of a model. A Low score does not guarantee privacy.
+A Low score does not guarantee privacy: see the [limits](https://railcheck.xyz/how-it-works/#limits).
 
 ## Repository
 
@@ -53,4 +53,4 @@ Open <http://127.0.0.1:4173>.
 
 MIT. The Geist fonts use the [SIL Open Font License](public/fonts/LICENSE.txt).
 
-railcheck is an independent project. It is not related to RAILGUN.
+railcheck is an independent project, not related to RAILGUN: see the [disclaimer](https://railcheck.xyz/how-it-works/#disclaimer).

@@ -336,6 +336,10 @@ if (origin) {
     `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${Object.entries(updated).map(([path, day]) => `<url><loc>${escape(origin + path)}</loc><lastmod>${day}</lastmod></url>`).join("")}</urlset>\n`,
   );
 } else writeFileSync("dist/robots.txt", "User-agent: *\nDisallow: /\n");
+// With no origin (SITE_URL unset, and not a Vercel production build), `prefix` is
+// empty: llms.txt links and llms-full.txt page markers become root-relative
+// ("/docs.md") and resolve against whichever host serves the file, as local and
+// preview builds need. Production builds get absolute links from the origin.
 const prefix = origin || "";
 // llms.txt follows the community proposal: H1, block-quote summary, link sections.
 writeFileSync(
@@ -350,14 +354,21 @@ railcheck has two parts: a web check for users, and a wallet SDK (\`@railcheck/c
 
 - [How it works](${prefix}/how-it-works.md): how railcheck makes the score, which data it uses, what stays private, and its limits.
 - [For wallets](${prefix}/docs.md): how to build the pool from your own RPC, get advice with \`plan()\`, use the Kohaku adapter, and read each result field.
-- [Check](${prefix}/index.md): what the web check asks and what it gives.
+- [Check](${prefix}/index.md): what the web check asks and what it shows.
+
+## Capabilities
+
+- Web check: Ethereum mainnet WETH (18 decimals), USDT (6 decimals) and USDC (6 decimals).
+- Window: the shields of the last 180 days.
+- Protocol fee: 0.25% (25 bps) on each shield and each unshield.
+- SDK preview: mainnet WETH, USDT and USDC, and Sepolia WETH.
 
 ## Instructions for agents
 
-- Ask the user for missing inputs. Do not guess the answers to the link questions. If the user does not know, send "not sure" (\`undefined\`).
-- Never show the status \`not-checked\` as \`clear\`.
-- A Low score does not guarantee privacy. Say this when you give a result.
-- Do not give addresses to railcheck. The check does not use them.
+- Ask the user for missing inputs. Do not guess the answers to the link questions. If the user does not know, the answer is unknown: in \`plan()\`, leave it \`undefined\` or omit it; in the legacy \`check()\`, pass \`"unsure"\`; in the web form, select "?".
+- Never show \`not-checked\` or \`incomplete\` as "clear", safe or green: an \`incomplete\` result can have a Low band, and a \`not-checked\` result has no score.
+- A Low score does not guarantee privacy. Say this when you report a result.
+- Do not send addresses to railcheck. The check does not use them.
 
 ## Optional
 
