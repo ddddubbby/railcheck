@@ -366,7 +366,7 @@ railcheck has two parts: a web check for users, and a wallet SDK (\`@railcheck/c
 ## Instructions for agents
 
 - Ask the user for missing inputs. Do not guess the answers to the link questions. If the user does not know, the answer is unknown: in \`plan()\`, leave it \`undefined\` or omit it; in the legacy \`check()\`, pass \`"unsure"\`; in the web form, select "?".
-- Never show \`not-checked\` or \`incomplete\` as "clear", safe or green, even when \`amountExposure.band\` is \`Low\`.
+- Never show \`not-checked\` or \`incomplete\` as "clear", safe or green: an \`incomplete\` result can have a Low band, and a \`not-checked\` result has no score.
 - A Low score does not guarantee privacy. Say this when you report a result.
 - Do not send addresses to railcheck. The check does not use them.
 

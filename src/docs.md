@@ -10,7 +10,7 @@ railcheck tells a user if an amount can link a shield to an unshield. The user g
 ## For wallet teams {#for-wallet-teams}
 
 - **It runs in your wallet.** The amount and the answers stay on the user's device, and railcheck receives no data.
-- **You keep the data path.** Your wallet reads the shields from your own RPC, so railcheck has no server in the loop.
+- **You keep the data path.** Your wallet reads the shields from your own RPC, so no railcheck server sits between your wallet and the data.
 - **It never asks for an address.** The wallet answers four questions with yes, no or not sure.
 - **It is free.** The license is MIT. You can use, change and fork the code.
 - **It has run end to end.** See the [verified Sepolia run](https://github.com/ddddubbby/railcheck/tree/main/examples/sepolia-cycle#verified-run).
@@ -348,14 +348,14 @@ type PreparedPool = {
   snapshot: Snapshot | null;
   now: number; // Unix seconds; defaults to the current time
   start: number; // now minus 180 days
-  grouped: boolean; // true when every shield has a sender group
+  grouped: boolean; // true when every public shield has an integer group
 };
 
 type Deposit = { // the input to prepare, as the builder returns it
   id: number;
   amount: number; // pool units: nano-ETH for WETH, base units for USDT and USDC
   time: number; // Unix seconds
-  group?: number; // sender group; absent or 0xFFFFFFFF for no group
+  group?: number; // sender group of a public shield; leave it out for no group (the builder sets 0xFFFFFFFF on swap outputs only)
   kind?: "public" | "reshield";
 };
 ```
@@ -482,7 +482,7 @@ Format 2 adds `amountExposure`, `addressLinks` and `coverage`. The format 1 fiel
 
 Low-level parts of `@railcheck/core`. Most wallets do not need them.
 
-- `score(pool, amount)`: returns the amount score only, with no answers and no match table.
+- `score(pool, amount)`: returns `{ score, band, crowd, matches }` for the amount alone (no answers, no match table), plus `fromSwapOutputs: true` when swap outputs set the score. Cached per pool.
 - `inspect(pool, amount)`: returns the full model output: score, top shields and match table.
 - `check(deposits, amount, q1, q2, q3, now, asset)`: the legacy web-check wrapper. Its answers are `"yes"`, `"no"` or `"unsure"` (not sure).
 - `bandOf(score)`: returns the band of a score.
@@ -495,14 +495,14 @@ Low-level parts of `@railcheck/core`. Most wallets do not need them.
 - `FEES`: the shield and unshield fees, 25 bps each.
 - `EPS`, `NANO`, `WEI`: the WETH match tolerance in nano-ETH (5000), 10^9 and 10^18.
 - `unready(pool, maxAgeHours)`: returns `"stale-data"`, `"incomplete-window"` or `null`.
-- `crowded(pool)`: returns the pool amounts that 20 or more owners share.
+- `crowded(pool)`: returns `[amount, owners]` pairs, largest amount first: each pool amount (in pool units) that 20 or more owners share, with that owner count. Owners are sender groups when the pool has them, else shields.
 - `notCheckedParts(code, action)`: returns the format 2 parts of a `not-checked` assessment.
 - `QUESTIONS`, `SWAP_GAS_PAYERS`: the yes/no context keys and the `swapGasPayer` values.
 - `SWAP_GAS_PAYER_FLOOR`, `LOW`, `MIN_CROWD`, `BUDGET`, `MAX_AGE_HOURS`: the engine constants (90, 5, 20, 6, 48).
 
 ## How to show the result {#rules}
 
-1. Never show `not-checked` or `incomplete` as "clear", safe or green, even when `amountExposure.band` is `Low`.
+1. Never show `not-checked` or `incomplete` as "clear", safe or green: an `incomplete` result can have a Low band, and a `not-checked` result has no score.
 2. Do not answer for the user. If the wallet does not know an answer, leave it `undefined`.
 3. If the constraint is `"fixed"`, show the advice. Do not change the amount.
 4. If the user selects a new amount after the plugin prepared the transaction, prepare the transaction again.
@@ -531,7 +531,7 @@ If `RPC_URL` is set, the server builds the pool from your RPC. If not, it downlo
 Rules for agents:
 
 1. Ask the user the four context questions. Do not guess the answers. If the user does not know, send `not-sure`.
-2. Never show `not-checked` or `incomplete` as "clear", safe or green, even when `amountExposure.band` is `Low`.
+2. Never show `not-checked` or `incomplete` as "clear", safe or green: an `incomplete` result can have a Low band, and a `not-checked` result has no score.
 3. Do not change the amount without the user's approval.
 <!-- end:mcp -->
 

@@ -60,7 +60,7 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
     if (log.removed)
       throw Error("RPC returned a removed log. Retry the update.");
     if (log.address?.toLowerCase() !== proxy)
-      throw Error(`RPC returned a log from another contract (${log.address}, not ${proxy}).`);
+      throw Error(`RPC returned a log from another contract (${String(log.address).slice(0, 42)}, not ${proxy}).`);
     if (!/^0x[a-f0-9]{64}$/i.test(log.transactionHash || ""))
       throw Error("Missing transaction hash.");
     const block = Number(log.blockNumber),
