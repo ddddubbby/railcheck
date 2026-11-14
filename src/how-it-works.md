@@ -27,7 +27,7 @@ Enter the amount before the 0.25% unshield fee.
 1. railcheck looks for sets of 1, 2 or 3 shields that add up to your amount. For WETH it accepts a difference of up to 0.000005 ETH. For USDT and USDC the sum must be exact.
 2. Each matching set gets a weight. Smaller sets get a higher weight. The check also includes the probability that no set is exact.
 3. The strongest match sets the amount score. Many competing matches decrease it.
-4. Your answers under "Check links" can set a minimum score. The questions are optional:
+4. Your answers under "Link questions" can set a minimum score. The questions are optional:
    - The same address for the shield and the unshield: at least 100.
    - A past transfer between the two addresses: at least 90.
    - An unshield of the rest of a shield that you partly unshielded before: at least 90.

@@ -201,7 +201,7 @@ function sync() {
   const shield = action() === "shield";
   $("amount-label").textContent = shield ? "Amount to shield" : "Amount to unshield";
   $("constraint-legend").textContent = shield
-    ? "Can the amount change a little?"
+    ? "Can you adjust the amount?"
     : "Can the amount be smaller?";
   $("flexible-label").textContent = shield ? "Yes, within 10%" : "Yes, down to 70%";
   $("unshield-options").hidden = shield;
@@ -405,10 +405,10 @@ function headline(a) {
     link = a.findings.find((f) => f.code === "address-link");
   if (a.action === "shield")
     return a.status === "attention"
-      ? "Stands out: a full unshield is easy to match."
+      ? "Stands out: a full unshield matches easily."
       : a.status === "clear"
         ? "This shield blends in."
-        : "No amount issue found.";
+        : "Not fully checked. No amount issue.";
   if (link)
     return {
       "address-reuse": "Same address as the shield. Use a new address.",
@@ -417,9 +417,9 @@ function headline(a) {
       "swap-gas-payer": "A public wallet paid the swap gas.",
     }[link.reason];
   if (codes.includes("rest-of-deposit")) return "Your unshields add up to one shield.";
-  if (codes.includes("amount-stands-out")) return "This amount points to shields.";
-  if (a.status === "incomplete") return "No amount issue found.";
-  return "No issue found by the available checks.";
+  if (codes.includes("amount-stands-out")) return "This amount stands out.";
+  if (a.status === "incomplete") return "Not fully checked. No amount issue.";
+  return "No issues in the checks that ran.";
 }
 // First level (UI-3): band, meter, pips, one verdict line and what to do.
 // Everything that explains it waits in "What does this mean?".
@@ -456,7 +456,7 @@ function render({ result: r, sets, lit, count, manifest }) {
     else if (r.alternatives.length)
       for (const alt of r.alternatives) {
         const amount = a.action === "shield" ? alt.amounts.shieldInput : alt.amounts.unshieldAmount,
-          use = el("button", `Use ${eth(amount)} · scores ${alt.score}`, "secondary");
+          use = el("button", `Use ${eth(amount)} (score ${alt.score})`, "secondary");
         use.type = "button";
         use.onclick = () => choose(amount);
         parts.push(use);
@@ -515,9 +515,9 @@ function render({ result: r, sets, lit, count, manifest }) {
     );
   if (a.action === "unshield" && a.modelScore !== a.score) details.append(el("p", `Amount score ${a.modelScore}.`));
   if (a.notes.includes("split-completes-total")) details.append(el("p", "If you unshield the rest later, your unshields add up to your shield."));
-  details.append(el("p", "A filled dot is a problem found, ? is not known, and an empty dot is none found.", "hint"));
+  details.append(el("p", "Filled dot: issue found. ?: unknown. Empty dot: no issue found.", "hint"));
   details.append(el("p", `Checked: amount${answers.length ? ", " + answers.join(", ") : ""}. Not covered: timing, IP addresses.`, "hint"));
-  details.append(el("p", `${count.toLocaleString("en")} shields, last 180 days, data of ${date(manifest.dataTime)}.`, "hint"));
+  details.append(el("p", `${count.toLocaleString("en")} shields, last 180 days, data from ${date(manifest.dataTime)}.`, "hint"));
   // What shield and unshield mean: a link that was a hint in the form (UI-R5).
   const words = el("p", undefined, "hint"),
     link = el("a", "What shield and unshield mean");
