@@ -408,7 +408,7 @@ function headline(a) {
       ? "Stands out: a full unshield matches easily."
       : a.status === "clear"
         ? "This shield blends in."
-        : "Common amount, but not fully checked.";
+        : "Not fully checked. No amount issue.";
   if (link)
     return {
       "address-reuse": "Same address as the shield. Use a new address.",
@@ -418,7 +418,7 @@ function headline(a) {
     }[link.reason];
   if (codes.includes("rest-of-deposit")) return "Your unshields add up to one shield.";
   if (codes.includes("amount-stands-out")) return "This amount stands out.";
-  if (a.status === "incomplete") return "Common amount, but not fully checked.";
+  if (a.status === "incomplete") return "Not fully checked. No amount issue.";
   return "No issues in the checks that ran.";
 }
 // First level (UI-3): band, meter, pips, one verdict line and what to do.

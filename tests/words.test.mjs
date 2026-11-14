@@ -53,14 +53,14 @@ import { parseHTML } from "linkedom";
 // shows the recipient amount and the balance left): 53 to 38, shield 40 to 39,
 // errors 60 to 45, links open 104 to 89.
 // Page copy: shorter shield toggle and link questions: shield 39 to 38, links
-// open 89 to 85.
+// open 89 to 84.
 const FORM_CAP = 38; // unshield (the default)
 const SHIELD_FORM_CAP = 38; // shield, its error states included
 // Unshield with an error showing. The "Select an answer." errors left with R1.6:
 // 114 to 60. It may only go down.
 const FORM_ERROR_CAP = 45;
 // Unshield with the links panel open: its four questions and toggles (UI-5).
-const LINKS_FORM_CAP = 85;
+const LINKS_FORM_CAP = 84;
 // The sum of the distinct form error messages, so any one that grows is caught.
 const ERROR_COPY_CAP = 28;
 // R1.7: the three state pips came in (three words), one verdict line replaced the
@@ -1077,7 +1077,7 @@ test("UI-R2: the check runs with only token and amount, and the result is incomp
     // The Links pip carries "not sure" now (R1.7): no sentence repeats it (UI-R3).
     assert.equal(page.document.querySelector(".pip[data-pip=links]").dataset.state, "unknown");
     assert.doesNotMatch(page.$("result-copy").textContent, /not sure|No issues in/);
-    assert.equal(page.$("result-copy").querySelector(".verdict").textContent, "Common amount, but not fully checked.");
+    assert.equal(page.$("result-copy").querySelector(".verdict").textContent, "Not fully checked. No amount issue.");
   } finally {
     page.close();
   }
