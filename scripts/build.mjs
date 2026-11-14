@@ -173,7 +173,7 @@ const TEXT_PAGES = [
     file: "src/docs.md",
     path: "/docs/",
     tools: {
-      version: "Preview 0.1.0",
+      version: "Preview",
       issues: "https://github.com/ddddubbby/railcheck/issues",
     },
     jsonld: (meta) => [
@@ -344,7 +344,7 @@ writeFileSync(
 
 > Local privacy advice for RAILGUN shields and unshields on Ethereum. railcheck tells a user if an amount can link a shield to an unshield. It runs on the device and never asks for an address.
 
-railcheck has two parts: a web check for users, and a wallet SDK (\`@railcheck/core\`, \`@railcheck/builder\`, \`@railcheck/kohaku\`). The web check covers RAILGUN WETH, USDT and USDC on Ethereum mainnet. The wallet SDK preview covers WETH on Ethereum mainnet and Sepolia.
+railcheck has two parts: a web check for users, and a wallet SDK (\`@railcheck/core\`, \`@railcheck/builder\`, \`@railcheck/kohaku\`). The web check covers RAILGUN WETH, USDT and USDC on Ethereum mainnet. The wallet SDK preview covers WETH, USDT and USDC on Ethereum mainnet, and WETH on Sepolia.
 
 ## Docs
 

@@ -50,6 +50,10 @@ export function decodeShield(data) {
 }
 
 export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {}) {
+  // token: one address, null (every ERC-20) or an array of addresses. With null
+  // or an array, each row has its token.
+  const tagged = token === null || Array.isArray(token),
+    keep = Array.isArray(token) ? (t) => token.includes(t) : (t) => token === null || t === token;
   const transactions = new Map(),
     seen = new Set();
   for (const log of logs) {
@@ -85,16 +89,16 @@ export function foldShieldLogs(logs, { proxy = RAILGUN_PROXY, token = WETH } = {
     if (topic === NULLIFIED_TOPIC) row.internal = true;
     else if (topic === SHIELD_TOPIC) {
       for (const c of decodeShield(log.data))
-        if (c.tokenType === 0 && (token === null || c.tokenAddress === token))
+        if (c.tokenType === 0 && keep(c.tokenAddress))
           row.notes.push([c.tokenAddress, c.value]);
     } else throw Error("Unexpected event topic.");
     transactions.set(key, row);
   }
   // Public shields: one row per transaction (sum). Reshields (Nullified): one row per note.
   // kind: "public" | "reshield" — settled here for pool v3 (R0.3) and buildPool (SDK-4).
-  // token null: every ERC-20, public rows per transaction and token, each row with its token.
+  // token null or an array: public rows per transaction and token, each row with its token.
   const kept = [],
-    tag = (r, t) => (token === null ? { ...r, token: t } : r);
+    tag = (r, t) => (tagged ? { ...r, token: t } : r);
   for (const row of [...transactions.values()].sort(
     (a, b) => a.block - b.block || a.index - b.index,
   )) {

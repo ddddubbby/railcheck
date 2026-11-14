@@ -90,6 +90,30 @@ test("an asset without an amount field is refused; ETH_ASSET has every field", (
     { chainId, address, symbol, decimals },
   );
 });
+test("a USDT or USDC identity gets its amount fields; another identity does not", () => {
+  for (const known of [USDT_ASSET, USDC_ASSET]) {
+    const { chainId, address, symbol, decimals } = known;
+    const id = { chainId, address, symbol, decimals };
+    // Appended in order after the identity; a stable has no message word.
+    assert.deepEqual(assetOf(id), known);
+    assert.deepEqual(Object.keys(assetOf(id)), ["chainId", "address", "symbol", ...AMOUNT_FIELDS]);
+    assert.deepEqual(assetOf({ ...id, address: "0x" + address.slice(2).toUpperCase() }).saferStep, 10000n);
+    // A field the asset has is kept.
+    assert.equal(assetOf({ ...id, tolerance: 3 }).tolerance, 3);
+    // Wrong decimals, another chain or another address: not filled, and refused.
+    for (const wrong of [{ ...id, decimals: 18 }, { ...id, chainId: 5 }, { ...id, address: TEST_USD.address }])
+      assert.throws(() => assetOf(wrong), new RegExp(`pool asset ${symbol} has no unitDecimals`));
+    // The identity survives JSON, and prepare fills it.
+    const pool = prepare([{ id: 0, amount: 1_234_567_891, time: now - 5 }], { now, asset: JSON.parse(JSON.stringify(id)) });
+    assert.equal(pool.scale, 1n);
+    assert.equal(pool.eps, 0);
+  }
+  // WETH as before: the WETH rule covers any chain, with the message word.
+  const sepolia = { chainId: 11155111, address: "0xfff9976782d46cc05630d1f6ebab18b2324d6b14", symbol: "WETH", decimals: 18 };
+  assert.deepEqual(Object.keys(assetOf(sepolia)), ["chainId", "address", "symbol", ...AMOUNT_FIELDS, "unit"]);
+  assert.equal(assetOf(sepolia).unit, "ETH");
+  assert.equal(assetOf(USDT_ASSET), USDT_ASSET);
+});
 // Three assets share chain 1: the chain alone does not tell their pools apart.
 test("prepare refuses a pool whose token is not the asset's", () => {
   const entry = JSON.parse(readFileSync("public/data/manifest.json", "utf8")).pools.usdt,
@@ -109,7 +133,7 @@ test("prepare refuses a pool whose token is not the asset's", () => {
   assert.throws(() => prepare([], { now, snapshot: { chainId: 5, token: USDT_ASSET.address } }), /different chains/);
 });
 test("prepare accepts a matching token in any letter case, and a snapshot without a token", () => {
-  const sepolia = { chainId: 11155111, address: CHAINS.sepolia.token, symbol: "WETH", decimals: 18 };
+  const sepolia = CHAINS.sepolia.tokens.weth.asset;
   for (const asset of [ETH_ASSET, USDT_ASSET, USDC_ASSET, sepolia]) {
     const snapshot = { chainId: asset.chainId, token: asset.address };
     assert.equal(prepare([], { now, snapshot, asset }).asset.address, asset.address);

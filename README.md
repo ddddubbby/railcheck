@@ -7,7 +7,7 @@ railcheck tells you if a shield or unshield amount can link back to you, before 
 - **Web check:** [railcheck.xyz](https://railcheck.xyz/)
 - **Wallet SDK:** add the same check to a wallet. See [For wallets](https://railcheck.xyz/docs/).
 
-The web check covers RAILGUN WETH, USDT and USDC on Ethereum mainnet. The wallet SDK preview covers WETH on Ethereum mainnet and Sepolia.
+The web check covers RAILGUN WETH, USDT and USDC on Ethereum mainnet. The wallet SDK preview covers WETH, USDT and USDC on Ethereum mainnet, and WETH on Sepolia.
 
 ## Packages
 

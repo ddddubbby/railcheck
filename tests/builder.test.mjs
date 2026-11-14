@@ -1,46 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { prepare, plan, assess, toStored } from "@railcheck/core";
-import { buildPool, memoryStore, CHAINS } from "@railcheck/builder";
+import { prepare, plan, assess, toStored, assetOf } from "@railcheck/core";
+import { buildPool, buildPools, memoryStore, CHAINS, STORE_VERSION } from "@railcheck/builder";
 
-const fixture = JSON.parse(readFileSync("tests/fixtures/ethereum-logs.json", "utf8"));
-const hex = (n) => `0x${n.toString(16)}`;
-// The external shield, copied into three transactions: two from one sender.
-const base = fixture.logs[2];
-const logs = [
-  [26131570, "0xaa", "0x" + "1".repeat(40)],
-  [26131600, "0xbb", "0x" + "1".repeat(40)],
-  [26131700, "0xcc", "0x" + "2".repeat(40)],
-].map(([block, tx, from]) => ({
-  ...base,
-  blockNumber: hex(block),
-  blockTimestamp: undefined,
-  transactionHash: tx.padEnd(66, "0"),
-  from,
-}));
-
-// A fake chain: block n has time 12n. `fork` changes every block hash.
-function chain() {
-  const c = { head: 26131700, fork: "a", ranges: [] };
-  c.rpc = async (method, [arg]) => {
-    if (method === "eth_chainId") return "0x1";
-    if (method === "eth_blockNumber") return hex(c.head);
-    if (method === "eth_getBlockByNumber") {
-      const n = Number(arg);
-      return { timestamp: hex(12 * n), hash: `0x${c.fork}${n}` };
-    }
-    if (method === "eth_getLogs") {
-      const from = Number(arg.fromBlock), to = Number(arg.toBlock);
-      c.ranges.push([from, to]);
-      return logs.filter((l) => Number(l.blockNumber) >= from && Number(l.blockNumber) <= to);
-    }
-    if (method === "eth_getTransactionByHash")
-      return { from: logs.find((l) => l.transactionHash === arg).from };
-    throw Error(method);
-  };
-  return c;
-}
+import { chain, fixture, hex, wethLogs as logs, USDT, USDC, WETH } from "./fixtures/builder-chain.mjs";
 
 test("builder reads the window, then only new blocks, with sender groups", async () => {
   const c = chain(), store = memoryStore();
@@ -248,7 +212,7 @@ test("builder rebuilds a store of an older version, with the swap outputs of the
   const head = c.head - 64;
   const old = {
     chainId: 1,
-    token: CHAINS.mainnet.token,
+    token: WETH,
     lastBlock: head,
     lastBlockHash: `0x${c.fork}${head}`,
     rows: [{ block: 26131570, time: 12 * 26131570, amountWei: "1000000000000000000", sender: "0x" + "1".repeat(40) }],
@@ -298,4 +262,232 @@ test("prepare refuses a snapshot from another chain than the asset", async () =>
   const sepolia = { ...built.snapshot, chainId: 11155111 };
   assert.throws(() => prepare(built.deposits, { snapshot: sepolia }), /different chains/);
   assert.equal(prepare(built.deposits, built).asset.chainId, 1);
+});
+
+// buildPool's WETH output on main (83023a6), recorded on the same fake chain:
+// tests/fixtures/builder-weth-main.json. Other tokens in the logs change nothing.
+const recorded = JSON.parse(readFileSync("tests/fixtures/builder-weth-main.json", "utf8"));
+test("buildPool WETH output is the same as before stable support", async () => {
+  for (const [name, opts] of [["plain", {}], ["mixed", { mixed: true }], ["reshield", { mixed: true, reshield: true }]]) {
+    const c = chain(opts),
+      store = memoryStore();
+    const first = await buildPool({ rpc: c.rpc, store });
+    c.head = 26131800;
+    const next = await buildPool({ rpc: c.rpc, store });
+    assert.equal(JSON.stringify({ first, next }), JSON.stringify(recorded[name]), name);
+  }
+});
+
+const NO_GROUP = 0xffffffff;
+const ALL = ["weth", "usdt", "usdc"];
+test("buildPools reads the logs one time for three tokens, with amounts in each asset's pool units", async () => {
+  const one = chain();
+  await buildPools({ rpc: one.rpc, tokens: ["weth"] });
+  const c = chain(),
+    store = memoryStore();
+  const pools = await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  assert.equal(c.ranges.length, one.ranges.length);
+  assert.deepEqual(Object.keys(pools), ALL);
+  assert.equal(JSON.stringify(pools.weth), JSON.stringify(recorded.plain.first));
+  // Base units for the stables, nano-ETH for WETH; groups per pool.
+  assert.deepEqual(
+    pools.usdt.deposits.map(({ amount, group, kind }) => [amount, group, kind]),
+    [[1_234_567_891, 0, "public"], [20_000_000, 1, "public"], [777_777, NO_GROUP, "reshield"]],
+  );
+  assert.deepEqual(pools.usdc.deposits.map(({ amount, group }) => [amount, group]), [[500_000_001, 0], [100_000_000, 1]]);
+  assert.deepEqual(pools.weth.deposits.map(({ amount, group }) => [amount, group]), [[7_539_473, 0], [7_539_473, 0]]);
+  assert.deepEqual(pools.usdt.deposits.map((d) => d.id), [0, 1, 2]);
+  // Each pool has its own snapshot and the plain asset identity.
+  assert.deepEqual(pools.usdt.asset, { chainId: 1, address: USDT, symbol: "USDT", decimals: 6 });
+  assert.deepEqual(pools.usdc.snapshot, {
+    pool: "ethereum-usdc",
+    chainId: 1,
+    token: USDC,
+    block: 26131636,
+    time: 12 * 26131636,
+    windowStart: 12 * 26131636 - 180 * 86400,
+    grouping: "tx-sender",
+    reshieldHistoryComplete: true,
+  });
+  // Senders: public rows of the requested tokens only, one lookup per transaction.
+  // Not the USDT swap output (0xe4) or the shield of another token (0xe5).
+  const pad = (tx) => tx.padEnd(66, "0");
+  assert.deepEqual(c.asked.sort(), ["0xaa", "0xbb", "0xe1", "0xe2", "0xe3"].map(pad));
+  const usdtOnly = chain();
+  await buildPools({ rpc: usdtOnly.rpc, tokens: ["usdt"] });
+  assert.deepEqual(usdtOnly.asked.sort(), ["0xe1", "0xe3"].map(pad));
+
+  // The store holds the rows of every token, and the next run reads new blocks only.
+  const saved = await store.get();
+  assert.deepEqual(Object.keys(saved), ["version", "chainId", "tokens", "lastBlock", "lastBlockHash", "lastBlockTime", "rows"]);
+  assert.equal(saved.version, STORE_VERSION);
+  assert.deepEqual(saved.tokens, [WETH, USDC, USDT].sort());
+  assert.deepEqual(saved.rows.map((r) => r.token), [WETH, USDT, USDC, WETH, USDT, USDC, USDT]);
+  c.head = 26131800;
+  c.ranges = [];
+  const next = await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  assert.deepEqual(c.ranges, [[26131700 - 63, 26131800 - 64]]);
+  assert.deepEqual(next.weth.deposits.map((d) => d.group), [0, 0, 1]);
+  assert.deepEqual(next.usdt.deposits.map((d) => d.group), [0, 1, NO_GROUP, 2]);
+  assert.deepEqual(next.usdc.deposits.map((d) => d.group), [0, 1, 0]);
+  assert.ok(!JSON.stringify(next).match(/0x(1|3|4|6){40}/), "no sender addresses in the output");
+});
+
+test("a USDT pool from buildPools survives JSON, and prepare and plan give advice", async () => {
+  const { usdt } = await buildPools({ rpc: chain().rpc, tokens: ["usdt"] });
+  const sent = JSON.parse(JSON.stringify(usdt));
+  const pool = prepare(sent.deposits, { now: sent.snapshot.time + 1, snapshot: sent.snapshot, asset: sent.asset });
+  assert.equal(pool.asset.symbol, "USDT");
+  assert.equal(pool.scale, 1n);
+  const advice = plan(pool, { action: "unshield", amount: 1_234_567_891n, context: { addressReuse: false, pastTransfer: false, restOfDeposit: false } });
+  assert.equal(advice.assessment.status, "attention");
+  assert.ok(advice.assessment.findings.some((f) => f.code === "amount-stands-out"));
+  assert.deepEqual(advice.assessment.asset, sent.asset);
+});
+
+test("a changed token set rebuilds the store from the full window", async () => {
+  const c = chain(),
+    store = memoryStore();
+  await buildPool({ rpc: c.rpc, store });
+  c.ranges = [];
+  const progress = [];
+  const pools = await buildPools({ rpc: c.rpc, store, tokens: ["weth", "usdt"], onProgress: (m) => progress.push(m) });
+  assert.ok(progress.some((m) => /tokens changed/.test(m)));
+  assert.ok(c.ranges[0][0] < 26131000, "reads the whole window again");
+  assert.equal(pools.usdt.deposits.length, 3);
+  // The same set in another order is not a change.
+  c.ranges = [];
+  await buildPools({ rpc: c.rpc, store, tokens: ["usdt", "weth"] });
+  assert.deepEqual(c.ranges, []);
+  // A store of version 2 (one token) is rebuilt too.
+  const v2 = memoryStore({ version: 2, chainId: 1, token: WETH, lastBlock: 26131636, lastBlockHash: "0xa26131636", rows: [] });
+  progress.length = 0;
+  await buildPool({ rpc: c.rpc, store: v2, onProgress: (m) => progress.push(m) });
+  assert.ok(progress.some((m) => /older version/.test(m)));
+});
+
+test("an unknown token, or a token the chain does not have, throws before any RPC call", async () => {
+  let calls = 0;
+  const rpc = async () => (calls++, "0x1");
+  await assert.rejects(buildPools({ rpc, tokens: ["dai"] }), /Unknown token: dai\. Use weth, usdt, usdc\./);
+  await assert.rejects(buildPool({ rpc, token: "usdt", chain: "sepolia" }), /chain sepolia has no usdt pool\. Use weth\./);
+  await assert.rejects(buildPools({ rpc, tokens: ["weth", "usdc"], chain: "sepolia" }), /has no usdc pool/);
+  await assert.rejects(buildPools({ rpc, tokens: "usdt" }), /list of token ids/);
+  await assert.rejects(buildPool({ rpc, chain: "goerli" }), /Unknown chain: goerli/);
+  assert.equal(calls, 0);
+  assert.deepEqual(Object.keys(CHAINS.sepolia.tokens), ["weth"]);
+  assert.deepEqual(Object.keys(CHAINS.mainnet.tokens), ALL);
+});
+
+test("a custom chain never labels an unknown token WETH", async () => {
+  const { OTHER } = await import("./fixtures/builder-chain.mjs");
+  const custom = { pool: "custom", chainId: 1, proxy: CHAINS.mainnet.proxy, confirmations: 64 };
+  await assert.rejects(buildPool({ rpc: chain().rpc, chain: { ...custom, token: OTHER } }), /not a known asset\. Pass chain\.asset/);
+  // An identity without amount fields is not enough for an unknown token.
+  const dai = { chainId: 1, address: OTHER, symbol: "DAI", decimals: 18 };
+  await assert.rejects(buildPool({ rpc: chain().rpc, chain: { ...custom, token: OTHER, asset: dai } }), /pool asset DAI has no unitDecimals/);
+  // A known token resolves to its asset, in its pool units.
+  const usdt = await buildPool({ rpc: chain().rpc, chain: { ...custom, token: USDT.toUpperCase().replace("0X", "0x") } });
+  assert.deepEqual(usdt.asset, { chainId: 1, address: USDT, symbol: "USDT", decimals: 6 });
+  assert.deepEqual(usdt.deposits.map((d) => d.amount), [1_234_567_891, 20_000_000, 777_777]);
+  assert.equal(usdt.snapshot.pool, "custom");
+  // A complete asset for an unknown token is used as given.
+  const complete = { ...dai, unitDecimals: 9, tolerance: 5000, noMatch: 0.6, saferStep: 10n ** 14n };
+  const other = await buildPool({ rpc: chain().rpc, chain: { ...custom, token: OTHER, asset: complete } });
+  assert.deepEqual(other.asset, complete);
+  assert.deepEqual(other.deposits.map((d) => d.amount), [3_000_000_000]);
+  assert.equal(prepare(other.deposits, other).asset.symbol, "DAI");
+  // An asset of another token than the chain's is refused.
+  await assert.rejects(buildPool({ rpc: chain().rpc, chain: { ...custom, token: OTHER, asset: assetOf({ chainId: 1, address: USDT, symbol: "USDT", decimals: 6 }) } }), /not the chain's token/);
+});
+
+test("an RPC behind the store never adds rows twice and never moves the stored block back", async () => {
+  const c = chain(),
+    store = memoryStore();
+  const first = await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  // Another node, 50 blocks behind: its confirmed head is before WETH 0xbb and USDT 0xe3.
+  c.head = 26131650;
+  const behind = await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  assert.deepEqual(behind, first);
+  assert.equal((await store.get()).lastBlock, 26131636);
+  c.head = 26131800;
+  c.ranges = [];
+  const next = await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  assert.deepEqual(c.ranges, [[26131637, 26131736]]);
+  assert.deepEqual(next, await buildPools({ rpc: (() => { const f = chain(); f.head = 26131800; return f.rpc; })(), tokens: ALL }));
+  assert.equal(next.weth.deposits.length, 3);
+  assert.equal(next.usdt.deposits.length, 4);
+});
+
+// A store that counts its writes.
+const counted = () => {
+  const store = memoryStore();
+  store.writes = 0;
+  const set = store.set;
+  store.set = async (state) => (store.writes++, set(state));
+  return store;
+};
+test("an RPC behind the store that lacks the stored block serves the stored pool, with no read and no write", async () => {
+  const c = chain(),
+    store = counted();
+  const first = await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  const saved = await store.get();
+  assert.equal(saved.lastBlockTime, 12 * 26131636);
+  // Another node, 100 blocks behind, that has no block above its own head: the
+  // stored block (26131636) is above it, so the anchor lookup gives null.
+  c.head = 26131600;
+  const asked = [];
+  const behind = async (method, params) => {
+    const n = Number(params[0]);
+    if (method === "eth_getBlockByNumber") asked.push([n, n > c.head]);
+    return method === "eth_getBlockByNumber" && n > c.head ? null : c.rpc(method, params);
+  };
+  c.ranges = [];
+  const progress = [];
+  const served = await buildPools({ rpc: behind, store, tokens: ALL, onProgress: (m) => progress.push(m) });
+  assert.deepEqual(served, first);
+  assert.equal(served.usdt.snapshot.block, 26131636);
+  assert.equal(served.usdt.snapshot.time, 12 * 26131636);
+  assert.deepEqual(c.ranges, [], "no log read");
+  assert.equal(store.writes, 1, "no store write");
+  assert.equal(await store.get(), saved);
+  assert.ok(!progress.some((m) => /Rebuilding/.test(m)));
+  assert.ok(asked.some(([n, missing]) => n === 26131636 && missing), "the stored block lookup gave null");
+});
+test("a version-3 store without lastBlockTime is rebuilt one time from the full window", async () => {
+  const c = chain(),
+    store = counted();
+  await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  const { lastBlockTime, ...rest } = await store.get();
+  await store.set(rest);
+  c.head = 26131800;
+  c.ranges = [];
+  const progress = [];
+  const again = await buildPools({ rpc: c.rpc, store, tokens: ALL, onProgress: (m) => progress.push(m) });
+  assert.ok(progress.some((m) => /older version/.test(m)));
+  assert.ok(c.ranges[0][0] < 26131000, "reads the whole window again");
+  assert.equal((await store.get()).lastBlockTime, 12 * 26131736);
+  assert.equal(again.weth.deposits.length, 3);
+  assert.equal(again.usdt.deposits.length, 4);
+  // The next run reads new blocks only.
+  c.ranges = [];
+  await buildPools({ rpc: c.rpc, store, tokens: ALL });
+  assert.deepEqual(c.ranges, []);
+});
+test("a changed hash at the stored block still rebuilds, also from an RPC behind the store", async () => {
+  for (const head of [26131800, 26131650]) {
+    const c = chain(),
+      store = counted();
+    await buildPools({ rpc: c.rpc, store, tokens: ALL });
+    c.fork = "b";
+    c.head = head;
+    c.ranges = [];
+    const progress = [];
+    const again = await buildPools({ rpc: c.rpc, store, tokens: ALL, onProgress: (m) => progress.push(m) });
+    assert.ok(progress.some((m) => /chain changed/.test(m)), `head ${head}`);
+    assert.ok(c.ranges[0][0] < 26131000, "reads the whole window again");
+    assert.equal(store.writes, 2);
+    assert.equal(again.weth.snapshot.block, head - 64);
+    assert.equal((await store.get()).lastBlockHash, `0xb${head - 64}`);
+  }
 });
