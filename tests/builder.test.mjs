@@ -40,7 +40,7 @@ test("builder rebuilds after a reorganisation", async () => {
 
 test("builder refuses an RPC on another chain", async () => {
   const c = chain();
-  await assert.rejects(buildPool({ rpc: c.rpc, chain: "sepolia" }), /another chain/);
+  await assert.rejects(buildPool({ rpc: c.rpc, chain: "sepolia" }), /The RPC serves chain 1, not chain 11155111\./);
 });
 
 test("builder uses RPC batches, and falls back to single calls", async () => {
@@ -398,7 +398,9 @@ test("a custom chain never labels an unknown token WETH", async () => {
   assert.deepEqual(other.deposits.map((d) => d.amount), [3_000_000_000]);
   assert.equal(prepare(other.deposits, other).asset.symbol, "DAI");
   // An asset of another token than the chain's is refused.
-  await assert.rejects(buildPool({ rpc: chain().rpc, chain: { ...custom, token: OTHER, asset: assetOf({ chainId: 1, address: USDT, symbol: "USDT", decimals: 6 }) } }), /not the chain's token/);
+  await assert.rejects(buildPool({ rpc: chain().rpc, chain: { ...custom, token: OTHER, asset: assetOf({ chainId: 1, address: USDT, symbol: "USDT", decimals: 6 }) } }),
+    new RegExp(`The chain asset \\(${USDT} on chain 1\\) is not the chain's token \\(${OTHER.toLowerCase()} on chain 1\\)\\.`),
+  );
 });
 
 test("an RPC behind the store never adds rows twice and never moves the stored block back", async () => {
