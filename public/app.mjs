@@ -86,23 +86,23 @@ function heartbeat() {
   const withdrawal = root.getPropertyValue("--withdrawal").trim();
   const signal = root.getPropertyValue("--signal").trim();
   const muted = root.getPropertyValue("--muted").trim();
-  const shortDate = (time) =>
-    new Date(time * 1000).toLocaleDateString("en-GB", {
+  // One formatter each: building one per call is slow, and paint runs per frame.
+  const dayFormat = new Intl.DateTimeFormat("en-GB", {
       day: "numeric",
       month: "short",
       timeZone: "UTC",
-    });
-  const clock = (time) =>
-    new Date(time * 1000).toLocaleTimeString("en-GB", {
+    }),
+    clockFormat = new Intl.DateTimeFormat("en-GB", {
       hour: "2-digit",
       minute: "2-digit",
       timeZone: "UTC",
-    });
+    }),
+    ethFormat = new Intl.NumberFormat("en", { maximumFractionDigits: 3 });
+  const shortDate = (time) => dayFormat.format(time * 1000);
+  const clock = (time) => clockFormat.format(time * 1000);
   const eth = (wei) => {
     const value = Number(wei) / 1e18;
-    return value > 0 && value < 0.001
-      ? "<0.001"
-      : value.toLocaleString("en", { maximumFractionDigits: 3 });
+    return value > 0 && value < 0.001 ? "<0.001" : ethFormat.format(value);
   };
   const LABEL = 22, // date labels under the grid
     INTRO_COLUMN = 9, // ms between columns as the grid builds in
@@ -121,6 +121,7 @@ function heartbeat() {
     rowsDown = 1,
     unit = 1,
     jitter = [],
+    ticks = [],
     weights = [],
     sparkles = [],
     selected = Number(slider.value),
@@ -176,29 +177,14 @@ function heartbeat() {
     if (!idle) sweepFrom = now;
     context.clearRect(0, 0, width, height);
     // Day ticks: a dotted pixel column at each UTC midnight, then its label.
-    const stride = ((end - start) / 86400) * 56 > width ? 2 : 1;
     context.font = "12px GeistMono, monospace";
     context.textAlign = "center";
-    for (
-      let t = Math.ceil(start / 86400) * 86400, i = 0;
-      t < end;
-      t += 86400, i++
-    ) {
-      if (i % stride) continue;
-      const index = bins.findIndex((b) => t < b.end),
-        b = bins[index],
-        x = Math.round(
-          (index + (t - b.start) / (b.end - b.start)) * columnWidth,
-        );
+    for (const { x, label } of ticks) {
       context.fillStyle = "rgba(255,255,255,.09)";
       for (let y = baseline % (pitch * 2); y < height - LABEL; y += pitch * 2)
         context.fillRect(x, y, 1, 1);
       context.fillStyle = muted;
-      context.fillText(
-        shortDate(t),
-        Math.max(23, Math.min(width - 23, x)),
-        height - 5,
-      );
+      context.fillText(label, Math.max(23, Math.min(width - 23, x)), height - 5);
     }
     // The zero row.
     context.fillStyle = "rgba(255,255,255,.10)";
@@ -332,6 +318,22 @@ function heartbeat() {
         Math.random() * 140,
       ),
     );
+    // The day ticks only change with the layout, so they are placed here.
+    const stride = ((end - start) / 86400) * 56 > width ? 2 : 1;
+    ticks = [];
+    for (
+      let t = Math.ceil(start / 86400) * 86400, i = 0;
+      t < end;
+      t += 86400, i++
+    ) {
+      if (i % stride) continue;
+      const index = bins.findIndex((b) => t < b.end),
+        b = bins[index];
+      ticks.push({
+        x: Math.round((index + (t - b.start) / (b.end - b.start)) * columnWidth),
+        label: shortDate(t),
+      });
+    }
     let total = 0;
     weights = bins.flatMap((b, index) =>
       [

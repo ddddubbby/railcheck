@@ -103,8 +103,10 @@ function poolOf(id = "weth") {
 self.onmessage = async ({ data }) => {
   try {
     if (data.type === "load") {
+      // Always checked with the server, but a copy that has not changed is not
+      // downloaded again.
       const m = await fetch("./data/manifest.json", {
-        cache: "no-store",
+        cache: "no-cache",
         credentials: "omit",
       });
       if (!m.ok) throw Error();
