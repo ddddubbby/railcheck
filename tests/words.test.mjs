@@ -54,28 +54,28 @@ import { parseHTML } from "linkedom";
 // errors 60 to 45, links open 104 to 89.
 // Page copy: shorter shield toggle and link questions: shield 39 to 38, links
 // open 89 to 84.
-const FORM_CAP = 38; // unshield (the default)
-const SHIELD_FORM_CAP = 38; // shield, its error states included
+const FORM_CAP = 35; // unshield (the default)
+const SHIELD_FORM_CAP = 35; // shield, its error states included
 // Unshield with an error showing. The "Select an answer." errors left with R1.6:
 // 114 to 60. It may only go down.
-const FORM_ERROR_CAP = 45;
+const FORM_ERROR_CAP = 42;
 // Unshield with the links panel open: its four questions and toggles (UI-5).
-const LINKS_FORM_CAP = 84;
+const LINKS_FORM_CAP = 75;
 // The sum of the distinct form error messages, so any one that grows is caught.
-const ERROR_COPY_CAP = 28;
+const ERROR_COPY_CAP = 23;
 // R1.7: the three state pips came in (three words), one verdict line replaced the
 // headline and its follow-up lines, the recipient amount moved to the fold, and
 // the matches panel lost its sentence-like heading and visible column names:
 // 40 to 25, the target. Kind tags count once per label; with every tag counted,
 // the largest result (17.3 ETH, ten matching shield lines) has 33 words.
-const RESULT_CAP = 25;
+const RESULT_CAP = 24;
 // The same largest state with every kind tag counted, one per matching shield
 // line (strict). Measured at R1.7; it may only go down too. Page copy: 33 to 32.
 const RESULT_STRICT_CAP = 32;
 // R1.6: the link headlines share "That links them, whatever the amount.", and
 // the incomplete headline reuses "Some answers are not sure.": 153 to 148.
 // R1.7: 148 to 114. Page copy: shorter attention verdicts, 114 to 113.
-const RESULT_COPY_CAP = 113;
+const RESULT_COPY_CAP = 108;
 // UI-3: the verdict is one line of 10 words or fewer.
 const VERDICT_CAP = 10;
 const FORM_TARGET = 60;
@@ -1017,7 +1017,7 @@ test("a stable chip says its pool is loading until the pools message, then why i
     assert.equal(describedBy(none, "usdt"), "token-loading");
     none.pools.release();
     assert.equal(describedBy(none, "usdt"), "token-incomplete");
-    assert.match(none.$("token-incomplete").textContent, /did not load or is not complete/);
+    assert.match(none.$("token-incomplete").textContent, /failed to load or is incomplete/);
   } finally {
     none.close();
   }
@@ -1028,7 +1028,7 @@ test("a stable chip stops saying loading when the load fails: an error message o
   // The worker reports the load error: the WETH pool file is not one it fetches.
   const error = await openPage({ ...STABLE_PAGE, patch: { ...STABLE_PAGE.patch, file: "other.bin" }, failed: true });
   try {
-    assert.match(error.$("notice").textContent, /did not load/);
+    assert.match(error.$("notice").textContent, /load pool data/);
     for (const id of ["usdt", "usdc"]) assert.equal(describedBy(error, id), "token-incomplete", `error message: ${id}`);
   } finally {
     error.close();
@@ -1038,7 +1038,7 @@ test("a stable chip stops saying loading when the load fails: an error message o
   try {
     assert.equal(describedBy(crash, "usdt"), "token-loading");
     crash.crash();
-    assert.match(crash.$("notice").textContent, /did not load/);
+    assert.match(crash.$("notice").textContent, /load pool data/);
     for (const id of ["usdt", "usdc"]) assert.equal(describedBy(crash, id), "token-incomplete", `worker crash: ${id}`);
   } finally {
     crash.close();
@@ -1077,7 +1077,7 @@ test("UI-R2: the check runs with only token and amount, and the result is incomp
     // The Links pip carries "not sure" now (R1.7): no sentence repeats it (UI-R3).
     assert.equal(page.document.querySelector(".pip[data-pip=links]").dataset.state, "unknown");
     assert.doesNotMatch(page.$("result-copy").textContent, /not sure|No issues in/);
-    assert.equal(page.$("result-copy").querySelector(".verdict").textContent, "Not fully checked. No amount issue.");
+    assert.equal(page.$("result-copy").querySelector(".verdict").textContent, "Amount blends in; other checks are incomplete.");
   } finally {
     page.close();
   }
@@ -1140,7 +1140,7 @@ test("a toggle change re-runs the check in place; a reply for the old answers is
     await wait(() => worker.replies() > 1, "the second reply");
     worker.release();
     await settled(page, "the result for the last answers");
-    assert.match(page.$("result-copy").textContent, /The addresses have a transfer history\./);
+    assert.match(page.$("result-copy").textContent, /Past transfer links these addresses\./);
     assert.equal(page.plan().result.assessment.addressLinks.reasons[0], "past-transfer");
 
     // No result on screen: a toggle does not start a check.
@@ -1163,7 +1163,7 @@ test("the links panel: closed by default, after the amount, keyboard reachable, 
     assert.ok(!links.hasAttribute("open"), "closed by default");
     assert.equal(summary.tagName, "SUMMARY", "a native disclosure: Tab reaches it, Enter and Space open it");
     assert.equal(summary.id, "links-toggle");
-    assert.equal(summary.textContent.trim(), "Link questions");
+    assert.equal(summary.textContent.trim(), "Address links");
     assert.ok(!summary.hasAttribute("tabindex"));
     const order = [...page.$("flow-form").querySelectorAll("*")],
       at = (el) => order.indexOf(el);

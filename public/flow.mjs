@@ -121,7 +121,7 @@ function load() {
   worker.onerror = () => {
     settled = true;
     chips(true);
-    notice("The pool data did not load. Check your connection, then try again.");
+    notice("Couldn't load pool data. Check your connection and try again.");
   };
   worker.postMessage({ type: "load" });
 }
@@ -200,9 +200,7 @@ function reparse() {
 function sync() {
   const shield = action() === "shield";
   $("amount-label").textContent = shield ? "Amount to shield" : "Amount to unshield";
-  $("constraint-legend").textContent = shield
-    ? "Can you adjust the amount?"
-    : "Can the amount be smaller?";
+  $("constraint-legend").textContent = "Is this amount flexible?";
   $("flexible-label").textContent = shield ? "Yes, within 10%" : "Yes, down to 70%";
   $("unshield-options").hidden = shield;
   $("check-button").textContent = shield ? "Check shield amount" : "Check unshield amount";
@@ -240,7 +238,7 @@ function submit(event, options = {}) {
   quiet = !!options.quiet;
   if (!covered[token().id]) return;
   const verb = action() === "shield" ? "shield" : "unshield",
-    amount = field("amount", false, `Enter the amount that you will ${verb}.`);
+    amount = field("amount", false, `Enter an amount to ${verb}.`);
   if (amount === null) return;
   const message = { type: "plan", token: token().id, action: action(), amount, constraint: value("constraint") };
   if (message.action === "unshield") {
@@ -249,7 +247,7 @@ function submit(event, options = {}) {
     if (balance && parseAmount(balance, asset) < parseAmount(amount, asset)) {
       const input = $("balance"),
         error = $("balance-error");
-      error.textContent = "The balance is less than the amount.";
+      error.textContent = "Balance is less than that amount.";
       error.hidden = false;
       input.setAttribute("aria-invalid", "true");
       input.focus();
@@ -261,7 +259,7 @@ function submit(event, options = {}) {
     message.balance = balance;
   }
   if (!ready)
-    return notice("The pool data did not load. Check your connection, then try again.");
+    return notice("Couldn't load pool data. Check your connection and try again.");
   request++;
   last = message;
   // The crowd of the picked pool: lit ids are positions in its file.
@@ -405,21 +403,21 @@ function headline(a) {
     link = a.findings.find((f) => f.code === "address-link");
   if (a.action === "shield")
     return a.status === "attention"
-      ? "Stands out: a full unshield matches easily."
+      ? "Unusual amount: a full unshield matches easily."
       : a.status === "clear"
         ? "This shield blends in."
-        : "Not fully checked. No amount issue.";
+        : "Amount blends in; other checks are incomplete.";
   if (link)
     return {
       "address-reuse": "Same address as the shield. Use a new address.",
-      "past-transfer": "The addresses have a transfer history. Use a new address.",
+      "past-transfer": "Past transfer links these addresses. Use a new address.",
       // A new address does not help when the swap gas already links the funds.
       "swap-gas-payer": "A public wallet paid the swap gas.",
     }[link.reason];
-  if (codes.includes("rest-of-deposit")) return "Your unshields add up to one shield.";
+  if (codes.includes("rest-of-deposit")) return "Combined unshields match your original shield.";
   if (codes.includes("amount-stands-out")) return "This amount stands out.";
-  if (a.status === "incomplete") return "Not fully checked. No amount issue.";
-  return "No issues in the checks that ran.";
+  if (a.status === "incomplete") return "Amount blends in; other checks are incomplete.";
+  return "Blends in, with no links found.";
 }
 // First level (UI-3): band, meter, pips, one verdict line and what to do.
 // Everything that explains it waits in "What does this mean?".
@@ -436,7 +434,7 @@ function render({ result: r, sets, lit, count, manifest }) {
     matches([]);
     draw([]);
     return show("Not checked", [
-      el("p", a.findings[0].code === "stale-data" ? "The pool data is too old. Reload later." : "The data does not cover 180 days.", "verdict"),
+      el("p", a.findings[0].code === "stale-data" ? "Pool data is out of date. Refresh later." : "Pool data doesn't cover 180 days.", "verdict"),
     ]);
   }
   const band = a.status === "incomplete" ? "Incomplete" : a.band;
@@ -450,9 +448,9 @@ function render({ result: r, sets, lit, count, manifest }) {
   draw(lastLit);
   parts.push(el("p", headline(a), "verdict"));
   const found = a.findings.find((f) => f.code === "address-link");
-  if (found) notes.push(el("p", "That links them, whatever the amount."));
+  if (found) notes.push(el("p", "Changing the amount won't remove an address link."));
   if (a.status === "attention" && !found) {
-    if (r.constraint !== "flexible") notes.push(el("p", "Your amount is fixed, so no alternative is shown."));
+    if (r.constraint !== "flexible") notes.push(el("p", "Your amount is fixed, so no alternatives were checked."));
     else if (r.alternatives.length)
       for (const alt of r.alternatives) {
         const amount = a.action === "shield" ? alt.amounts.shieldInput : alt.amounts.unshieldAmount,
@@ -461,11 +459,11 @@ function render({ result: r, sets, lit, count, manifest }) {
         use.onclick = () => choose(amount);
         parts.push(use);
       }
-    else if (a.action === "shield") parts.push(el("p", "No Low amount within 10%. Keep yours."));
+    else if (a.action === "shield") parts.push(el("p", "No low-risk amount within 10%."));
     else {
       // The range searched follows from "down to 70%": it waits in the fold.
-      parts.push(el("p", "No Low amount found."));
-      notes.push(el("p", `No Low amount between ${formatWei(BigInt(r.searched.from), undefined, asset)} and ${eth(r.searched.to)}.`));
+      parts.push(el("p", "No low-risk amount found."));
+      notes.push(el("p", `No low-risk amount found between ${formatWei(BigInt(r.searched.from), undefined, asset)} and ${eth(r.searched.to)}.`));
     }
   }
   if (a.action === "unshield" && r.remainingBalance !== null)
@@ -476,15 +474,15 @@ function render({ result: r, sets, lit, count, manifest }) {
       el(
         "p",
         lastSets.some((set) => set.deposits.length > 1)
-          ? "An observer can link your unshield to one of the shields above, or to a set of them that adds up to it."
-          : "An observer can link your unshield to one of the shields above.",
+          ? "An observer can link your unshield to one of these shields, or to a combination that adds up to your amount."
+          : "An observer can link your unshield to one of these shields.",
       ),
-      el("p", "Matches show the amount sent before the shield fee, and the date in UTC.", "hint"),
+      el("p", "Amounts shown are before the shield fee; dates are UTC.", "hint"),
     );
   if (lastSets.some((set) => set.deposits.some((d) => d.kind === "reshield")))
-    notes.splice(2, 0, el("p", "A swap output comes from a private swap, not from a shield sent by an address.", "hint"));
+    notes.splice(2, 0, el("p", "Swap outputs come from private swaps rather than public shielding addresses.", "hint"));
   if (a.coverage?.missing.includes("swap-output-history"))
-    notes.push(el("p", "The swap output history is not complete, so a match can be missing."));
+    notes.push(el("p", "Swap output history is incomplete, so some matches may be missing."));
   if (a.action === "shield") notes.push(el("p", "Check again when you unshield."));
   // What was checked, in one line, unknown answers included.
   const answers =
@@ -514,13 +512,13 @@ function render({ result: r, sets, lit, count, manifest }) {
       ),
     );
   if (a.action === "unshield" && a.modelScore !== a.score) details.append(el("p", `Amount score ${a.modelScore}.`));
-  if (a.notes.includes("split-completes-total")) details.append(el("p", "If you unshield the rest later, your unshields add up to your shield."));
-  details.append(el("p", "Filled dot: issue found. ?: unknown. Empty dot: no issue found.", "hint"));
+  if (a.notes.includes("split-completes-total")) details.append(el("p", "If you unshield the rest later, observers can add the two together to match your original shield."));
+  details.append(el("p", "Filled dot: issue found · ?: unknown · Empty dot: clear.", "hint"));
   details.append(el("p", `Checked: amount${answers.length ? ", " + answers.join(", ") : ""}. Not covered: timing, IP addresses.`, "hint"));
-  details.append(el("p", `${count.toLocaleString("en")} shields, last 180 days, data from ${date(manifest.dataTime)}.`, "hint"));
+  details.append(el("p", `Based on ${count.toLocaleString("en")} shields over 180 days (updated ${date(manifest.dataTime)}).`, "hint"));
   // What shield and unshield mean: a link that was a hint in the form (UI-R5).
   const words = el("p", undefined, "hint"),
-    link = el("a", "What shield and unshield mean");
+    link = el("a", "What these terms mean");
   link.href = "/how-it-works/#words";
   words.append(link);
   details.append(words);

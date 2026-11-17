@@ -1,6 +1,6 @@
 # @railcheck/core (preview)
 
-The railcheck advice engine for RAILGUN shields and unshields. It runs on the device. It makes no network calls and never asks for an address. It covers WETH, USDT and USDC on Ethereum mainnet, and WETH on Sepolia.
+Local privacy advice engine for RAILGUN shields and unshields—zero network calls, zero address inputs. Supports WETH, USDT, and USDC on Ethereum mainnet, plus WETH on Sepolia.
 
 ## Install
 
@@ -8,9 +8,9 @@ The railcheck advice engine for RAILGUN shields and unshields. It runs on the de
 npm install @railcheck/core@0.3.0-preview.1 @railcheck/builder@0.2.0-preview.1
 ```
 
-These are preview releases, so install the exact versions.
+Pin the exact preview versions when installing.
 
-You need Node.js 22 or later, or a modern browser. Get the pool with [`@railcheck/builder`](../packages/builder/).
+Requires Node.js 22+ or a modern browser. Build pool data with [`@railcheck/builder`](../packages/builder/).
 
 ## Example
 
@@ -43,6 +43,6 @@ parseAmount("1250.5", USDT_ASSET); // 1250500000n
 
 `ASSETS` lists the supported assets: `ETH_ASSET` (WETH), `USDT_ASSET` and `USDC_ASSET`. `prepare` also takes the asset as `{ chainId, address, symbol, decimals }` (as the builder returns it), and adds the amount settings of a supported asset.
 
-All options, result fields and rules for wallets: [railcheck.xyz/docs](https://railcheck.xyz/docs/).
+Full API options, schemas, and integration guidelines: [railcheck.xyz/docs](https://railcheck.xyz/docs/).
 
-MIT license. Not related to RAILGUN: see the [disclaimer](https://railcheck.xyz/how-it-works/#disclaimer).
+MIT license. Independent project, not affiliated with RAILGUN ([disclaimer](https://railcheck.xyz/how-it-works/#disclaimer)).

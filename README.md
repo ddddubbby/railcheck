@@ -1,13 +1,13 @@
 # railcheck
 
-Local privacy advice for RAILGUN shields and unshields.
+Local privacy checks for RAILGUN shields and unshields.
 
-railcheck tells you if a shield or unshield amount can link back to you, before you send. The check runs on your device. It never asks for an address.
+railcheck checks whether a shield or unshield (deposit or withdrawal) amount could link back to you before you send. Everything runs locally on your device without asking for an address.
 
 - **Web check:** [railcheck.xyz](https://railcheck.xyz/)
-- **Wallet SDK:** add the same check to a wallet. See [For wallets](https://railcheck.xyz/docs/).
+- **Wallet SDK:** embed the same check in a wallet via [For wallets](https://railcheck.xyz/docs/).
 
-The web check covers RAILGUN WETH, USDT and USDC on Ethereum mainnet. The wallet SDK preview covers WETH, USDT and USDC on Ethereum mainnet, and WETH on Sepolia.
+The web checker supports RAILGUN WETH, USDT, and USDC on Ethereum mainnet; the wallet SDK preview supports WETH, USDT, and USDC on mainnet plus WETH on Sepolia.
 
 ## Packages
 
@@ -47,10 +47,10 @@ npm run dev
 
 Open <http://127.0.0.1:4173>.
 
-`npm run data:update` updates the WETH, USDT and USDC pools at one block, with 64 confirmations, in one log read. It needs an RPC in `RPC_URL`. A pool with no data yet reads its whole 180-day window on its first run; if that fails, the pool is left out of the run and the others are still published. The page loads every published pool and checks WETH, USDT and USDC.
+`npm run data:update` refreshes the WETH, USDT, and USDC pools at a single confirmed block (64 confirmations) in one log scan using `RPC_URL`. Any pool without cached history runs a full 180-day sync on its first pass; if one token fails, the remaining pools still publish. The site loads all published pools.
 
 ## License
 
 MIT. The Geist fonts use the [SIL Open Font License](public/fonts/LICENSE.txt).
 
-railcheck is an independent project, not related to RAILGUN: see the [disclaimer](https://railcheck.xyz/how-it-works/#disclaimer).
+railcheck is an independent project and is not affiliated with RAILGUN—see the [disclaimer](https://railcheck.xyz/how-it-works/#disclaimer).

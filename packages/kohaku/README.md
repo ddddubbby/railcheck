@@ -1,6 +1,6 @@
 # @railcheck/kohaku (preview)
 
-railcheck advice for wallets on the [Kohaku](https://github.com/ethereum/kohaku) plugin interface. The advice runs on the device, before the wallet prepares a shield or an unshield.
+railcheck privacy advice for wallets implementing the [Kohaku](https://github.com/ethereum/kohaku) plugin interface. Checks run locally before the wallet prepares a shield or unshield.
 
 ## Install
 
@@ -8,9 +8,9 @@ railcheck advice for wallets on the [Kohaku](https://github.com/ethereum/kohaku)
 npm install @railcheck/kohaku@0.3.0-preview.1 @railcheck/core@0.3.0-preview.1
 ```
 
-These are preview releases, so install the exact versions.
+Pin the exact preview versions when installing.
 
-You need pools from `prepare` in [`@railcheck/core`](../../lib/): WETH, USDT and USDC on Ethereum mainnet, or WETH on Sepolia.
+Requires prepared pools from [`@railcheck/core`](../../lib/): WETH, USDT, and USDC on Ethereum mainnet, or WETH on Sepolia.
 
 ## Example
 
@@ -36,32 +36,32 @@ await safe.prepareUnshield({ asset: { __type: "erc20", contract: USDT }, amount 
 - `onAdvice` receives advice with `bigint` values. `JSON.stringify` throws on them; use `toJSON(advice)` from `@railcheck/core`.
 - `adviseShield` and `adviseUnshield` return the advice without a wrapper. They take a pool or a list of pools.
 - An asset that no pool covers produces `not-checked`. It never blocks `prepareShield` or `prepareUnshield`: the plugin gets the original amount.
-- One asset for each call. `prepare*Multi` calls pass through with no advice.
-- Compatibility with the official `@kohaku-eth/railgun` plugin is a target. It is not tested.
+- Supports single-asset calls only; `prepare*Multi` calls pass through unchanged.
+- Targets compatibility with the official `@kohaku-eth/railgun` plugin (not yet tested against it).
 
 ## Context
 
-`getContext(assetAmount, to)` runs before each unshield. It can return these fields. A field that is `undefined`, `null` or not returned is unknown, never "no". Any other value than those in the table throws. Other keys are dropped.
+`getContext(assetAmount, to)` runs before each unshield and returns any of the fields below. Fields that are `undefined`, `null`, or omitted are treated as unknown—never `"no"`. Any other value throws an error, and unknown keys are dropped.
 
 | Field | Values |
 | --- | --- |
-| `addressReuse` | `true`, `false`. The recipient is the address that shielded. |
-| `pastTransfer` | `true`, `false`. The recipient sent to, or received from, the address that shielded. |
-| `restOfDeposit` | `true`, `false`. The unshield removes the rest of a shield or swap output that was partly unshielded before. |
-| `swapGasPayer` | `"broadcaster"`, `"public-wallet"`. Who paid the gas of the swap that made the unshielded swap output. `null` is unknown. Any other value throws. |
+| `addressReuse` | `true`, `false`. True if the recipient is the shielding address. |
+| `pastTransfer` | `true`, `false`. True if the shielding and recipient addresses have transacted before. |
+| `restOfDeposit` | `true`, `false`. True if this unshield spends the remainder of a previously split shield or swap output. |
+| `swapGasPayer` | `"broadcaster"`, `"public-wallet"`. Who paid gas for the private swap behind this output. `null` is unknown; any other value throws. |
 
-`undefined` or `null` from `getContext` means every field is unknown.
+Returning `undefined` or `null` from `getContext` marks every field as unknown.
 
 ## Result
 
-The advice is result v2 (`format: "railcheck.advice/2"`). Each assessment adds three parts:
+Advice uses result format v2 (`format: "railcheck.advice/2"`), adding three fields to each assessment:
 
-- `amountExposure`: `{ score, band }` of the amount alone, or `null` when not checked.
-- `addressLinks`: `{ state, reasons, unknown }`. `state` is `found`, `none-reported`, `unknown` or `not-applicable` (shields).
-- `coverage`: `{ state, missing }`. `state` is `complete` or `limited`; `missing` names what the check could not use, for example `rest-of-deposit` or `unsupported-asset`.
+- `amountExposure`: `{ score, band }` for the amount alone, or `null` when not checked.
+- `addressLinks`: `{ state, reasons, unknown }` (`state` is `found`, `none-reported`, `unknown`, or `not-applicable` for shields).
+- `coverage`: `{ state, missing }` (`state` is `complete` or `limited`; `missing` lists unavailable signals such as `rest-of-deposit` or `unsupported-asset`).
 
-The v1 fields (`score`, `band`, `status`, `findings`, `unknown`) stay for one more minor version.
+v1 fields (`score`, `band`, `status`, `findings`, `unknown`) remain available for one more minor version.
 
-All options: [railcheck.xyz/docs](https://railcheck.xyz/docs/#kohaku-adapter).
+Full API options: [railcheck.xyz/docs](https://railcheck.xyz/docs/#kohaku-adapter).
 
-MIT license. Not related to RAILGUN: see the [disclaimer](https://railcheck.xyz/how-it-works/#disclaimer).
+MIT license. Independent project, not affiliated with RAILGUN ([disclaimer](https://railcheck.xyz/how-it-works/#disclaimer)).

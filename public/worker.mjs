@@ -11,7 +11,7 @@ const POOLS = [
   { id: "usdc", file: "railgun-usdc.bin", asset: USDC_ASSET, name: "ethereum-usdc" },
 ];
 const WINDOW = 180 * 86400;
-const UNLOADED = "The pool data did not load. Check your connection, then try again.";
+const UNLOADED = "Couldn't load pool data. Check your connection and try again.";
 // How long a stable pool may take to load. A pool that takes longer is left out
 // (its chip is not covered); it never holds up WETH, which is ready first.
 const STABLE_TIMEOUT_MS = 20000;

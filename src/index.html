@@ -6,7 +6,7 @@
     <title>railcheck: RAILGUN shield and unshield privacy check</title>
     <meta
       name="description"
-      content="Check if a RAILGUN shield or unshield (deposit or withdrawal) amount can link back to you. Free and open source. It runs on your device."
+      content="Check if a RAILGUN shield or unshield (deposit or withdrawal) amount could link back to you before you send. Free, open source, and runs locally."
     />
     <meta name="theme-color" content="#121218" />
     <link rel="icon" href="/favicon.svg" />
@@ -81,7 +81,7 @@
         </section>
         <nav class="jump" aria-label="Quick links">
           <a class="jump-link" href="#flow-form" data-jump="check">Check an amount</a>
-          <a class="jump-link" href="/docs/">Wallet SDK</a>
+          <a class="jump-link" href="/docs/">For wallets</a>
         </nav>
         <section class="pulse" aria-labelledby="pulse-heading">
           <div class="pulse-top">
@@ -142,8 +142,8 @@
           </div>
           <div class="pulse-bottom">
             <p id="activity-help" class="sr-only">
-              {{PULSE_UPDATED}} Hover or tap to explore activity. Use arrow keys
-              to select an hour, Home for the first or End for the last.
+              {{PULSE_UPDATED}} Hover or tap to inspect an hour, or use the arrow
+              keys, Home, and End to move.
             </p>
             <a class="activity-about" href="/how-it-works/#data">About this data</a>
           </div>
@@ -153,8 +153,8 @@
           <div class="notice">
             <strong>This check needs JavaScript.</strong>
             <p>
-              You can read <a href="/how-it-works/">How it works</a> and
-              <a href="/docs/">For wallets</a> without it.
+              You can still read <a href="/how-it-works/">How it works</a> and
+              <a href="/docs/">For wallets</a>.
             </p>
           </div>
         </noscript>
@@ -165,9 +165,9 @@
               <div class="chips" id="token-chips"></div>
               <span class="chain-tag"><span class="sr-only">Chain: </span>Ethereum</span>
             </div>
-            <span class="sr-only" id="token-not-covered">Not covered. railcheck checks WETH, USDT and USDC on Ethereum only.</span>
-            <span class="sr-only" id="token-loading">Not covered yet. Its pool data is still loading.</span>
-            <span class="sr-only" id="token-incomplete">Not covered now. Its pool data did not load or is not complete.</span>
+            <span class="sr-only" id="token-not-covered">Not supported. railcheck only checks WETH, USDT, and USDC on Ethereum.</span>
+            <span class="sr-only" id="token-loading">Pool data is still loading.</span>
+            <span class="sr-only" id="token-incomplete">Unavailable. Pool data failed to load or is incomplete.</span>
           </fieldset>
           <div class="step" data-step="1">
             <fieldset class="group">
@@ -193,30 +193,30 @@
             </div>
             <p class="error" id="amount-error" hidden></p>
             <fieldset class="group constraint">
-              <legend id="constraint-legend">Can the amount be smaller?</legend>
+              <legend id="constraint-legend">Is this amount flexible?</legend>
               <div class="choices pair">
-                <label class="choice"><input type="radio" name="constraint" value="fixed" /><span>No, it is fixed</span></label
+                <label class="choice"><input type="radio" name="constraint" value="fixed" /><span>No, fixed</span></label
                 ><label class="choice"><input type="radio" name="constraint" value="flexible" checked /><span id="flexible-label">Yes, down to 70%</span></label>
               </div>
             </fieldset>
           </div>
           <div class="step" id="unshield-options">
             <details class="links" id="links">
-              <summary id="links-toggle">Link questions</summary>
+              <summary id="links-toggle">Address links</summary>
               <fieldset class="group link-row">
-                <legend>Will you unshield to the address that shielded?</legend>
+                <legend>Unshielding to the same address that shielded?</legend>
                 <div class="choices">{{ADDRESS_REUSE}}</div>
               </fieldset>
               <fieldset class="group link-row">
-                <legend>Has the recipient ever sent to or received from the shielding address?</legend>
+                <legend>Have the shielding and recipient addresses transacted before?</legend>
                 <div class="choices">{{PAST_TRANSFER}}</div>
               </fieldset>
               <fieldset class="group link-row">
-                <legend>Does this unshield the rest of a shield?</legend>
+                <legend>Unshielding the rest of an earlier shield?</legend>
                 <div class="choices">{{REST_OF_DEPOSIT}}</div>
               </fieldset>
               <fieldset class="group link-row">
-                <legend>Did a public wallet pay gas for your private swap?</legend>
+                <legend>Did a public wallet pay gas for a private swap?</legend>
                 <div class="choices">{{SWAP_GAS_PAYER}}</div>
               </fieldset>
             </details>
@@ -260,12 +260,12 @@
           </div>
           <canvas id="crowd" aria-hidden="true"></canvas>
           <section class="matches" id="matches" aria-labelledby="matches-heading" hidden></section>
-          <p id="scan-label" class="scan-label" hidden>Checking the shields…</p>
+          <p id="scan-label" class="scan-label" hidden>Checking shields…</p>
           <div class="result-copy" id="result-copy"></div>
         </section>
         <section class="explainer" aria-labelledby="explainer-heading">
           <h2 id="explainer-heading">What railcheck does</h2>
-          <p>An unusual amount can show which shield is yours. railcheck compares your shield or unshield amount with the RAILGUN WETH, USDT or USDC shields on Ethereum from the last 180 days, and gives a risk score before you send. The check runs on your device and never asks for an address. It does not cover timing or IP addresses.</p>
+          <p>An unusual amount can give away which deposit is yours. Before you send, railcheck compares your RAILGUN shield or unshield (deposit or withdrawal) amount against the last 180 days of WETH, USDT, and USDC shields on Ethereum to score linking risk. Everything runs in your browser without asking for an address, though it does not cover timing or IP addresses.</p>
           <p><a href="/how-it-works/">How it works</a> · <a href="/docs/">For wallets</a></p>
         </section>
         <div

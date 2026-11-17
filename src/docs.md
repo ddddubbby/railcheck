@@ -1,29 +1,29 @@
 ---
 title: railcheck for wallets: RAILGUN privacy advice SDK
-description: Add local privacy advice to your RAILGUN wallet. Build the pool from your own RPC. No data goes to railcheck. MIT license.
-updated: 2026-11-14
+description: Add local privacy checks to your RAILGUN wallet using your own RPC. Zero telemetry, no address inputs, MIT licensed.
+updated: 2026-11-17
 ---
 # Add privacy advice to your RAILGUN wallet
 
-railcheck tells a user if an amount can link a shield to an unshield. The user gets this advice before they send.
+railcheck warns users when a shield or unshield amount could link back to them—locally, before they send.
 
 ## For wallet teams {#for-wallet-teams}
 
-- **It runs in your wallet.** The amount and the answers stay on the user's device, and railcheck receives no data.
-- **You keep the data path.** Your wallet reads the shields from your own RPC, so no railcheck server sits between your wallet and the data.
-- **It never asks for an address.** The wallet answers four questions with yes, no or not sure.
-- **It is free.** The license is MIT. You can use, change and fork the code.
-- **It has run end to end.** See the [verified Sepolia run](https://github.com/ddddubbby/railcheck/tree/main/examples/sepolia-cycle#verified-run).
+- **Runs locally:** Amounts and context answers stay on the user's device; nothing is sent to railcheck.
+- **Bring your own RPC:** Your wallet pulls shield logs directly from your RPC, with no railcheck server in the middle.
+- **No address inputs:** The wallet answers four boolean/enum context questions instead of passing addresses.
+- **MIT licensed:** Free to use, modify, and fork.
+- **Sepolia-verified:** Tested end-to-end in the [Sepolia run](https://github.com/ddddubbby/railcheck/tree/main/examples/sepolia-cycle#verified-run).
 
-This preview covers RAILGUN WETH, USDT and USDC on Ethereum mainnet, and RAILGUN WETH on Sepolia.
+This preview covers RAILGUN WETH, USDT, and USDC on Ethereum mainnet, plus WETH on Sepolia.
 
 ## Add advice to your wallet {#integrate}
 
-### How the pieces fit {#overview}
+### Overview {#overview}
 
-1. `buildPool` or `buildPools` (`@railcheck/builder`) reads the shield events from your RPC and returns `{ deposits, snapshot, asset }` for each token.
-2. `prepare` (`@railcheck/core`) turns that into a prepared pool.
-3. `plan` returns the advice for one amount. Or `guard` (`@railcheck/kohaku`) wraps a Kohaku-style plugin and calls `plan` before each shield and unshield.
+1. `buildPool` or `buildPools` (`@railcheck/builder`) fetches shield events from your RPC and returns `{ deposits, snapshot, asset }` per token.
+2. `prepare` (`@railcheck/core`) indexes that data into an in-memory pool.
+3. `plan` scores an amount and finds safer alternatives, or `guard` (`@railcheck/kohaku`) wraps a Kohaku-style plugin to call `plan` automatically before each shield and unshield.
 
 ### Install
 
@@ -37,13 +37,13 @@ This preview covers RAILGUN WETH, USDT and USDC on Ethereum mainnet, and RAILGUN
 npm install @railcheck/core@0.3.0-preview.1 @railcheck/builder@0.2.0-preview.1 @railcheck/kohaku@0.3.0-preview.1
 ```
 
-These are preview releases, so install the exact versions above.
+Pin the exact preview versions above when installing.
 
-The packages need Node.js 22 or later, or a modern browser. `@railcheck/core` has no runtime dependencies, and the other two depend only on `@railcheck/core`.
+Requires Node.js 22+ or a modern browser. `@railcheck/core` has zero runtime dependencies; `@railcheck/builder` and `@railcheck/kohaku` depend only on `@railcheck/core`.
 
 ### Step 1: Build the pool {#build-the-pool}
 
-The builder reads RAILGUN shield events from your RPC. The first run reads 180 days. Each later run reads only the new blocks.
+The builder reads RAILGUN shield events from your RPC. The initial sync scans 180 days of logs; subsequent runs fetch only new blocks.
 
 ```js
 import { buildPool, makeRpc } from "@railcheck/builder";
@@ -57,7 +57,7 @@ const { deposits, snapshot, asset } = await buildPool({
 const pool = prepare(deposits, { snapshot, asset });
 ```
 
-For more than one token, use `buildPools`. It reads the shield events once for all the tokens and returns one pool for each token.
+To cover multiple tokens in a single log scan, use `buildPools`—it returns one pool object per token.
 
 ```js
 import { buildPools, makeRpc } from "@railcheck/builder";
@@ -72,20 +72,20 @@ const built = await buildPools({
 const pools = Object.values(built).map(({ deposits, snapshot, asset }) => prepare(deposits, { snapshot, asset }));
 ```
 
-**Important:** Always pass `snapshot` and `asset` to `prepare`. Without them, the engine cannot verify that the data is recent and belongs to the correct chain and token.
+**Important:** Always pass `snapshot` and `asset` to `prepare`. Without them, the engine can't verify that the pool is recent or matches the right chain and token.
 
 #### Where the builder runs
 
 | | On the device | On your server |
 | --- | --- | --- |
-| Procedure | The app runs `buildPool` and keeps the state in its own storage. | Your server runs `buildPool` at a fixed interval and sends `{ deposits, snapshot, asset }` to the app. |
-| Time for the user | For WETH, the first run takes approximately 10–60 seconds. Each update takes approximately 2 seconds. More tokens take longer, because the builder looks up the senders of more shields. | The user does not wait. |
-| Data that moves | None | The pool only: amounts, times and group numbers. No addresses. |
-| Use it for | A wallet with no backend | A wallet with a backend |
+| Setup | The app runs `buildPool` and persists state locally. | Your server runs `buildPool` on a schedule and serves `{ deposits, snapshot, asset }` to the app. |
+| Wait time | For WETH, initial sync takes ~10–60 seconds; updates take ~2 seconds. Adding tokens increases sender lookups. | Instant for the user. |
+| Network payload | None | Pool data only: amounts, timestamps, and group IDs. No addresses. |
+| Best for | Wallets without a backend | Wallets with a backend |
 
-In both cases the advice runs in the app, and the amount and the user's answers stay on the device.
+In both setups, scoring runs in the app—amounts and user answers never leave the device.
 
-On the device, start the build when the app starts, not when the user opens the send screen.
+When running on-device, start syncing at app startup rather than waiting until the user opens the send screen.
 
 #### `buildPool` and `buildPools` options
 
@@ -105,11 +105,11 @@ On the device, start the build when the app starts, not when the user opens the 
 
 `buildPool` returns `{ deposits, snapshot, asset }`. `buildPools` returns one of these per token, keyed by token: `{ weth: { deposits, snapshot, asset }, usdt: { ... } }`. `asset` is `{ chainId, address, symbol, decimals }`. The result is valid JSON, so a server can send each pool to the app, and `prepare` adds the amount settings of the token.
 
-Use one store for one set of tokens. If the tokens change, the next run reads the full 180 days again, once.
+Keep one store per token set—changing the token list triggers a one-time 180-day resync.
 
-Sender lookups go to your RPC for the shield transactions of the tokens that you choose, so the RPC can see which tokens the wallet builds pools for. It does not see the user's amounts or addresses.
+Because the builder fetches sender addresses for the tokens you configure, your RPC provider can infer which pools you're building, though it never sees user amounts or target addresses.
 
-**Note:** The first run needs `eth_getLogs` for 180 days. Many free RPCs refuse this on mainnet. Use a paid RPC.
+**Note:** The initial 180-day `eth_getLogs` scan is rejected by most free mainnet RPCs; use a paid provider.
 
 ### Step 2: Get advice {#get-advice}
 
@@ -126,7 +126,7 @@ const advice = plan(pool, {
 const json = toJSON(advice); // JSON.stringify(advice) throws: the advice contains bigint values.
 ```
 
-The advice contains `bigint` values (amounts, `searched.from` and `searched.to`, `remainingBalance`). `JSON.stringify` throws on a `bigint`. `toJSON(advice)` returns a copy with each `bigint` converted to a decimal string.
+Because advice objects contain `bigint` values (`searched.from`, `searched.to`, `remainingBalance`, and amounts)—which `JSON.stringify` rejects—pass them through `toJSON(advice)` to serialize every `bigint` as a decimal string.
 
 #### `plan` options
 
@@ -140,7 +140,7 @@ The advice contains `bigint` values (amounts, `searched.from` and `searched.to`,
 | `budget` | number | No | `6` | Unshield only. Up to this many alternative amounts are scored. |
 | `maxAgeHours` | number | No | `48` | Pool data older than this produces `not-checked`. |
 
-Amounts are base units of the token: wei for WETH, and 0.000001 token for USDT and USDC. `parseAmount(value, asset)` parses a decimal string into base units. `formatWei(amount, places, asset)` formats base units as a decimal string, cut to `places` decimals. Without `asset`, both use WETH.
+Amounts are in base units of the token: wei for WETH, and `0.000001` token for USDT and USDC. `parseAmount(value, asset)` converts a decimal string to base units, and `formatWei(amount, places, asset)` formats base units back into a decimal string truncated to `places` decimal places. Without `asset`, both default to WETH.
 
 ```js
 import { parseAmount, formatWei, USDT_ASSET } from "@railcheck/core";
@@ -157,16 +157,16 @@ The context applies to an unshield only. Pass the answers that the wallet knows,
 
 | Key | Type | Question |
 | --- | --- | --- |
-| `addressReuse` | `boolean`, `null` or `undefined` | Is the recipient address the same as the address that shielded? |
-| `pastTransfer` | `boolean`, `null` or `undefined` | Did the recipient address send to, or receive from, the address that shielded? |
-| `restOfDeposit` | `boolean`, `null` or `undefined` | Does this unshield remove the remaining part of a shield that the user partly unshielded before? |
-| `swapGasPayer` | `"broadcaster"`, `"public-wallet"`, `null` or `undefined` | Who paid the gas for the private swap that made this amount? `"public-wallet"` links the swap to that wallet. `null` is unknown. Any other value throws. |
+| `addressReuse` | `boolean`, `null` or `undefined` | Is the recipient the same address that shielded? |
+| `pastTransfer` | `boolean`, `null` or `undefined` | Have the shielding and recipient addresses transacted before? |
+| `restOfDeposit` | `boolean`, `null` or `undefined` | Is this unshielding the remainder of a previously split shield? |
+| `swapGasPayer` | `"broadcaster"`, `"public-wallet"`, `null` or `undefined` | Who paid gas for the private swap behind this output? `"public-wallet"` links the swap to that wallet; `null` is unknown. Any other value throws. |
 
-`undefined`, `null` or leaving a field out all mean "not sure". railcheck does not treat "not sure" as "no", and does not treat it as a link. Any other value throws.
+Passing `undefined`, `null`, or omitting a field marks it as unknown—railcheck never assumes "no" or treats unknown answers as links. Any other value throws.
 
 ### Step 3: Use the Kohaku adapter {#kohaku-adapter}
 
-The function `guard()` wraps a Kohaku-style plugin. It gets advice before the plugin prepares the transaction.
+`guard()` wraps a Kohaku-style plugin to run a privacy check before the plugin prepares a transaction.
 
 ```js
 import { guard } from "@railcheck/kohaku";
@@ -198,7 +198,7 @@ For each call, the adapter uses the pool of the asset. Native ETH uses the WETH 
 | `balance` | `bigint`, or `(assetAmount) => bigint or null` | No | `null` | As in `plan`. The balance is per token, so a function receives the asset and amount of the call. It can be async. |
 | `budget` | number | No | `6` | As in `plan`. |
 
-`guard` makes the plugin prepare each transaction once, with the amount from `onAdvice`, and passes every other plugin function through unchanged. An asset that no pool covers produces `not-checked` and does not stop the call: the plugin gets the original amount. To get advice without a wrapper, call `adviseShield` or `adviseUnshield`. They take a pool or a list of pools.
+`guard` prepares each transaction once using the amount returned by `onAdvice`, and passes every other plugin method through unchanged. Unsupported assets produce `not-checked` without blocking the transaction—the plugin simply receives the original amount. To request advice without wrapping the plugin, call `adviseShield` or `adviseUnshield` with a pool or list of pools.
 
 ## What the result contains {#reference}
 
@@ -271,7 +271,7 @@ For each call, the adapter uses the pool of the asset. Native ETH uses the WETH 
 }
 ```
 
-An unshield differs as follows: `amounts` has `unshieldAmount` and `recipientAmount`, the assessment has `modelScore` and no `deposits` or `senders`, `addressLinks` reports the address answers, and the advice adds `remainingBalance`.
+Unshield advice differs in four ways: `amounts` uses `unshieldAmount` and `recipientAmount`, the assessment adds `modelScore` (with no `deposits` or `senders`), `addressLinks` reflects the context answers, and the advice object includes `remainingBalance`.
 
 ### Field reference {#types}
 
@@ -384,9 +384,9 @@ type Deposit = { // the input to prepare, as the builder returns it
 | `amounts` | object, base units | Shield: `shieldInput`, `poolCredit`. Unshield: `unshieldAmount`, `recipientAmount`. |
 | `deposits` | number | Shield only. Shields in the pool with the same pool amount. |
 | `senders` | number or `null` | Shield only. Different transaction senders for those shields. `null` when the pool has no sender groups. It is not a count of people. |
-| `findings` | object[] | Problems, most important first. Each has a `code`. An `address-link` finding has a `reason`; an `unknown-context` finding has `checks`. |
-| `unknown` | string[] | The yes/no questions (`addressReuse`, `pastTransfer`, `restOfDeposit`) with no answer. |
-| `notes` | string[] | Information that does not change the score. |
+| `findings` | object[] | Detected issues, sorted by severity. Each entry has a `code`; `address-link` adds `reason`, and `unknown-context` adds `checks`. |
+| `unknown` | string[] | Yes/no context keys (`addressReuse`, `pastTransfer`, `restOfDeposit`) left unknown. |
+| `notes` | string[] | Informational flags that don't affect the score. |
 | `asset` | object | `chainId`, `address`, `symbol`, `decimals`. |
 | `snapshot` | object or `null` | The snapshot passed to `prepare`. From the builder: `pool`, `chainId`, `token`, `block`, `time`, `windowStart`, `grouping` and `reshieldHistoryComplete`. |
 | `amountExposure` | object or `null` | How much the amount alone stands out: `score` (0–100) and `band`. `null` when `not-checked`. |
@@ -401,19 +401,19 @@ Format 2 adds `amountExposure`, `addressLinks` and `coverage`. The format 1 fiel
 
 | Status | Meaning | Show to the user |
 | --- | --- | --- |
-| `clear` | The checks found no problem. | The user can continue. A Low score does not guarantee privacy. |
-| `incomplete` | An answer is "not sure", or `coverage` is `"limited"`. | The result and the open questions. Never "clear", and never a green color, even when the band is `Low`. |
-| `attention` | A finding needs an action. | The finding, and the alternatives if there are any. |
-| `not-checked` | railcheck cannot check this amount. | "Not checked". Never "clear", and never a green color. |
+| `clear` | All checks passed with no issues. | The user can proceed. A low score still doesn't guarantee privacy. |
+| `incomplete` | At least one question is unknown, or `coverage` is `"limited"`. | Show the result and open questions—never "clear" or green, even if `band` is `Low`. |
+| `attention` | A finding needs attention. | Show the finding and any suggested alternatives. |
+| `not-checked` | railcheck couldn't check this amount. | Show "Not checked"—never "clear" or green. |
 
 ### Finding codes
 
 | Code | Meaning |
 | --- | --- |
-| `address-link` | The answers show a link between the addresses. `reason` is `"address-reuse"`, `"past-transfer"` or `"swap-gas-payer"`. A different amount does not remove this link, so there are no alternatives. |
-| `rest-of-deposit` | The user's unshields add up to one shield. |
-| `amount-stands-out` | Few shields have this amount. |
-| `unknown-context` | One or more yes/no questions have no answer. `checks` lists them: `"addressReuse"`, `"pastTransfer"`, `"restOfDeposit"`. |
+| `address-link` | Context answers indicate a link between addresses (`reason`: `"address-reuse"`, `"past-transfer"`, or `"swap-gas-payer"`). Changing the amount won't remove this link, so no alternatives are offered. |
+| `rest-of-deposit` | Unshielding this amount completes a previously split shield. |
+| `amount-stands-out` | Few shields in the pool share this amount. |
+| `unknown-context` | One or more yes/no questions were left unknown (`checks` lists `"addressReuse"`, `"pastTransfer"`, `"restOfDeposit"`). |
 | `stale-data` | `not-checked`: the pool data is older than `maxAgeHours`. |
 | `incomplete-window` | `not-checked`: the pool data does not cover 180 days. |
 | `unsupported-asset` | `not-checked`: no pool covers this asset (Kohaku adapter). |
@@ -500,17 +500,17 @@ Low-level parts of `@railcheck/core`. Most wallets do not need them.
 - `QUESTIONS`, `SWAP_GAS_PAYERS`: the yes/no context keys and the `swapGasPayer` values.
 - `SWAP_GAS_PAYER_FLOOR`, `LOW`, `MIN_CROWD`, `BUDGET`, `MAX_AGE_HOURS`: the engine constants (90, 5, 20, 6, 48).
 
-## How to show the result {#rules}
+## Displaying results in your UI {#rules}
 
-1. Never show `not-checked` or `incomplete` as "clear", safe or green: an `incomplete` result can have a Low band, and a `not-checked` result has no score.
-2. Do not answer for the user. If the wallet does not know an answer, leave it `undefined`.
-3. If the constraint is `"fixed"`, show the advice. Do not change the amount.
-4. If the user selects a new amount after the plugin prepared the transaction, prepare the transaction again.
+1. Never present `not-checked` or `incomplete` as "clear", safe, or green: an `incomplete` result can still carry a `Low` band, and `not-checked` has no score.
+2. Never guess context answers on the user's behalf—leave unknown fields `undefined`.
+3. When `constraint` is `"fixed"`, show the advice without altering the user's amount.
+4. If the user selects a different amount after the plugin has prepared a transaction, prepare the transaction again.
 
 <!-- if:mcp -->
 ## For AI agents {#agents}
 
-railcheck has a local MCP server. An AI agent can use it to check an amount before it helps a user shield or unshield.
+railcheck includes a local MCP server so AI agents can run privacy checks before helping a user shield or unshield.
 
 ```json
 {
@@ -524,21 +524,21 @@ railcheck has a local MCP server. An AI agent can use it to check an amount befo
 }
 ```
 
-The server has one tool, `check_amount`. It returns the same advice as `plan`, plus the data source, the block and the age of the pool. The tool reads data only. It holds no keys, signs nothing and never takes an address.
+The server exposes one tool, `check_amount`, returning the same output as `plan` alongside the data source, block height, and pool age. It is read-only—it holds no keys, signs nothing, and never accepts an address.
 
-If `RPC_URL` is set, the server builds the pool from your RPC. If not, it downloads the pool file that railcheck.xyz uses, and the result shows "railcheck.xyz" as the data source.
+If `RPC_URL` is set, the server builds the pool from your RPC; otherwise it fetches the public pool snapshot used by railcheck.xyz and sets the data source to `"railcheck.xyz"`.
 
 Rules for agents:
 
-1. Ask the user the four context questions. Do not guess the answers. If the user does not know, send `not-sure`.
-2. Never show `not-checked` or `incomplete` as "clear", safe or green: an `incomplete` result can have a Low band, and a `not-checked` result has no score.
-3. Do not change the amount without the user's approval.
+1. Ask the user the four context questions—never guess the answers. If the user isn't sure, pass `not-sure`.
+2. Never present `not-checked` or `incomplete` as "clear", safe, or green: an `incomplete` result can still carry a `Low` band, and `not-checked` has no score.
+3. Never change the amount without the user's approval.
 <!-- end:mcp -->
 
-## What the check does not cover {#limits}
+## Limitations {#limits}
 
-- The score is the output of a model. It is not a measured probability of identification.
-- The check covers amounts and the four context questions only. It does not cover time, IP addresses or data that is not on the chain.
-- The check covers 180 days, and sets of up to 3 shields.
+- The score is a heuristic model output, not a measured probability of identification.
+- Checks evaluate only on-chain amounts and the four context answers—not timing, IP addresses, or off-chain data.
+- Coverage spans the last 180 days and combinations of up to 3 shields.
 
-For the method and all limits, see [How it works](/how-it-works/).
+For full methodology and caveats, see [How it works](/how-it-works/).

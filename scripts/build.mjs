@@ -115,7 +115,7 @@ const source = sourceURL || "https://github.com/ddddubbby/railcheck";
 // Unpublished blocks in the Markdown sources stay out of every output.
 const flags = { mcp: process.env.PUBLISH_MCP === "1" };
 // The check page copy date. Change it only when the copy of / changes.
-const HOME_UPDATED = "2026-11-14";
+const HOME_UPDATED = "2026-11-17";
 const SITE = "https://railcheck.xyz";
 const org = {
   "@type": "Organization",
@@ -137,16 +137,16 @@ const app = {
   name: "railcheck",
   url: `${SITE}/`,
   description:
-    "Check if a RAILGUN shield or unshield amount can link back to you. The check runs on your device.",
+    "Check if a RAILGUN shield or unshield (deposit or withdrawal) amount could link back to you, locally on your device.",
   applicationCategory: "FinanceApplication",
   operatingSystem: "Web",
   isPartOf: { "@id": `${SITE}/#site` },
   publisher: { "@id": `${SITE}/#org` },
   featureList: [
-    "Checks a planned shield or unshield amount against RAILGUN WETH, USDT or USDC shields on Ethereum from the last 180 days",
-    "Looks for sets of 1, 2 or 3 shields that add up to an unshield amount",
-    "Gives a risk score from 0 to 100 and a safer amount when one exists",
-    "Runs in the browser with no wallet connection and no address input",
+    "Compares a planned shield or unshield amount against RAILGUN WETH, USDT, and USDC shields on Ethereum over the last 180 days",
+    "Detects combinations of 1, 2, or 3 shields that sum to an unshield amount",
+    "Scores linking risk from 0 to 100 and suggests lower-risk amounts when available",
+    "Runs locally in the browser with no wallet connection and no address inputs",
   ],
   offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
   isAccessibleForFree: true,
@@ -346,29 +346,29 @@ writeFileSync(
   "dist/llms.txt",
   `# railcheck
 
-> Local privacy advice for RAILGUN shields and unshields on Ethereum. railcheck tells a user if an amount can link a shield to an unshield. It runs on the device and never asks for an address.
+> Local privacy checks for RAILGUN shields and unshields on Ethereum. railcheck checks whether an amount could link a shield to an unshield—on the user's device, without ever asking for an address.
 
-railcheck has two parts: a web check for users, and a wallet SDK (\`@railcheck/core\`, \`@railcheck/builder\`, \`@railcheck/kohaku\`). The web check covers RAILGUN WETH, USDT and USDC on Ethereum mainnet. The wallet SDK preview covers WETH, USDT and USDC on Ethereum mainnet, and WETH on Sepolia.
+railcheck has two parts: a web checker for users, and a wallet SDK (\`@railcheck/core\`, \`@railcheck/builder\`, \`@railcheck/kohaku\`). The web checker supports RAILGUN WETH, USDT, and USDC on Ethereum mainnet; the wallet SDK preview also supports WETH on Sepolia.
 
 ## Docs
 
-- [How it works](${prefix}/how-it-works.md): how railcheck makes the score, which data it uses, what stays private, and its limits.
-- [For wallets](${prefix}/docs.md): how to build the pool from your own RPC, get advice with \`plan()\`, use the Kohaku adapter, and read each result field.
-- [Check](${prefix}/index.md): what the web check asks and what it shows.
+- [How it works](${prefix}/how-it-works.md): scoring method, pool data, privacy guarantees, and model limits.
+- [For wallets](${prefix}/docs.md): building the pool from your own RPC, getting advice with \`plan()\`, integrating the Kohaku adapter, and reading result fields.
+- [Check](${prefix}/index.md): inputs and outputs of the web check.
 
 ## Capabilities
 
-- Web check: Ethereum mainnet WETH (18 decimals), USDT (6 decimals) and USDC (6 decimals).
-- Window: the shields of the last 180 days.
-- Protocol fee: 0.25% (25 bps) on each shield and each unshield.
-- SDK preview: mainnet WETH, USDT and USDC, and Sepolia WETH.
+- Web check: Ethereum mainnet WETH (18 decimals), USDT (6 decimals), and USDC (6 decimals).
+- Window: shields from the last 180 days.
+- Protocol fee: 0.25% (25 bps) on shields and unshields.
+- SDK preview: mainnet WETH, USDT, and USDC, plus Sepolia WETH.
 
 ## Instructions for agents
 
-- Ask the user for missing inputs. Do not guess the answers to the link questions. If the user does not know, the answer is unknown: in \`plan()\`, leave it \`undefined\` or omit it; in the legacy \`check()\`, pass \`"unsure"\`; in the web form, select "?".
-- Never show \`not-checked\` or \`incomplete\` as "clear", safe or green: an \`incomplete\` result can have a Low band, and a \`not-checked\` result has no score.
-- A Low score does not guarantee privacy. Say this when you report a result.
-- Do not send addresses to railcheck. The check does not use them.
+- Ask the user for missing context inputs—never guess the answers to link questions. If the user doesn't know, keep the answer unknown: in \`plan()\`, leave it \`undefined\` or omit it; in legacy \`check()\`, pass \`"unsure"\`; in the web form, select "?".
+- Never present \`not-checked\` or \`incomplete\` as "clear", safe, or green: an \`incomplete\` result can still have a Low band, and a \`not-checked\` result has no score.
+- Always note that a low score does not guarantee privacy.
+- Never send addresses to railcheck; it neither asks for nor uses them.
 
 ## Optional
 

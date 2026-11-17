@@ -7,11 +7,11 @@ A real RAILGUN wallet flow with the official SDK. It runs on Sepolia (test funds
 
 ## Verified run
 
-On 17 October 2026, a wallet built its own pool, got advice, and sent a shield and an unshield on Sepolia. Both transactions are confirmed.
+Verified on 17 October 2026: a wallet built its own pool, ran the privacy check, and confirmed both a shield and an unshield on Sepolia.
 
 ## Result file
 
-A run writes its result to `RESULT.md`. Git ignores this file, because it contains your wallet address and transaction hashes.
+Each run writes its output to `RESULT.md` (git-ignored because it contains your wallet address and transaction hashes).
 
 ## Versions
 
@@ -30,13 +30,13 @@ npm install
 npm run create-wallet
 ```
 
-`create-wallet` writes `.env` and shows only the public address. Git ignores `.env`. Keep a copy of `.env` in a safe location. Never show or commit it.
+`create-wallet` writes `.env` and prints only the public address (`.env` is git-ignored). Back up `.env` somewhere safe and never share or commit it.
 
-Add `RAILGUN_NETWORK=EthereumSepolia` to `.env`. Send at least 0.015 Sepolia ETH to the public address.
+Add `RAILGUN_NETWORK=EthereumSepolia` to `.env`, then fund the public address with at least 0.015 Sepolia ETH.
 
 ## Run the flow demo
 
-Check without a send:
+Dry run (check only, without sending):
 
 ```bash
 npm run flow-demo -- --shield
@@ -54,6 +54,6 @@ APPROVE_TRANSACTIONS=1 node src/flow-demo.mjs --shield --send
 
 If the proof files do not download, add `RAILGUN_IPFS_GATEWAY=https://ipfs.filebase.io` to the command.
 
-## Known problem on Sepolia
+## Known issue on Sepolia
 
-Change notes (the remainder after an unshield) cannot become spendable on Sepolia now. The Sepolia TXID subgraph has a wrong verification hash at block 11816741, so the TXID sync stops. Shield fresh funds for each test.
+Change notes (unshield remainders) currently get stuck on Sepolia because the Sepolia TXID subgraph reports a mismatched verification hash at block 11816741, halting TXID sync. Shield fresh funds for each test run.

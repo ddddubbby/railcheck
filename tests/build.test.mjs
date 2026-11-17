@@ -112,14 +112,14 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     assert.match(llms, /## Instructions for agents/);
     assert.match(llms, /\[For wallets\]\(https:\/\/railcheck\.example\/docs\.md\)/);
     const full = readFileSync(join(directory, "dist/llms-full.txt"), "utf8");
-    assert.match(full, /# How the check works/);
+    assert.match(full, /# How railcheck works/);
     assert.match(full, /# Add privacy advice to your RAILGUN wallet/);
     assert.doesNotMatch(full, /For AI agents|@railcheck\/mcp/);
     const page = readFileSync(
       join(directory, "dist/how-it-works/index.html"),
       "utf8",
     );
-    assert.match(page, /<title>How the railcheck privacy check works<\/title>/);
+    assert.match(page, /<title>How railcheck works: RAILGUN privacy scoring &amp; limits<\/title>/);
     const pageJson = page.match(
       /<script type="application\/ld\+json">([\s\S]*?)<\/script>/,
     )[1];
@@ -138,7 +138,7 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     assert.doesNotMatch(page, /eyebrow|\{\{|href="\/about\//);
     const pageMd = readFileSync(join(directory, "dist/how-it-works.md"), "utf8");
     assert.equal(pageMd, readFileSync(join(directory, "dist/how-it-works/index.md"), "utf8"));
-    assert.match(pageMd, /^## Which data the check uses$/m);
+    assert.match(pageMd, /^## Pool data$/m);
     assert.doesNotMatch(pageMd, /\{#/);
     const docs = readFileSync(join(directory, "dist/docs/index.html"), "utf8");
     const docsGraph = JSON.parse(

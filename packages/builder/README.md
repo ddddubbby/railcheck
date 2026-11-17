@@ -1,6 +1,6 @@
 # @railcheck/builder (preview)
 
-Builds railcheck pools from your own Ethereum RPC: RAILGUN WETH, USDT and USDC on Ethereum mainnet, and WETH on Sepolia. The first run reads 180 days of shields. Each later run reads only the new blocks.
+Builds railcheck pool files from your own Ethereum RPC for RAILGUN WETH, USDT, and USDC on mainnet, plus WETH on Sepolia. Fetches 180 days of shield history on the first run, then syncs only new blocks on subsequent runs.
 
 ## Install
 
@@ -8,9 +8,9 @@ Builds railcheck pools from your own Ethereum RPC: RAILGUN WETH, USDT and USDC o
 npm install @railcheck/builder@0.2.0-preview.1 @railcheck/core@0.3.0-preview.1
 ```
 
-These are preview releases, so install the exact versions.
+Pin the exact preview versions when installing.
 
-You need Node.js 22 or later, or a modern browser, and an RPC that serves `eth_getLogs` for 180 days. Many free RPCs refuse this on mainnet. Use a paid RPC.
+Requires Node.js 22+ or a modern browser, plus an RPC that serves 180 days of `eth_getLogs`. Most free mainnet RPCs reject 180-day log queries; use a paid provider.
 
 ## Example
 
@@ -38,16 +38,16 @@ const { weth, usdt, usdc } = await buildPools({
 const pool = prepare(usdt.deposits, { snapshot: usdt.snapshot, asset: usdt.asset });
 ```
 
-Each pool is `{ deposits, snapshot, asset }`. It is valid JSON, so a server can send it to the app. Amounts are in the pool units of the asset: 0.000000001 ETH for WETH, and the base unit (0.000001 token) for USDT and USDC.
+Each pool is `{ deposits, snapshot, asset }` in JSON-safe format, so a backend can serve it directly to your app. Amounts use the asset's pool units (`0.000000001` ETH for WETH, and base units `0.000001` token for USDT and USDC).
 
-The store contains the sender addresses. Keep it on the device or on your server. The result contains no addresses. A store from an older builder version, or for another set of tokens, is rebuilt once from the full 180 days.
+Keep the builder `store` on the user's device or on your server, as it holds sender addresses; the returned pool contains no addresses. Stores from an older builder version or a different token list trigger a one-time 180-day resync.
 
-A custom `chain` object for a chain or token that the SDK does not know (for example, a local fork) must have `chain.asset`, or `buildPool` throws.
+A custom `chain` object for a network or token the SDK doesn't recognize (such as a local fork) must include `chain.asset`, or `buildPool` will throw.
 
-The first run for WETH takes approximately 10–60 seconds. More tokens take longer, because the builder looks up the senders of more shields.
+Initial WETH sync takes ~10–60 seconds; adding more tokens increases sender lookups.
 
-Sender lookups go to your RPC for the shield transactions of the tokens that you choose, so the RPC can see which tokens the wallet builds pools for. It does not see the user's amounts or addresses.
+Because the builder fetches sender addresses for the tokens you configure, your RPC provider can infer which pools you're building, though it never sees user amounts or target addresses.
 
-All options, where to run the builder, and timings: [railcheck.xyz/docs](https://railcheck.xyz/docs/#build-the-pool).
+All options, deployment architectures, and timings: [railcheck.xyz/docs](https://railcheck.xyz/docs/#build-the-pool).
 
-MIT license. Not related to RAILGUN: see the [disclaimer](https://railcheck.xyz/how-it-works/#disclaimer).
+MIT license. Independent project, not affiliated with RAILGUN ([disclaimer](https://railcheck.xyz/how-it-works/#disclaimer)).

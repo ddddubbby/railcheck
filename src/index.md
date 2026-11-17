@@ -1,44 +1,45 @@
 # railcheck: RAILGUN shield and unshield privacy check
 
-railcheck tells you if a RAILGUN shield or unshield amount can link back to you, before you send. The check runs in your browser. It never asks for an address.
+Check whether a RAILGUN shield or unshield (deposit or withdrawal) amount could link back to you before you send. Everything runs in your browser without asking for an address.
 
 ## What the check does
 
-An unusual amount can show which shield is yours. railcheck compares your amount with the RAILGUN WETH, USDT or USDC shields on Ethereum from the last 180 days. It gives a risk score from 0 to 100.
+An unusual amount can give away which deposit is yours. railcheck compares your amount against the last 180 days of RAILGUN WETH, USDT, and USDC shields on Ethereum and scores the risk from 0 to 100.
 
 ## Inputs
 
-- Token: WETH, USDT, USDC or Other, on Ethereum. Other is not covered. A token whose pool data did not load is not covered either.
+- Token: WETH, USDT, USDC, or Other on Ethereum. Other tokens aren't supported, and tokens whose pool data failed to load or is incomplete are unavailable.
 - Action: shield or unshield.
-- Amount to shield or unshield: in ETH for WETH, in USDT or USDC for those tokens. For an unshield, give the amount before the 0.25% fee.
-- Shield: "Can you adjust the amount?" No, or yes within 10%.
-- Unshield: "Can the amount be smaller?" No, or yes down to 70%.
-- Unshield only, optional under "Link questions": four questions, each with yes, no or "?" (not sure, the default):
-  - Will you unshield to the address that shielded?
-  - Has the recipient ever sent to or received from the shielding address?
-  - Does this unshield the rest of a shield?
-  - Did a public wallet pay gas for your private swap?
+- Amount to shield or unshield: in ETH for WETH, or in USDT/USDC for those tokens. For an unshield, enter the amount before the 0.25% fee.
+- "Is this amount flexible?"
+  - Shield: "No, fixed" or "Yes, within 10%".
+  - Unshield: "No, fixed" or "Yes, down to 70%".
+- Unshield only, optional under "Address links": four questions, each with yes, no, or "?" (not sure, the default):
+  - Unshielding to the same address that shielded?
+  - Have the shielding and recipient addresses transacted before?
+  - Unshielding the rest of an earlier shield?
+  - Did a public wallet pay gas for a private swap?
 - Unshield only, optional: your private balance.
 
 ## Result
 
-- Shield risk or Unshield risk: a score from 0 to 100, and a band: Low, Medium, High or Critical. An incomplete result shows "Incomplete" in place of the band. A check that cannot run shows "Not checked" and no score.
-- Three parts, each with a dot: filled is an issue found, "?" is unknown, empty is no issue found.
-  - Amount: the amount stands out or blends in.
-  - Links: unshield only. A link found, unknown, or none reported.
+- Shield risk or Unshield risk: a score from 0 to 100, and a band: Low, Medium, High, or Critical. An incomplete result shows "Incomplete" instead of the band; a check that couldn't run shows "Not checked" with no score.
+- Three status dots: filled means an issue was found, "?" means unknown, and empty means clear.
+  - Amount: whether the amount stands out or blends in.
+  - Links (unshield only): whether a link was found, unknown, or none reported.
   - Coverage: limited or complete.
-- A one-line verdict, for example "This amount stands out." or "Not fully checked. No amount issue."
-- Matches: the shields an unshield of this amount can be linked to, alone or as a set that adds up to it. Each row shows the amount sent before the shield fee, the date in UTC, and a tag: Shield or Swap output.
-- A safer amount, when the amount needs attention, can change and no address link is found: a button such as "Use 4987.5 USDT (score 1)". If none scores Low, the result says so.
-- Unshield with a balance: the balance left.
-- "What does this mean?" explains the result.
+- A one-line verdict, such as "This amount stands out." or "Amount blends in; other checks are incomplete."
+- Matches: shields that an unshield of this amount could link to, either individually or as a combination that sums to it. Each row shows the amount sent before the shield fee, the UTC date, and a tag (Shield or Swap output).
+- A safer amount, when the amount needs attention, is flexible, and no address link is found: a button such as "Use 4987.5 USDT (score 1)", or a note if no low-risk amount was found.
+- Unshield with a balance: the remaining balance.
+- "What does this mean?" explains the breakdown.
 
 ## Limits
 
-- The check does not cover timing, IP addresses or data that is not on the chain.
-- A Low score does not guarantee privacy.
+- The check doesn't cover timing, IP addresses, or off-chain data.
+- A low score doesn't guarantee privacy.
 
 ## More
 
-- [How it works](/how-it-works.md): method, data, privacy and limits.
-- [For wallets](/docs.md): add the check to a wallet.
+- [How it works](/how-it-works.md): scoring method, pool data, privacy, and limits.
+- [For wallets](/docs.md): add local privacy checks to a wallet.
