@@ -18,9 +18,6 @@ export const TOKENS = [
 const covered = Object.fromEntries(TOKENS.map((t) => [t.id, t.covered])),
   counts = {};
 
-// The form stays hidden until this module runs. Without JavaScript, the noscript
-// message replaces it.
-document.documentElement.classList.remove("no-js");
 const $ = (id) => document.getElementById(id),
   form = $("flow-form"),
   panel = $("result"),

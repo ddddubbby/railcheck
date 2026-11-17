@@ -1,12 +1,18 @@
+/* Latin subsets of the Geist fonts. The file names change whenever the files
+   do, so browsers can cache them for a year. */
 @font-face {
   font-family: Geist;
-  src: url("/fonts/geist.woff2") format("woff2");
+  src: url("/fonts/geist-latin.woff2") format("woff2");
+  unicode-range: U+0000-017F, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122,
+    U+2190-2199, U+2212, U+2215, U+2248, U+2260, U+2264, U+2265;
   font-display: swap;
   font-weight: 100 900;
 }
 @font-face {
   font-family: GeistMono;
-  src: url("/fonts/geist-mono.woff2") format("woff2");
+  src: url("/fonts/geist-mono-latin.woff2") format("woff2");
+  unicode-range: U+0000-017F, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122,
+    U+2190-2199, U+2212, U+2215, U+2248, U+2260, U+2264, U+2265;
   font-display: swap;
   font-weight: 100 900;
 }
@@ -69,8 +75,9 @@ body {
     transform: translateY(14px);
   }
 }
+/* The heading is the largest paint, so it shows at once rather than rising in. */
 .home-shell header,
-.hero > *,
+.hero > :not(h1),
 .pulse,
 #flow-form,
 .explainer {
@@ -615,24 +622,26 @@ form {
 .notice p {
   margin: 6px 0 0;
 }
-html.no-js #flow-form,
-html.no-js #progress {
-  display: none;
-}
-/* Without JS the hamburger cannot open; fall back to an inline link row. */
-html.no-js .nav-toggle {
-  display: none;
-}
-html.no-js #site-menu {
-  display: flex !important;
-  position: static;
-  flex-direction: row;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  min-width: 0;
-  padding: 0;
-  background: transparent;
-  border: 0;
+/* Without JavaScript the noscript message replaces the form, and the hamburger
+   cannot open, so the menu falls back to an inline link row. A media query, not
+   a class that a script removes, so the header never shifts after load. */
+@media (scripting: none) {
+  #flow-form,
+  #progress,
+  .nav-toggle {
+    display: none;
+  }
+  #site-menu {
+    display: flex !important;
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    min-width: 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+  }
 }
 .notice button {
   color: var(--text);

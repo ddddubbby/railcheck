@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" class="no-js">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -13,14 +13,14 @@
     <link rel="stylesheet" href="/style.css" />
     <link
       rel="preload"
-      href="/fonts/geist.woff2"
+      href="/fonts/geist-latin.woff2"
       as="font"
       type="font/woff2"
       crossorigin
     />
     <link
       rel="preload"
-      href="/fonts/geist-mono.woff2"
+      href="/fonts/geist-mono-latin.woff2"
       as="font"
       type="font/woff2"
       crossorigin
@@ -28,6 +28,12 @@
     <link rel="alternate" type="text/markdown" href="/index.md" />
     <link rel="describedby" href="/llms.txt" />
     {{JSONLD}}
+    <!-- The check's modules and its worker download together, not one after another. -->
+    <link rel="modulepreload" href="/lib/engine/index.mjs" />
+    <link rel="modulepreload" href="/lib/engine/advice.mjs" />
+    <link rel="modulepreload" href="/lib/format.mjs" />
+    <link rel="modulepreload" href="/lib/pool/index.mjs" />
+    <link rel="modulepreload" href="/worker.mjs" />
     <script type="module" src="/nav.mjs"></script>
     <script type="module" src="/app.mjs"></script>
     <script type="module" src="/flow.mjs"></script>
