@@ -8,8 +8,9 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { decode } from "../lib/pool/index.mjs";
+import { ASSETS } from "../lib/engine/index.mjs";
 import { pulseStats } from "./lib/pulse.mjs";
-import { TOKENS } from "./lib/tokens.mjs";
+import { TOKENS, poolEntry } from "./lib/tokens.mjs";
 import {
   readPage,
   toMarkdown,
@@ -36,30 +37,42 @@ if (manifest.demo || manifest.chainId !== 1 || manifest.token !== "0xc02aaa39b22
   throw Error(
     "Build requires live Ethereum WETH data. Run npm run data:update.",
   );
-const bytes = readFileSync(`public/data/${manifest.file}`);
-if (
-  createHash("sha256").update(bytes).digest("hex") !== manifest.sha256 ||
-  bytes.length !== manifest.size
-)
-  throw Error("Pool integrity check failed.");
-const activityBytes = JSON.stringify(manifest.activity);
-if (
-  !activityBytes ||
-  createHash("sha256").update(activityBytes).digest("hex") !==
-  manifest.activitySha256
-)
-  throw Error(
-    "Activity snapshot integrity check failed. Run npm run data:update.",
+const sha256 = (data) => createHash("sha256").update(data).digest("hex");
+// One activity series per pool with a snapshot. WETH must have one; a pool
+// entry from before the per-pool snapshots has none and gets no series.
+const series = {};
+let pulse;
+for (const token of TOKENS) {
+  const entry = poolEntry(manifest, token.id);
+  if (token.id !== "weth" && !entry?.activity) continue;
+  const bytes = readFileSync(`public/data/${entry.file}`);
+  if (sha256(bytes) !== entry.sha256 || bytes.length !== entry.size)
+    throw Error("Pool integrity check failed.");
+  const activityBytes = JSON.stringify(entry.activity);
+  if (!activityBytes || sha256(activityBytes) !== entry.activitySha256)
+    throw Error(
+      "Activity snapshot integrity check failed. Run npm run data:update.",
+    );
+  const stats = pulseStats(
+    decode(
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      entry,
+    ),
+    JSON.parse(activityBytes),
+    entry,
+    token,
   );
-const pulse = pulseStats(
-  decode(
-    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
-    manifest,
-  ),
-  JSON.parse(activityBytes),
-  manifest,
-  TOKENS[0],
-);
+  pulse ??= stats; // WETH, first in TOKENS
+  if (stats.start !== pulse.start || stats.end !== pulse.end)
+    throw Error("Activity snapshots must cover the same window.");
+  const asset = ASSETS.find((a) => a.address === token.contract);
+  series[token.id] = {
+    symbol: token.symbol,
+    unit: asset.unit ?? asset.symbol,
+    decimals: token.decimals,
+    bins: stats.bins,
+  };
+}
 const number = (n) => n.toLocaleString("en");
 // Headline totals share one precision so the two columns line up.
 const total = (wei) =>
@@ -262,11 +275,7 @@ for (const [file, destination, path] of [
     .replace(
       "{{PULSE_DATA}}",
       escape(
-        JSON.stringify({
-          start: pulse.start,
-          end: pulse.end,
-          bins: pulse.bins,
-        }),
+        JSON.stringify({ start: pulse.start, end: pulse.end, series }),
       ),
     )
     .replace("{{PULSE_MAX}}", String(pulse.bins.length - 1))

@@ -77,10 +77,12 @@ function heartbeat() {
   const chart = $("activity-chart"),
     strip = $("pulse"),
     slider = $("activity-hour");
-  const context = strip?.getContext("2d");
-  if (!context || !chart?.dataset.activity) return;
-  const { start, end, bins: hours } = JSON.parse(chart.dataset.activity);
-  let bins = hours;
+  if (!chart?.dataset.activity) return;
+  // One series per token, all over the same window. The chips pick the token.
+  const { start, end, series } = JSON.parse(chart.dataset.activity);
+  let token = series.weth,
+    hours = token.bins,
+    bins = hours;
   const root = getComputedStyle(document.documentElement);
   const deposit = root.getPropertyValue("--deposit").trim();
   const withdrawal = root.getPropertyValue("--withdrawal").trim();
@@ -97,13 +99,72 @@ function heartbeat() {
       minute: "2-digit",
       timeZone: "UTC",
     }),
+    countFormat = new Intl.NumberFormat("en"),
+    fixedFormat = new Intl.NumberFormat("en", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
     ethFormat = new Intl.NumberFormat("en", { maximumFractionDigits: 3 });
   const shortDate = (time) => dayFormat.format(time * 1000);
   const clock = (time) => clockFormat.format(time * 1000);
-  const eth = (wei) => {
-    const value = Number(wei) / 1e18;
-    return value > 0 && value < 0.001 ? "<0.001" : ethFormat.format(value);
+  const whole = (amount) => Number(amount) / 10 ** token.decimals;
+  // Headline totals share one precision so the two columns line up.
+  const total = (amount) => `${fixedFormat.format(whole(amount))} ${token.unit}`;
+  // An hour's amount: ETH to 3 decimals, a stablecoin to the cent.
+  const amount = (value) => {
+    const [format, least] =
+        token.unit === "ETH" ? [ethFormat, 0.001] : [fixedFormat, 0.01],
+      n = whole(value);
+    return `${n > 0 && n < least ? `<${least}` : format.format(n)} ${token.unit}`;
   };
+  const readout = (b) => {
+    $("activity-day").textContent = shortDate(b.start);
+    $("activity-time").textContent = `${clock(b.start)}–${clock(b.end)} UTC`;
+    $("activity-deposits").textContent =
+      `${b.deposits} shield${b.deposits === 1 ? "" : "s"}`;
+    $("activity-withdrawals").textContent =
+      `${b.withdrawals} unshield${b.withdrawals === 1 ? "" : "s"}`;
+    $("activity-deposit-amount").textContent = amount(b.depositAmount);
+    $("activity-withdrawal-amount").textContent = amount(b.withdrawalAmount);
+    slider.setAttribute(
+      "aria-valuetext",
+      `${shortDate(b.start)}, ${clock(b.start)} to ${clock(b.end)} UTC: ${b.deposits} shields, ${amount(b.depositAmount)}; ${b.withdrawals} unshields, ${amount(b.withdrawalAmount)}`,
+    );
+  };
+  const headline = () => {
+    let shields = 0,
+      unshields = 0,
+      shielded = 0n,
+      unshielded = 0n;
+    for (const h of hours) {
+      shields += h.deposits;
+      unshields += h.withdrawals;
+      shielded += BigInt(h.depositAmount);
+      unshielded += BigInt(h.withdrawalAmount);
+    }
+    $("activity-period").textContent = `${token.symbol} · last 3 days`;
+    $("activity-shielded").replaceChildren(
+      countFormat.format(shields),
+      text("span", total(shielded)),
+    );
+    $("activity-unshielded").replaceChildren(
+      countFormat.format(unshields),
+      text("span", total(unshielded)),
+    );
+    $("activity-summary").textContent =
+      `${countFormat.format(shields)} shields and ${countFormat.format(unshields)} unshields from ${shortDate(start)} to ${date(end)}, grouped by UTC hour. ${amount(shielded)} shielded and ${amount(unshielded)} unshielded.`;
+  };
+  // A token without a series ("Other") leaves the chart as it is.
+  const follow = (redraw) =>
+    $("tokens").addEventListener("change", (e) => {
+      if (e.target.name !== "token" || !series[e.target.value]) return;
+      token = series[e.target.value];
+      hours = token.bins;
+      headline();
+      redraw();
+    });
+  const context = strip.getContext?.("2d");
+  if (!context) return follow(() => readout(hours[Number(slider.value)]));
   const LABEL = 22, // date labels under the grid
     INTRO_COLUMN = 9, // ms between columns as the grid builds in
     INTRO_ROW = 26, // ms between rows within a column
@@ -139,19 +200,7 @@ function heartbeat() {
     if (next !== selected) selectedAt = performance.now();
     selected = next;
     slider.value = String(selected);
-    const b = bins[selected];
-    $("activity-day").textContent = shortDate(b.start);
-    $("activity-time").textContent = `${clock(b.start)}–${clock(b.end)} UTC`;
-    $("activity-deposits").textContent =
-      `${b.deposits} shield${b.deposits === 1 ? "" : "s"}`;
-    $("activity-withdrawals").textContent =
-      `${b.withdrawals} unshield${b.withdrawals === 1 ? "" : "s"}`;
-    $("activity-deposit-eth").textContent = `${eth(b.depositAmount)} ETH`;
-    $("activity-withdrawal-eth").textContent = `${eth(b.withdrawalAmount)} ETH`;
-    slider.setAttribute(
-      "aria-valuetext",
-      `${shortDate(b.start)}, ${clock(b.start)} to ${clock(b.end)} UTC: ${b.deposits} shields, ${eth(b.depositAmount)} ETH; ${b.withdrawals} unshields, ${eth(b.withdrawalAmount)} ETH`,
-    );
+    readout(bins[selected]);
     if (!quiet) touched = performance.now();
     start_();
   };
@@ -382,6 +431,7 @@ function heartbeat() {
   }).observe(strip);
   new ResizeObserver(resize).observe(strip);
   document.fonts.ready.then(resize);
+  follow(resize);
   resize();
 }
 reveal();

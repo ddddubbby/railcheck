@@ -1452,3 +1452,49 @@ test("UI-4, UI-R6, UI-R8: the matches panel stays open under the crowd, with a k
     page.close();
   }
 });
+
+test("the activity chart follows the token chips, and Other leaves it as it is", async () => {
+  const page = await openPage();
+  try {
+    const chart = page.$("activity-chart"),
+      activity = JSON.parse(chart.dataset.activity),
+      selected = Number(page.$("activity-hour").value),
+      texts = (...ids) => ids.map((id) => page.$(id).textContent.trim()),
+      stats = () => ({
+        period: page.$("activity-period").textContent,
+        shields: [...page.$("activity-shielded").childNodes].map((n) => n.textContent.trim()).filter(Boolean),
+        unshields: [...page.$("activity-unshielded").childNodes].map((n) => n.textContent.trim()).filter(Boolean),
+        summary: page.$("activity-summary").textContent,
+      }),
+      hour = () => texts("activity-deposits", "activity-deposit-amount", "activity-withdrawals", "activity-withdrawal-amount");
+    // The frozen pool has no stable snapshots, so the page gets a USDT series:
+    // 3 shields (1,234.56 USDT) and 3 unshields (5 USDT), most in the selected hour.
+    const bins = activity.series.weth.bins.map((b) => ({ ...b, deposits: 0, withdrawals: 0, depositAmount: "0", withdrawalAmount: "0" }));
+    bins[0] = { ...bins[0], deposits: 2, depositAmount: "1000000000" };
+    bins[selected] = { ...bins[selected], deposits: 1, withdrawals: 3, depositAmount: "234560000", withdrawalAmount: "5000000" };
+    activity.series.usdt = { symbol: "USDT", unit: "USDT", decimals: 6, bins };
+    chart.dataset.activity = JSON.stringify(activity);
+    // linkedom has no layout to paint: the page runs as a browser without a 2D canvas.
+    page.$("pulse").getContext = () => null;
+    const weth = stats();
+    await import(`${pathToFileURL(join(dist, "app.mjs"))}?page=${pages}`);
+    page.choose("token", "usdt");
+    const usdt = stats();
+    assert.deepEqual({ ...usdt, summary: undefined }, {
+      period: "USDT · last 3 days",
+      shields: ["3", "1,234.56 USDT"],
+      unshields: ["3", "5.00 USDT"],
+      summary: undefined,
+    });
+    assert.match(usdt.summary, /^3 shields and 3 unshields from .+\. 1,234\.56 USDT shielded and 5\.00 USDT unshielded\.$/);
+    assert.deepEqual(hour(), ["1 shield", "234.56 USDT", "3 unshields", "5.00 USDT"]);
+    assert.match(page.$("activity-hour").getAttribute("aria-valuetext"), /234\.56 USDT; 3 unshields, 5\.00 USDT$/);
+    page.choose("token", "other");
+    assert.deepEqual(stats(), usdt);
+    assert.deepEqual(hour(), ["1 shield", "234.56 USDT", "3 unshields", "5.00 USDT"]);
+    page.choose("token", "weth");
+    assert.deepEqual(stats(), weth, "WETH again reads as the server rendered it");
+  } finally {
+    page.close();
+  }
+});

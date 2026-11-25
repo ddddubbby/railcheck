@@ -40,7 +40,7 @@ test("production build emits metadata and excludes secrets from its source ZIP",
     );
     writeFileSync(join(directory, "data/validation.json"), "{}\n");
     // R3.2: a manifest with a `pools` map and a stablecoin pool file. The
-    // build reads the top level only and copies every pool file.
+    // build copies every pool file. This entry has no activity snapshot.
     const manifestPath = join(directory, "public/data/manifest.json");
     const withPools = JSON.parse(readFileSync(manifestPath, "utf8"));
     withPools.pools = { usdt: { version: 3, file: "railgun-usdt.bin", count: 0 } };
@@ -93,8 +93,10 @@ test("production build emits metadata and excludes secrets from its source ZIP",
       html.match(/data-activity="([^"]+)"/)[1].replaceAll("&quot;", '"'),
     );
     assert.equal(activity.end - activity.start, 3 * 86400);
-    assert.equal(activity.bins.length, 73);
-    assert.ok(activity.bins.some((b) => b.withdrawals > 0));
+    assert.equal(activity.series.weth.unit, "ETH");
+    assert.equal(activity.series.weth.bins.length, 73);
+    assert.ok(activity.series.weth.bins.some((b) => b.withdrawals > 0));
+    assert.deepEqual(Object.keys(activity.series), ["weth"]);
     assert.match(
       html,
       /Snapshot · \d+ \w{3}, \d{2}:\d{2} UTC · Block [\d,]+/,
