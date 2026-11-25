@@ -73,7 +73,22 @@ export function toHtml({ body }) {
       },
       table(token) {
         // Wide tables scroll inside their box, not the page.
-        const html = Renderer.prototype.table.call(this, token);
+        let html = Renderer.prototype.table.call(this, token);
+        // Tables of four or more columns stack into one block per row on
+        // phones. Each cell carries its column name for the stacked label, and
+        // the roles keep the table semantics that display: block can drop.
+        if (token.header.length >= 4) {
+          const labels = token.header.map((cell) => escape(cell.text.replace(/`/g, "")));
+          html = html
+            .replace("<table>", '<table class="stack" role="table">')
+            .replace(/<(thead|tbody)>/g, '<$1 role="rowgroup">')
+            .replace(/<tr>/g, '<tr role="row">')
+            .replace(/<th(\s|>)/g, '<th role="columnheader"$1')
+            .replace(/<tr role="row">([\s\S]*?)<\/tr>/g, (row, cells) => {
+              let i = 0;
+              return `<tr role="row">${cells.replace(/<td(\s|>)/g, (_, rest) => `<td role="cell" data-label="${labels[i++] ?? ""}"${rest}`)}</tr>`;
+            });
+        }
         return `<div class="table-wrap">${html}</div>\n`;
       },
     },

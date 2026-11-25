@@ -1521,8 +1521,55 @@ h3:hover .anchor,
   .toc .toc-3 {
     display: none;
   }
+  /* The main sections wrap as one row, so the title starts higher. */
+  .toc ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 16px;
+  }
   .toc a {
     padding: 4px 0;
+  }
+}
+/* Phones: a table of four or more columns stacks into one block per row: the
+   name, then the short columns as labelled lines, then the last column in
+   full. No column is pushed off the screen. */
+@media (max-width: 639px) {
+  .reading table.stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .reading table.stack,
+  .reading table.stack tbody,
+  .reading table.stack tr,
+  .reading table.stack td {
+    display: block;
+  }
+  .reading table.stack tr {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .reading table.stack td {
+    padding: 0;
+    border: 0;
+  }
+  .reading table.stack td:first-child {
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .reading table.stack td:not(:first-child):not(:last-child) {
+    font-size: var(--fs-caption);
+    line-height: 1.6;
+  }
+  .reading table.stack td:not(:first-child):not(:last-child)::before {
+    content: attr(data-label) ": ";
+    color: var(--tick);
+  }
+  .reading table.stack td:last-child {
+    margin-top: 6px;
   }
 }
 @media (min-width: 768px) {
