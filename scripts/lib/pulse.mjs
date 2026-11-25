@@ -2,8 +2,6 @@ import { ACTIVITY_SECONDS } from "./activity.mjs";
 import { unitOf } from "./tokens.mjs";
 
 // Real UTC hours, with partial hours at the two edges of the rolling window.
-// `entry` is the pool's manifest entry and `token` its TOKENS row. Amounts are
-// base units of the token.
 export function pulseStats(deposits, snapshot, entry, token) {
   const end = entry.dataTime,
     start = end - ACTIVITY_SECONDS;
@@ -32,7 +30,7 @@ export function pulseStats(deposits, snapshot, entry, token) {
       withdrawalAmount: 0n,
     }),
   );
-  const unit = unitOf(token);
+  const basePerPoolUnit = unitOf(token);
   let depositCount = 0,
     withdrawalCount = 0,
     depositAmount = 0n,
@@ -42,8 +40,7 @@ export function pulseStats(deposits, snapshot, entry, token) {
     if (d.kind === "reshield" || d.time < start || d.time > end) continue;
     const bin = bins[Math.floor((d.time - firstHour) / 3600)];
     bin.deposits++;
-    // Pool units to base units. Do not reconstruct a gross fee amount.
-    const amount = BigInt(d.amount) * unit;
+    const amount = BigInt(d.amount) * basePerPoolUnit;
     bin.depositAmount += amount;
     depositAmount += amount;
     depositCount++;

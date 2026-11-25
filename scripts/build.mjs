@@ -38,13 +38,15 @@ if (manifest.demo || manifest.chainId !== 1 || manifest.token !== "0xc02aaa39b22
     "Build requires live Ethereum WETH data. Run npm run data:update.",
   );
 const sha256 = (data) => createHash("sha256").update(data).digest("hex");
-// One activity series per pool with a snapshot. WETH must have one; a pool
-// entry from before the per-pool snapshots has none and gets no series.
-const series = {};
-let pulse;
+const series = {},
+  byToken = {};
 for (const token of TOKENS) {
   const entry = poolEntry(manifest, token.id);
-  if (token.id !== "weth" && !entry?.activity) continue;
+  if (!entry?.activity) {
+    if (token.id === "weth")
+      throw Error("The WETH pool has no activity snapshot. Run npm run data:update.");
+    continue;
+  }
   const bytes = readFileSync(`public/data/${entry.file}`);
   if (sha256(bytes) !== entry.sha256 || bytes.length !== entry.size)
     throw Error("Pool integrity check failed.");
@@ -62,9 +64,7 @@ for (const token of TOKENS) {
     entry,
     token,
   );
-  pulse ??= stats; // WETH, first in TOKENS
-  if (stats.start !== pulse.start || stats.end !== pulse.end)
-    throw Error("Activity snapshots must cover the same window.");
+  byToken[token.id] = stats;
   const asset = ASSETS.find((a) => a.address === token.contract);
   series[token.id] = {
     symbol: token.symbol,
@@ -73,6 +73,9 @@ for (const token of TOKENS) {
     bins: stats.bins,
   };
 }
+const pulse = byToken.weth;
+if (Object.values(byToken).some((s) => s.start !== pulse.start || s.end !== pulse.end))
+  throw Error("Activity snapshots must cover the same window.");
 const number = (n) => n.toLocaleString("en");
 // Headline totals share one precision so the two columns line up.
 const total = (wei) =>

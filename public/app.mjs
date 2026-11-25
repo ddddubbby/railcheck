@@ -78,7 +78,6 @@ function heartbeat() {
     strip = $("pulse"),
     slider = $("activity-hour");
   if (!chart?.dataset.activity) return;
-  // One series per token, all over the same window. The chips pick the token.
   const { start, end, series } = JSON.parse(chart.dataset.activity);
   let token = series.weth,
     hours = token.bins,
@@ -108,9 +107,7 @@ function heartbeat() {
   const shortDate = (time) => dayFormat.format(time * 1000);
   const clock = (time) => clockFormat.format(time * 1000);
   const whole = (amount) => Number(amount) / 10 ** token.decimals;
-  // Headline totals share one precision so the two columns line up.
   const total = (amount) => `${fixedFormat.format(whole(amount))} ${token.unit}`;
-  // An hour's amount: ETH to 3 decimals, a stablecoin to the cent.
   const amount = (value) => {
     const [format, least] =
         token.unit === "ETH" ? [ethFormat, 0.001] : [fixedFormat, 0.01],
@@ -154,7 +151,6 @@ function heartbeat() {
     $("activity-summary").textContent =
       `${countFormat.format(shields)} shields and ${countFormat.format(unshields)} unshields from ${shortDate(start)} to ${date(end)}, grouped by UTC hour. ${amount(shielded)} shielded and ${amount(unshielded)} unshielded.`;
   };
-  // A token without a series ("Other") leaves the chart as it is.
   const follow = (redraw) =>
     $("tokens").addEventListener("change", (e) => {
       if (e.target.name !== "token" || !series[e.target.value]) return;

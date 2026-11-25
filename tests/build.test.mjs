@@ -39,8 +39,7 @@ test("production build emits metadata and excludes secrets from its source ZIP",
       "RPC_URL=https://secret.invalid/private-key\n",
     );
     writeFileSync(join(directory, "data/validation.json"), "{}\n");
-    // R3.2: a manifest with a `pools` map and a stablecoin pool file. The
-    // build copies every pool file. This entry has no activity snapshot.
+    // R3.2: a manifest with a `pools` map and a stablecoin pool file.
     const manifestPath = join(directory, "public/data/manifest.json");
     const withPools = JSON.parse(readFileSync(manifestPath, "utf8"));
     withPools.pools = { usdt: { version: 3, file: "railgun-usdt.bin", count: 0 } };

@@ -1467,15 +1467,18 @@ test("the activity chart follows the token chips, and Other leaves it as it is",
         summary: page.$("activity-summary").textContent,
       }),
       hour = () => texts("activity-deposits", "activity-deposit-amount", "activity-withdrawals", "activity-withdrawal-amount");
-    // The frozen pool has no stable snapshots, so the page gets a USDT series:
-    // 3 shields (1,234.56 USDT) and 3 unshields (5 USDT), most in the selected hour.
-    const bins = activity.series.weth.bins.map((b) => ({ ...b, deposits: 0, withdrawals: 0, depositAmount: "0", withdrawalAmount: "0" }));
-    bins[0] = { ...bins[0], deposits: 2, depositAmount: "1000000000" };
-    bins[selected] = { ...bins[selected], deposits: 1, withdrawals: 3, depositAmount: "234560000", withdrawalAmount: "5000000" };
-    activity.series.usdt = { symbol: "USDT", unit: "USDT", decimals: 6, bins };
-    chart.dataset.activity = JSON.stringify(activity);
-    // linkedom has no layout to paint: the page runs as a browser without a 2D canvas.
-    page.$("pulse").getContext = () => null;
+    const frozenPoolLacksStableActivity = () => {
+      const bins = activity.series.weth.bins.map((b) => ({ ...b, deposits: 0, withdrawals: 0, depositAmount: "0", withdrawalAmount: "0" }));
+      bins[0] = { ...bins[0], deposits: 2, depositAmount: "1000000000" };
+      bins[selected] = { ...bins[selected], deposits: 1, withdrawals: 3, depositAmount: "234560000", withdrawalAmount: "5000000" };
+      activity.series.usdt = { symbol: "USDT", unit: "USDT", decimals: 6, bins };
+      chart.dataset.activity = JSON.stringify(activity);
+    };
+    const undoTestCanvas = () => {
+      page.$("pulse").getContext = () => null;
+    };
+    frozenPoolLacksStableActivity();
+    undoTestCanvas();
     const weth = stats();
     await import(`${pathToFileURL(join(dist, "app.mjs"))}?page=${pages}`);
     page.choose("token", "usdt");
