@@ -146,11 +146,11 @@ function heartbeat() {
       `${b.deposits} shield${b.deposits === 1 ? "" : "s"}`;
     $("activity-withdrawals").textContent =
       `${b.withdrawals} unshield${b.withdrawals === 1 ? "" : "s"}`;
-    $("activity-deposit-eth").textContent = `${eth(b.depositWei)} ETH`;
-    $("activity-withdrawal-eth").textContent = `${eth(b.withdrawalWei)} ETH`;
+    $("activity-deposit-eth").textContent = `${eth(b.depositAmount)} ETH`;
+    $("activity-withdrawal-eth").textContent = `${eth(b.withdrawalAmount)} ETH`;
     slider.setAttribute(
       "aria-valuetext",
-      `${shortDate(b.start)}, ${clock(b.start)} to ${clock(b.end)} UTC: ${b.deposits} shields, ${eth(b.depositWei)} ETH; ${b.withdrawals} unshields, ${eth(b.withdrawalWei)} ETH`,
+      `${shortDate(b.start)}, ${clock(b.start)} to ${clock(b.end)} UTC: ${b.deposits} shields, ${eth(b.depositAmount)} ETH; ${b.withdrawals} unshields, ${eth(b.withdrawalAmount)} ETH`,
     );
     if (!quiet) touched = performance.now();
     start_();
@@ -286,11 +286,11 @@ function heartbeat() {
           b.end = hour.end;
           b.deposits += hour.deposits;
           b.withdrawals += hour.withdrawals;
-          b.depositWei = (
-            BigInt(b.depositWei) + BigInt(hour.depositWei)
+          b.depositAmount = (
+            BigInt(b.depositAmount) + BigInt(hour.depositAmount)
           ).toString();
-          b.withdrawalWei = (
-            BigInt(b.withdrawalWei) + BigInt(hour.withdrawalWei)
+          b.withdrawalAmount = (
+            BigInt(b.withdrawalAmount) + BigInt(hour.withdrawalAmount)
           ).toString();
         }
       }

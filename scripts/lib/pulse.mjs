@@ -1,17 +1,20 @@
 import { ACTIVITY_SECONDS } from "./activity.mjs";
+import { unitOf } from "./tokens.mjs";
 
 // Real UTC hours, with partial hours at the two edges of the rolling window.
-export function pulseStats(deposits, snapshot, manifest) {
-  const end = manifest.dataTime,
+// `entry` is the pool's manifest entry and `token` its TOKENS row. Amounts are
+// base units of the token.
+export function pulseStats(deposits, snapshot, entry, token) {
+  const end = entry.dataTime,
     start = end - ACTIVITY_SECONDS;
   if (
     snapshot.version !== 1 ||
     snapshot.chainId !== 1 ||
-    snapshot.token !== "WETH" ||
+    snapshot.token !== token.symbol ||
     snapshot.dataTime !== end ||
     snapshot.fromTime > start ||
-    snapshot.lastBlock !== manifest.lastBlock ||
-    snapshot.lastBlockHash !== manifest.lastBlockHash ||
+    snapshot.lastBlock !== entry.lastBlock ||
+    snapshot.lastBlockHash !== entry.lastBlockHash ||
     !Array.isArray(snapshot.withdrawals)
   )
     throw Error(
@@ -25,23 +28,24 @@ export function pulseStats(deposits, snapshot, manifest) {
       end: Math.min(end, firstHour + (i + 1) * 3600),
       deposits: 0,
       withdrawals: 0,
-      depositWei: 0n,
-      withdrawalWei: 0n,
+      depositAmount: 0n,
+      withdrawalAmount: 0n,
     }),
   );
+  const unit = unitOf(token);
   let depositCount = 0,
     withdrawalCount = 0,
-    depositWei = 0n,
-    withdrawalWei = 0n;
+    depositAmount = 0n,
+    withdrawalAmount = 0n;
   for (const d of deposits) {
     // The chart shows public shields; swap outputs are not shields a user sent.
     if (d.kind === "reshield" || d.time < start || d.time > end) continue;
     const bin = bins[Math.floor((d.time - firstHour) / 3600)];
     bin.deposits++;
-    // The existing pool stores nano-ETH. Do not reconstruct a gross fee amount.
-    const wei = BigInt(d.amount) * 1000000000n;
-    bin.depositWei += wei;
-    depositWei += wei;
+    // Pool units to base units. Do not reconstruct a gross fee amount.
+    const amount = BigInt(d.amount) * unit;
+    bin.depositAmount += amount;
+    depositAmount += amount;
     depositCount++;
   }
   // A snapshot may cover a longer window (for example one written before the
@@ -57,9 +61,9 @@ export function pulseStats(deposits, snapshot, manifest) {
     if (w.time < start) continue;
     const bin = bins[Math.floor((w.time - firstHour) / 3600)];
     bin.withdrawals++;
-    const wei = BigInt(w.amountWei);
-    bin.withdrawalWei += wei;
-    withdrawalWei += wei;
+    const amount = BigInt(w.amountWei);
+    bin.withdrawalAmount += amount;
+    withdrawalAmount += amount;
     withdrawalCount++;
   }
   return {
@@ -67,12 +71,12 @@ export function pulseStats(deposits, snapshot, manifest) {
     end,
     depositCount,
     withdrawalCount,
-    depositWei,
-    withdrawalWei,
+    depositAmount,
+    withdrawalAmount,
     bins: bins.map((b) => ({
       ...b,
-      depositWei: b.depositWei.toString(),
-      withdrawalWei: b.withdrawalWei.toString(),
+      depositAmount: b.depositAmount.toString(),
+      withdrawalAmount: b.withdrawalAmount.toString(),
     })),
   };
 }

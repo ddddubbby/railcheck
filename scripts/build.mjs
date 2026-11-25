@@ -9,6 +9,7 @@ import {
 import { createHash } from "node:crypto";
 import { decode } from "../lib/pool/index.mjs";
 import { pulseStats } from "./lib/pulse.mjs";
+import { TOKENS } from "./lib/tokens.mjs";
 import {
   readPage,
   toMarkdown,
@@ -57,6 +58,7 @@ const pulse = pulseStats(
   ),
   JSON.parse(activityBytes),
   manifest,
+  TOKENS[0],
 );
 const number = (n) => n.toLocaleString("en");
 // Headline totals share one precision so the two columns line up.
@@ -271,12 +273,12 @@ for (const [file, destination, path] of [
     .replace("{{PULSE_SELECTED}}", String(selected))
     .replace(
       "{{PULSE_SUMMARY}}",
-      `${number(pulse.depositCount)} shields and ${number(pulse.withdrawalCount)} unshields from ${shortDate(pulse.start)} to ${date(pulse.end)}, grouped by UTC hour. ${eth(pulse.depositWei)} ETH shielded and ${eth(pulse.withdrawalWei)} ETH unshielded.`,
+      `${number(pulse.depositCount)} shields and ${number(pulse.withdrawalCount)} unshields from ${shortDate(pulse.start)} to ${date(pulse.end)}, grouped by UTC hour. ${eth(pulse.depositAmount)} ETH shielded and ${eth(pulse.withdrawalAmount)} ETH unshielded.`,
     )
     .replace("{{PULSE_DEPOSITS}}", number(pulse.depositCount))
     .replace("{{PULSE_WITHDRAWALS}}", number(pulse.withdrawalCount))
-    .replace("{{PULSE_DEPOSIT_ETH}}", total(pulse.depositWei))
-    .replace("{{PULSE_WITHDRAWAL_ETH}}", total(pulse.withdrawalWei))
+    .replace("{{PULSE_DEPOSIT_ETH}}", total(pulse.depositAmount))
+    .replace("{{PULSE_WITHDRAWAL_ETH}}", total(pulse.withdrawalAmount))
     .replace("{{PULSE_DAY}}", shortDate(latest.start))
     .replace(
       "{{PULSE_TIME}}",
@@ -284,8 +286,8 @@ for (const [file, destination, path] of [
     )
     .replace("{{PULSE_HOUR_DEPOSITS}}", number(latest.deposits))
     .replace("{{PULSE_HOUR_WITHDRAWALS}}", number(latest.withdrawals))
-    .replace("{{PULSE_HOUR_DEPOSIT_ETH}}", eth(latest.depositWei))
-    .replace("{{PULSE_HOUR_WITHDRAWAL_ETH}}", eth(latest.withdrawalWei));
+    .replace("{{PULSE_HOUR_DEPOSIT_ETH}}", eth(latest.depositAmount))
+    .replace("{{PULSE_HOUR_WITHDRAWAL_ETH}}", eth(latest.withdrawalAmount));
   if (sourceURL)
     html = html.replaceAll(
       'href="https://github.com/ddddubbby/railcheck"',
