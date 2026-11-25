@@ -1,7 +1,7 @@
 ---
 title: railcheck for wallets: RAILGUN privacy advice SDK
 description: Add local privacy checks to your RAILGUN wallet using your own RPC. Zero telemetry, no address inputs, MIT licensed.
-updated: 2026-11-17
+updated: 2026-11-25
 ---
 # Add privacy advice to your RAILGUN wallet
 
@@ -17,13 +17,30 @@ railcheck warns users when a shield or unshield amount could link back to them�
 
 This preview covers RAILGUN WETH, USDT, and USDC on Ethereum mainnet, plus WETH on Sepolia.
 
+## Integration requirements {#rules}
+
+Your wallet must follow these rules. They stop a result that railcheck could not complete from looking safe to the user.
+
+1. Never present `not-checked` or `incomplete` as "clear", safe, or green: an `incomplete` result can still carry a `Low` band, and `not-checked` has no score. See [Status values](#status).
+2. Never guess context answers on the user's behalf—leave unknown fields `undefined`.
+3. When `constraint` is `"fixed"`, show the advice without altering the user's amount.
+4. If the user selects a different amount after the plugin has prepared a transaction, prepare the transaction again.
+5. Always pass `snapshot` and `asset` to `prepare`. Without them, the engine can't verify that the pool is recent or matches the right chain and token.
+
 ## Add advice to your wallet {#integrate}
+
+### Before you start {#prerequisites}
+
+- **An RPC that serves 180 days of logs.** The initial 180-day `eth_getLogs` scan is rejected by most free mainnet RPCs; use a paid provider.
+- **Node.js 22+ or a modern browser.**
 
 ### Overview {#overview}
 
 1. `buildPool` or `buildPools` (`@railcheck/builder`) fetches shield events from your RPC and returns `{ deposits, snapshot, asset }` per token.
 2. `prepare` (`@railcheck/core`) indexes that data into an in-memory pool.
-3. `plan` scores an amount and finds safer alternatives, or `guard` (`@railcheck/kohaku`) wraps a Kohaku-style plugin to call `plan` automatically before each shield and unshield.
+3. `plan` scores an amount and finds safer alternatives.
+
+Instead of calling `plan` yourself, you can [wrap a Kohaku-style plugin](#kohaku-adapter) with `guard` (`@railcheck/kohaku`), which calls `plan` before each shield and unshield.
 
 ### Install
 
@@ -39,7 +56,7 @@ npm install @railcheck/core@0.3.0-preview.1 @railcheck/builder@0.2.0-preview.1 @
 
 Pin the exact preview versions above when installing.
 
-Requires Node.js 22+ or a modern browser. `@railcheck/core` has zero runtime dependencies; `@railcheck/builder` and `@railcheck/kohaku` depend only on `@railcheck/core`.
+`@railcheck/core` has zero runtime dependencies; `@railcheck/builder` and `@railcheck/kohaku` depend only on `@railcheck/core`.
 
 ### Step 1: Build the pool {#build-the-pool}
 
@@ -72,7 +89,7 @@ const built = await buildPools({
 const pools = Object.values(built).map(({ deposits, snapshot, asset }) => prepare(deposits, { snapshot, asset }));
 ```
 
-**Important:** Always pass `snapshot` and `asset` to `prepare`. Without them, the engine can't verify that the pool is recent or matches the right chain and token.
+Always pass `snapshot` and `asset` to `prepare` ([requirement 5](#rules)).
 
 #### Where the builder runs
 
@@ -108,8 +125,6 @@ When running on-device, start syncing at app startup rather than waiting until t
 Keep one store per token set—changing the token list triggers a one-time 180-day resync.
 
 Because the builder fetches sender addresses for the tokens you configure, your RPC provider can infer which pools you're building, though it never sees user amounts or target addresses.
-
-**Note:** The initial 180-day `eth_getLogs` scan is rejected by most free mainnet RPCs; use a paid provider.
 
 ### Step 2: Get advice {#get-advice}
 
@@ -164,9 +179,9 @@ The context applies to an unshield only. Pass the answers that the wallet knows,
 
 Passing `undefined`, `null`, or omitting a field marks it as unknown—railcheck never assumes "no" or treats unknown answers as links. Any other value throws.
 
-### Step 3: Use the Kohaku adapter {#kohaku-adapter}
+### Or: wrap a Kohaku plugin {#kohaku-adapter}
 
-`guard()` wraps a Kohaku-style plugin to run a privacy check before the plugin prepares a transaction.
+Use this instead of calling `plan` in Step 2. `guard()` wraps a Kohaku-style plugin to run a privacy check before the plugin prepares a transaction.
 
 ```js
 import { guard } from "@railcheck/kohaku";
@@ -470,7 +485,7 @@ Format 2 adds `amountExposure`, `addressLinks` and `coverage`. The format 1 fiel
 
 `@railcheck/kohaku`:
 
-- `guard(plugin, options)`: see [Step 3](#kohaku-adapter).
+- `guard(plugin, options)`: see [Or: wrap a Kohaku plugin](#kohaku-adapter).
 - `adviseShield(pools, assetAmount, { constraint })`: returns the advice for a shield, without a wrapper.
 - `adviseUnshield(pools, assetAmount, { context, balance, budget, constraint })`: returns the advice for an unshield, without a wrapper.
 - `poolFor(pools, asset)`: returns the pool that covers a Kohaku asset, or `null`.
@@ -499,13 +514,6 @@ Low-level parts of `@railcheck/core`. Most wallets do not need them.
 - `notCheckedParts(code, action)`: returns the format 2 parts of a `not-checked` assessment.
 - `QUESTIONS`, `SWAP_GAS_PAYERS`: the yes/no context keys and the `swapGasPayer` values.
 - `SWAP_GAS_PAYER_FLOOR`, `LOW`, `MIN_CROWD`, `BUDGET`, `MAX_AGE_HOURS`: the engine constants (90, 5, 20, 6, 48).
-
-## Displaying results in your UI {#rules}
-
-1. Never present `not-checked` or `incomplete` as "clear", safe, or green: an `incomplete` result can still carry a `Low` band, and `not-checked` has no score.
-2. Never guess context answers on the user's behalf—leave unknown fields `undefined`.
-3. When `constraint` is `"fixed"`, show the advice without altering the user's amount.
-4. If the user selects a different amount after the plugin has prepared a transaction, prepare the transaction again.
 
 <!-- if:mcp -->
 ## For AI agents {#agents}
