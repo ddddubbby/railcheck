@@ -581,13 +581,12 @@ form {
     color 280ms ease,
     background-color 280ms ease;
 }
-/* Active step: soft blink until the user finishes it. */
+/* Active step: the accent, held steady until the user finishes it. */
 .step:has(#amount:placeholder-shown) .step-number,
 .step:has(#amount[aria-invalid="true"]) .step-number {
   opacity: 1;
   color: var(--signal);
   background: var(--selected);
-  animation: step-pulse 1.8s ease-in-out infinite;
 }
 /* Completed steps settle and dim. */
 .step:has([name="action"]:checked) .step-number,
@@ -596,16 +595,6 @@ form {
   opacity: 0.55;
   color: var(--inset);
   background: var(--signal);
-  animation: none;
-}
-@keyframes step-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.42;
-  }
 }
 .notice {
   border: 1px solid var(--medium);
@@ -934,9 +923,6 @@ legend {
 #flow-form[data-covered="false"] .step,
 #flow-form[data-covered="false"] #check-button {
   opacity: 0.32;
-}
-#flow-form[data-covered="false"] .step-number {
-  animation: none;
 }
 #check-button:disabled {
   cursor: not-allowed;
