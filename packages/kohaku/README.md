@@ -62,6 +62,6 @@ Advice uses result format v2 (`format: "railcheck.advice/2"`), adding three fiel
 
 v1 fields (`score`, `band`, `status`, `findings`, `unknown`) remain available for one more minor version.
 
-Full API options: [railcheck.xyz/docs](https://railcheck.xyz/docs/#kohaku-adapter).
+Full API options: [railcheck.xyz/docs](https://railcheck.xyz/docs/#guard-options).
 
 MIT license. Independent project, not affiliated with RAILGUN ([disclaimer](https://railcheck.xyz/how-it-works/#disclaimer)).

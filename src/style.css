@@ -26,7 +26,12 @@
   --muted: rgba(255, 255, 255, 0.62);
   /* Lines and gridlines only; too faint for text (3.8:1). */
   --tick: rgba(255, 255, 255, 0.4);
+  /* Boundary of the text inputs, the one place an outline identifies a
+     control (4.1:1). Labelled controls use fills instead. */
   --edge: #76767b;
+  --fill: rgba(255, 255, 255, 0.05);
+  --fill-hover: rgba(255, 255, 255, 0.08);
+  --selected: rgba(174, 188, 229, 0.16);
   /* Brand accent: icons, focus, hover, selection. */
   --signal: #aebce5;
   --signal-hover: #c2cceb;
@@ -47,7 +52,8 @@
   --fs-body: 1rem;
   --fs-lead: 1.125rem;
   --fs-stat: 1.75rem;
-  /* Card side padding. The hero uses it too, so all text shares one edge. */
+  /* Side padding inside the filled panels. Text outside a panel starts at the
+     shell edge, the same line as the panel edges. */
   --card-pad: 24px;
   font-family: var(--sans);
   font-size: 16px;
@@ -149,7 +155,6 @@ h3 {
   max-width: 752px;
   margin: auto;
   min-height: 100vh;
-  border-inline: 1px solid var(--line);
   padding: 0 48px;
 }
 header {
@@ -185,7 +190,8 @@ header {
 }
 /* Links panel (UI-5): optional, closed by default, opens in place. */
 .links {
-  border: 1px solid var(--edge);
+  border: 0;
+  background: var(--panel);
   border-radius: 2px;
   padding: 2px 16px;
   margin: 0 0 24px;
@@ -325,7 +331,6 @@ main {
   isolation: isolate;
   margin-bottom: 56px;
   padding-top: 24px;
-  padding-inline: var(--card-pad);
 }
 /* Soft pixel field behind the headline — atmosphere, not chrome. */
 .hero::before {
@@ -394,29 +399,28 @@ main {
   flex-wrap: wrap;
   gap: 10px 12px;
   margin: 0 0 40px;
-  padding-inline: var(--card-pad);
 }
 .jump-link {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid var(--edge);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: var(--fill);
   text-decoration: none;
   font-size: var(--fs-small);
   color: var(--text);
   transition:
-    border-color 160ms,
     background-color 160ms,
     color 160ms;
 }
 .jump-link:hover {
-  border-color: var(--signal);
+  background: var(--fill-hover);
   color: var(--signal);
 }
 .jump-link[href="#flow-form"] {
-  border-color: var(--signal);
-  background: rgba(174, 188, 229, 0.12);
+  background: var(--selected);
 }
 .pulse {
   background: var(--inset);
@@ -446,7 +450,6 @@ main {
   margin: 16px 0 8px;
 }
 .pulse-stats > div + div {
-  border-left: 1px solid var(--line);
   padding-left: 24px;
 }
 .pulse-stats dt {
@@ -566,9 +569,8 @@ form {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid var(--edge);
   border-radius: 2px;
-  background: transparent;
+  background: var(--fill);
   color: var(--muted);
   font-family: var(--mono);
   font-size: var(--fs-caption);
@@ -577,16 +579,14 @@ form {
   transition:
     opacity 280ms ease,
     color 280ms ease,
-    border-color 280ms ease,
     background-color 280ms ease;
 }
-/* Active step: soft blink until the user finishes it. */
+/* Active step: the accent, held steady until the user finishes it. */
 .step:has(#amount:placeholder-shown) .step-number,
 .step:has(#amount[aria-invalid="true"]) .step-number {
   opacity: 1;
   color: var(--signal);
-  border-color: var(--signal);
-  animation: step-pulse 1.8s ease-in-out infinite;
+  background: var(--selected);
 }
 /* Completed steps settle and dim. */
 .step:has([name="action"]:checked) .step-number,
@@ -594,18 +594,7 @@ form {
   .step-number {
   opacity: 0.55;
   color: var(--inset);
-  border-color: var(--signal);
   background: var(--signal);
-  animation: none;
-}
-@keyframes step-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.42;
-  }
 }
 .notice {
   border: 1px solid var(--medium);
@@ -741,10 +730,15 @@ legend {
   line-height: 1.5;
   font-size: var(--fs-body);
 }
+/* A choice group is one segmented track: the selected segment is filled and
+   ticked, the others sit flat on the track. */
 .choices {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 4px;
+  padding: 4px;
+  background: var(--inset);
+  border-radius: 2px;
 }
 .choice {
   position: relative;
@@ -759,13 +753,13 @@ legend {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  border: 1px solid var(--edge);
+  min-height: 44px;
+  /* Transparent, so forced-colours mode still draws each segment. */
+  border: 1px solid transparent;
   border-radius: 2px;
   font-size: var(--fs-small);
   cursor: pointer;
   transition:
-    border-color 160ms,
     background-color 160ms,
     color 160ms,
     transform 120ms;
@@ -776,8 +770,7 @@ legend {
 .choice input:checked + span {
   color: var(--text);
   font-weight: 500;
-  border-color: var(--signal);
-  background: rgba(174, 188, 229, 0.16);
+  background: var(--selected);
 }
 .choice input:checked + span::before {
   content: "";
@@ -800,8 +793,7 @@ legend {
   outline-offset: 3px;
 }
 .choice:hover input:not(:checked) + span {
-  border-color: var(--muted);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--fill);
 }
 /* Token chips (UI-1). A covered token gets the accent and a tick; a token that
    is not covered gets a grey dash, and the form below it goes inert. */
@@ -817,7 +809,10 @@ legend {
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
+  padding: 4px;
+  background: var(--inset);
+  border-radius: 2px;
 }
 .chip {
   position: relative;
@@ -834,12 +829,11 @@ legend {
   gap: 8px;
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid var(--edge);
-  border-radius: 999px;
+  border: 1px solid transparent;
+  border-radius: 2px;
   font-size: var(--fs-small);
   cursor: pointer;
   transition:
-    border-color 160ms,
     background-color 160ms,
     color 160ms;
 }
@@ -847,8 +841,7 @@ legend {
   color: var(--muted);
 }
 .chip:hover input:not(:checked) + span {
-  border-color: var(--muted);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--fill);
 }
 .chip input:focus-visible + span {
   outline: 2px solid var(--signal);
@@ -857,8 +850,7 @@ legend {
 .chip input:checked + span {
   color: var(--text);
   font-weight: 500;
-  border-color: var(--signal);
-  background: rgba(174, 188, 229, 0.16);
+  background: var(--selected);
 }
 /* Every chip keeps the room of its icon, tick or dash, whether checked or not,
    so its width and the row do not move when the token changes. */
@@ -877,8 +869,7 @@ legend {
   animation: tick 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .chip[data-covered="false"] input:checked + span {
-  border-color: var(--muted);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--fill-hover);
 }
 /* The dash and the tick take the same 10px at any pixel ratio (the tick's
    border is inside its box), so a chip keeps its width when its pool loads and
@@ -912,8 +903,7 @@ legend {
 /* Phones: the four chips stay on one row down to 360px. Below about 420px the
    chain tag wraps to a second row, the same for every token and state. */
 @media (max-width: 479px) {
-  .token-row,
-  .chips {
+  .token-row {
     gap: 6px;
   }
   .chip > span {
@@ -933,9 +923,6 @@ legend {
 #flow-form[data-covered="false"] .step,
 #flow-form[data-covered="false"] #check-button {
   opacity: 0.32;
-}
-#flow-form[data-covered="false"] .step-number {
-  animation: none;
 }
 #check-button:disabled {
   cursor: not-allowed;
@@ -984,18 +971,13 @@ legend {
   transform: translateY(1px);
 }
 .secondary {
-  background: none;
+  background: var(--fill);
   color: var(--text);
-  border-color: var(--edge);
-}
-.secondary {
-  transition:
-    border-color 160ms,
-    background-color 160ms;
+  border-color: transparent;
+  transition: background-color 160ms;
 }
 .secondary:hover {
-  border-color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--fill-hover);
 }
 .busy-cells {
   display: none;
@@ -1035,7 +1017,6 @@ legend {
 }
 .explainer {
   margin-top: 72px;
-  padding-inline: var(--card-pad);
 }
 .explainer h2 {
   font-size: var(--fs-lead);
@@ -1109,8 +1090,8 @@ legend {
   gap: 4px;
   margin-left: 8px;
   padding: 0 6px;
-  border: 1px solid var(--line);
   border-radius: 2px;
+  background: var(--fill);
   color: var(--muted);
   font-family: var(--sans);
   font-size: var(--fs-caption);
@@ -1119,7 +1100,7 @@ legend {
 }
 .kind-tag[data-kind="swap-output"] {
   color: var(--signal);
-  border-color: color-mix(in srgb, var(--signal) 45%, transparent);
+  background: color-mix(in srgb, var(--signal) 14%, transparent);
 }
 .kind-tag svg {
   width: 12px;
@@ -1151,21 +1132,23 @@ legend {
   gap: 8px;
   min-height: 32px;
   margin: 0;
-  padding: 4px 10px 4px 8px;
-  border: 1px solid var(--line);
+  padding: 4px 10px 4px 0;
+  border: 1px solid transparent;
   border-radius: 2px;
   background: none;
   color: var(--text);
   font: inherit;
   font-size: var(--fs-small);
 }
+/* Only the pip that opens the links panel is a button, so only it is filled. */
 button.pip {
+  padding-left: 8px;
   cursor: pointer;
-  border-color: var(--edge);
-  transition: border-color 160ms;
+  background: var(--fill);
+  transition: background-color 160ms;
 }
 button.pip:hover {
-  border-color: var(--text);
+  background: var(--fill-hover);
 }
 .pip[data-state="filled"] {
   --pip: var(--band);
@@ -1191,7 +1174,6 @@ button.pip:hover {
 }
 .band:not(:empty) {
   padding: 5px 10px;
-  border: 1px solid color-mix(in srgb, var(--band) 45%, transparent);
   background: color-mix(in srgb, var(--band) 12%, transparent);
   border-radius: 2px;
 }
@@ -1292,7 +1274,6 @@ button.pip:hover {
 }
 .safer {
   padding: 20px;
-  border: 1px solid var(--line);
   background: var(--inset);
   margin-top: 24px;
 }
@@ -1540,8 +1521,55 @@ h3:hover .anchor,
   .toc .toc-3 {
     display: none;
   }
+  /* The main sections wrap as one row, so the title starts higher. */
+  .toc ol {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 16px;
+  }
   .toc a {
     padding: 4px 0;
+  }
+}
+/* Phones: a table of four or more columns stacks into one block per row: the
+   name, then the short columns as labelled lines, then the last column in
+   full. No column is pushed off the screen. */
+@media (max-width: 639px) {
+  .reading table.stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .reading table.stack,
+  .reading table.stack tbody,
+  .reading table.stack tr,
+  .reading table.stack td {
+    display: block;
+  }
+  .reading table.stack tr {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .reading table.stack td {
+    padding: 0;
+    border: 0;
+  }
+  .reading table.stack td:first-child {
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .reading table.stack td:not(:first-child):not(:last-child) {
+    font-size: var(--fs-caption);
+    line-height: 1.6;
+  }
+  .reading table.stack td:not(:first-child):not(:last-child)::before {
+    content: attr(data-label) ": ";
+    color: var(--tick);
+  }
+  .reading table.stack td:last-child {
+    margin-top: 6px;
   }
 }
 @media (min-width: 768px) {
@@ -1595,7 +1623,6 @@ details p {
 }
 @media (max-width: 750px) {
   .shell {
-    border: 0;
     padding: 0 24px;
   }
 }
@@ -1755,6 +1782,14 @@ details p {
     display: flex;
     width: max-content;
     margin: 2px 0 0;
+  }
+}
+/* Forced colours drop the fills and draw every segment's border, so the
+   selected one takes a thicker border in the highlight colour. */
+@media (forced-colors: active) {
+  .choice input:checked + span,
+  .chip input:checked + span {
+    border: 2px solid Highlight;
   }
 }
 @media (prefers-reduced-motion: reduce) {
