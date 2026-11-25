@@ -26,7 +26,12 @@
   --muted: rgba(255, 255, 255, 0.62);
   /* Lines and gridlines only; too faint for text (3.8:1). */
   --tick: rgba(255, 255, 255, 0.4);
+  /* Boundary of the text inputs, the one place an outline identifies a
+     control (4.1:1). Labelled controls use fills instead. */
   --edge: #76767b;
+  --fill: rgba(255, 255, 255, 0.05);
+  --fill-hover: rgba(255, 255, 255, 0.08);
+  --selected: rgba(174, 188, 229, 0.16);
   /* Brand accent: icons, focus, hover, selection. */
   --signal: #aebce5;
   --signal-hover: #c2cceb;
@@ -185,7 +190,8 @@ header {
 }
 /* Links panel (UI-5): optional, closed by default, opens in place. */
 .links {
-  border: 1px solid var(--edge);
+  border: 0;
+  background: var(--panel);
   border-radius: 2px;
   padding: 2px 16px;
   margin: 0 0 24px;
@@ -401,22 +407,22 @@ main {
   align-items: center;
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid var(--edge);
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: var(--fill);
   text-decoration: none;
   font-size: var(--fs-small);
   color: var(--text);
   transition:
-    border-color 160ms,
     background-color 160ms,
     color 160ms;
 }
 .jump-link:hover {
-  border-color: var(--signal);
+  background: var(--fill-hover);
   color: var(--signal);
 }
 .jump-link[href="#flow-form"] {
-  border-color: var(--signal);
-  background: rgba(174, 188, 229, 0.12);
+  background: var(--selected);
 }
 .pulse {
   background: var(--inset);
@@ -566,9 +572,8 @@ form {
   justify-content: center;
   width: 28px;
   height: 28px;
-  border: 1px solid var(--edge);
   border-radius: 2px;
-  background: transparent;
+  background: var(--fill);
   color: var(--muted);
   font-family: var(--mono);
   font-size: var(--fs-caption);
@@ -577,7 +582,6 @@ form {
   transition:
     opacity 280ms ease,
     color 280ms ease,
-    border-color 280ms ease,
     background-color 280ms ease;
 }
 /* Active step: soft blink until the user finishes it. */
@@ -585,7 +589,7 @@ form {
 .step:has(#amount[aria-invalid="true"]) .step-number {
   opacity: 1;
   color: var(--signal);
-  border-color: var(--signal);
+  background: var(--selected);
   animation: step-pulse 1.8s ease-in-out infinite;
 }
 /* Completed steps settle and dim. */
@@ -594,7 +598,6 @@ form {
   .step-number {
   opacity: 0.55;
   color: var(--inset);
-  border-color: var(--signal);
   background: var(--signal);
   animation: none;
 }
@@ -741,10 +744,15 @@ legend {
   line-height: 1.5;
   font-size: var(--fs-body);
 }
+/* A choice group is one segmented track: the selected segment is filled and
+   ticked, the others sit flat on the track. */
 .choices {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 4px;
+  padding: 4px;
+  background: var(--inset);
+  border-radius: 2px;
 }
 .choice {
   position: relative;
@@ -759,13 +767,13 @@ legend {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 48px;
-  border: 1px solid var(--edge);
+  min-height: 44px;
+  /* Transparent, so forced-colours mode still draws each segment. */
+  border: 1px solid transparent;
   border-radius: 2px;
   font-size: var(--fs-small);
   cursor: pointer;
   transition:
-    border-color 160ms,
     background-color 160ms,
     color 160ms,
     transform 120ms;
@@ -776,8 +784,7 @@ legend {
 .choice input:checked + span {
   color: var(--text);
   font-weight: 500;
-  border-color: var(--signal);
-  background: rgba(174, 188, 229, 0.16);
+  background: var(--selected);
 }
 .choice input:checked + span::before {
   content: "";
@@ -800,8 +807,7 @@ legend {
   outline-offset: 3px;
 }
 .choice:hover input:not(:checked) + span {
-  border-color: var(--muted);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--fill);
 }
 /* Token chips (UI-1). A covered token gets the accent and a tick; a token that
    is not covered gets a grey dash, and the form below it goes inert. */
@@ -817,7 +823,10 @@ legend {
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
+  padding: 4px;
+  background: var(--inset);
+  border-radius: 2px;
 }
 .chip {
   position: relative;
@@ -834,12 +843,11 @@ legend {
   gap: 8px;
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid var(--edge);
-  border-radius: 999px;
+  border: 1px solid transparent;
+  border-radius: 2px;
   font-size: var(--fs-small);
   cursor: pointer;
   transition:
-    border-color 160ms,
     background-color 160ms,
     color 160ms;
 }
@@ -847,8 +855,7 @@ legend {
   color: var(--muted);
 }
 .chip:hover input:not(:checked) + span {
-  border-color: var(--muted);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--fill);
 }
 .chip input:focus-visible + span {
   outline: 2px solid var(--signal);
@@ -857,8 +864,7 @@ legend {
 .chip input:checked + span {
   color: var(--text);
   font-weight: 500;
-  border-color: var(--signal);
-  background: rgba(174, 188, 229, 0.16);
+  background: var(--selected);
 }
 /* Every chip keeps the room of its icon, tick or dash, whether checked or not,
    so its width and the row do not move when the token changes. */
@@ -877,8 +883,7 @@ legend {
   animation: tick 260ms cubic-bezier(0.2, 0.7, 0.2, 1);
 }
 .chip[data-covered="false"] input:checked + span {
-  border-color: var(--muted);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--fill-hover);
 }
 /* The dash and the tick take the same 10px at any pixel ratio (the tick's
    border is inside its box), so a chip keeps its width when its pool loads and
@@ -912,8 +917,7 @@ legend {
 /* Phones: the four chips stay on one row down to 360px. Below about 420px the
    chain tag wraps to a second row, the same for every token and state. */
 @media (max-width: 479px) {
-  .token-row,
-  .chips {
+  .token-row {
     gap: 6px;
   }
   .chip > span {
@@ -984,18 +988,13 @@ legend {
   transform: translateY(1px);
 }
 .secondary {
-  background: none;
+  background: var(--fill);
   color: var(--text);
-  border-color: var(--edge);
-}
-.secondary {
-  transition:
-    border-color 160ms,
-    background-color 160ms;
+  border-color: transparent;
+  transition: background-color 160ms;
 }
 .secondary:hover {
-  border-color: var(--text);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--fill-hover);
 }
 .busy-cells {
   display: none;
@@ -1755,6 +1754,14 @@ details p {
     display: flex;
     width: max-content;
     margin: 2px 0 0;
+  }
+}
+/* Forced colours drop the fills and draw every segment's border, so the
+   selected one takes a thicker border in the highlight colour. */
+@media (forced-colors: active) {
+  .choice input:checked + span,
+  .chip input:checked + span {
+    border: 2px solid Highlight;
   }
 }
 @media (prefers-reduced-motion: reduce) {
