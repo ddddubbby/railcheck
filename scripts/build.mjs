@@ -8,7 +8,9 @@ import {
 } from "node:fs";
 import { createHash } from "node:crypto";
 import { decode } from "../lib/pool/index.mjs";
+import { ASSETS } from "../lib/engine/index.mjs";
 import { pulseStats } from "./lib/pulse.mjs";
+import { TOKENS, poolEntry } from "./lib/tokens.mjs";
 import {
   readPage,
   toMarkdown,
@@ -35,29 +37,45 @@ if (manifest.demo || manifest.chainId !== 1 || manifest.token !== "0xc02aaa39b22
   throw Error(
     "Build requires live Ethereum WETH data. Run npm run data:update.",
   );
-const bytes = readFileSync(`public/data/${manifest.file}`);
-if (
-  createHash("sha256").update(bytes).digest("hex") !== manifest.sha256 ||
-  bytes.length !== manifest.size
-)
-  throw Error("Pool integrity check failed.");
-const activityBytes = JSON.stringify(manifest.activity);
-if (
-  !activityBytes ||
-  createHash("sha256").update(activityBytes).digest("hex") !==
-  manifest.activitySha256
-)
-  throw Error(
-    "Activity snapshot integrity check failed. Run npm run data:update.",
+const sha256 = (data) => createHash("sha256").update(data).digest("hex");
+const series = {},
+  byToken = {};
+for (const token of TOKENS) {
+  const entry = poolEntry(manifest, token.id);
+  if (!entry?.activity) {
+    if (token.id === "weth")
+      throw Error("The WETH pool has no activity snapshot. Run npm run data:update.");
+    continue;
+  }
+  const bytes = readFileSync(`public/data/${entry.file}`);
+  if (sha256(bytes) !== entry.sha256 || bytes.length !== entry.size)
+    throw Error("Pool integrity check failed.");
+  const activityBytes = JSON.stringify(entry.activity);
+  if (!activityBytes || sha256(activityBytes) !== entry.activitySha256)
+    throw Error(
+      "Activity snapshot integrity check failed. Run npm run data:update.",
+    );
+  const stats = pulseStats(
+    decode(
+      bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+      entry,
+    ),
+    JSON.parse(activityBytes),
+    entry,
+    token,
   );
-const pulse = pulseStats(
-  decode(
-    bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
-    manifest,
-  ),
-  JSON.parse(activityBytes),
-  manifest,
-);
+  byToken[token.id] = stats;
+  const asset = ASSETS.find((a) => a.address === token.contract);
+  series[token.id] = {
+    symbol: token.symbol,
+    unit: asset.unit ?? asset.symbol,
+    decimals: token.decimals,
+    bins: stats.bins,
+  };
+}
+const pulse = byToken.weth;
+if (Object.values(byToken).some((s) => s.start !== pulse.start || s.end !== pulse.end))
+  throw Error("Activity snapshots must cover the same window.");
 const number = (n) => n.toLocaleString("en");
 // Headline totals share one precision so the two columns line up.
 const total = (wei) =>
@@ -260,23 +278,19 @@ for (const [file, destination, path] of [
     .replace(
       "{{PULSE_DATA}}",
       escape(
-        JSON.stringify({
-          start: pulse.start,
-          end: pulse.end,
-          bins: pulse.bins,
-        }),
+        JSON.stringify({ start: pulse.start, end: pulse.end, series }),
       ),
     )
     .replace("{{PULSE_MAX}}", String(pulse.bins.length - 1))
     .replace("{{PULSE_SELECTED}}", String(selected))
     .replace(
       "{{PULSE_SUMMARY}}",
-      `${number(pulse.depositCount)} shields and ${number(pulse.withdrawalCount)} unshields from ${shortDate(pulse.start)} to ${date(pulse.end)}, grouped by UTC hour. ${eth(pulse.depositWei)} ETH shielded and ${eth(pulse.withdrawalWei)} ETH unshielded.`,
+      `${number(pulse.depositCount)} shields and ${number(pulse.withdrawalCount)} unshields from ${shortDate(pulse.start)} to ${date(pulse.end)}, grouped by UTC hour. ${eth(pulse.depositAmount)} ETH shielded and ${eth(pulse.withdrawalAmount)} ETH unshielded.`,
     )
     .replace("{{PULSE_DEPOSITS}}", number(pulse.depositCount))
     .replace("{{PULSE_WITHDRAWALS}}", number(pulse.withdrawalCount))
-    .replace("{{PULSE_DEPOSIT_ETH}}", total(pulse.depositWei))
-    .replace("{{PULSE_WITHDRAWAL_ETH}}", total(pulse.withdrawalWei))
+    .replace("{{PULSE_DEPOSIT_ETH}}", total(pulse.depositAmount))
+    .replace("{{PULSE_WITHDRAWAL_ETH}}", total(pulse.withdrawalAmount))
     .replace("{{PULSE_DAY}}", shortDate(latest.start))
     .replace(
       "{{PULSE_TIME}}",
@@ -284,8 +298,8 @@ for (const [file, destination, path] of [
     )
     .replace("{{PULSE_HOUR_DEPOSITS}}", number(latest.deposits))
     .replace("{{PULSE_HOUR_WITHDRAWALS}}", number(latest.withdrawals))
-    .replace("{{PULSE_HOUR_DEPOSIT_ETH}}", eth(latest.depositWei))
-    .replace("{{PULSE_HOUR_WITHDRAWAL_ETH}}", eth(latest.withdrawalWei));
+    .replace("{{PULSE_HOUR_DEPOSIT_ETH}}", eth(latest.depositAmount))
+    .replace("{{PULSE_HOUR_WITHDRAWAL_ETH}}", eth(latest.withdrawalAmount));
   if (sourceURL)
     html = html.replaceAll(
       'href="https://github.com/ddddubbby/railcheck"',

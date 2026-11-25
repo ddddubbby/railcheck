@@ -92,16 +92,16 @@
         <section class="pulse" aria-labelledby="pulse-heading">
           <div class="pulse-top">
             <h2 id="pulse-heading">Pool activity</h2>
-            <p class="pulse-period sr-only">WETH · last 3 days</p>
+            <p class="pulse-period sr-only" id="activity-period">WETH · last 3 days</p>
           </div>
           <dl class="pulse-stats">
             <div class="deposit-stat">
               <dt>Shields</dt>
-              <dd>{{PULSE_DEPOSITS}}<span>{{PULSE_DEPOSIT_ETH}} ETH</span></dd>
+              <dd id="activity-shielded">{{PULSE_DEPOSITS}}<span>{{PULSE_DEPOSIT_ETH}} ETH</span></dd>
             </div>
             <div class="withdrawal-stat">
               <dt>Unshields</dt>
-              <dd>
+              <dd id="activity-unshielded">
                 {{PULSE_WITHDRAWALS}}<span>{{PULSE_WITHDRAWAL_ETH}} ETH</span>
               </dd>
             </div>
@@ -125,7 +125,7 @@
               aria-describedby="activity-help activity-resolution activity-unit"
             />
           </div>
-          <p class="sr-only">{{PULSE_SUMMARY}}</p>
+          <p class="sr-only" id="activity-summary">{{PULSE_SUMMARY}}</p>
           <div class="pulse-readout" aria-live="off">
             <p class="pulse-time">
               <span id="activity-day">{{PULSE_DAY}}</span
@@ -134,14 +134,14 @@
             <p class="deposit-readout">
               <span id="activity-deposits"
                 >{{PULSE_HOUR_DEPOSITS}} shields</span
-              ><span id="activity-deposit-eth"
+              ><span id="activity-deposit-amount"
                 >{{PULSE_HOUR_DEPOSIT_ETH}} ETH</span
               >
             </p>
             <p class="withdrawal-readout">
               <span id="activity-withdrawals"
                 >{{PULSE_HOUR_WITHDRAWALS}} unshields</span
-              ><span id="activity-withdrawal-eth"
+              ><span id="activity-withdrawal-amount"
                 >{{PULSE_HOUR_WITHDRAWAL_ETH}} ETH</span
               >
             </p>
