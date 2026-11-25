@@ -52,7 +52,8 @@
   --fs-body: 1rem;
   --fs-lead: 1.125rem;
   --fs-stat: 1.75rem;
-  /* Card side padding. The hero uses it too, so all text shares one edge. */
+  /* Side padding inside the filled panels. Text outside a panel starts at the
+     shell edge, the same line as the panel edges. */
   --card-pad: 24px;
   font-family: var(--sans);
   font-size: 16px;
@@ -330,7 +331,6 @@ main {
   isolation: isolate;
   margin-bottom: 56px;
   padding-top: 24px;
-  padding-inline: var(--card-pad);
 }
 /* Soft pixel field behind the headline — atmosphere, not chrome. */
 .hero::before {
@@ -399,7 +399,6 @@ main {
   flex-wrap: wrap;
   gap: 10px 12px;
   margin: 0 0 40px;
-  padding-inline: var(--card-pad);
 }
 .jump-link {
   display: inline-flex;
@@ -1032,7 +1031,6 @@ legend {
 }
 .explainer {
   margin-top: 72px;
-  padding-inline: var(--card-pad);
 }
 .explainer h2 {
   font-size: var(--fs-lead);
